@@ -12,6 +12,7 @@ class Renderer(object):
 class BoxRenderer(Renderer):
   whitelist = set([
     "color", "line.width", "rounded.corners", "fill", "xshift", "yshift",
+    "scale", "rotate",
   ] + colors)
   directions = set([
     "above", "below", "left", "right",
@@ -130,7 +131,22 @@ class LineRenderer(Renderer):
     return "type" in obj and obj["type"] == "line"
   
   def render(self, obj):
-    return "--"
+    ret = ["--"]
+    if "annotates" in obj:
+      for annotate in obj["annotates"]:
+        options = BoxRenderer.prepare_options(annotate)
+        if "sloped" in annotate:
+          options["sloped"] = annotate["sloped"]
+        if "midway" in annotate:
+          options["midway"] = annotate["midway"]
+        if "above" in annotate:
+          options["above"] = annotate["above"]
+        if len(options) > 0:
+          ret.append(r"node[{options}] ({id}) {{{text}}}".format(
+            **annotate, options=dump_options(options)))
+        else:
+          ret.append(r"node ({id}) {{{text}}}".format(**annotate))
+    return " ".join(ret)
 
 
 class IntersectionRenderer(Renderer):
@@ -149,3 +165,22 @@ class IntersectionRenderer(Renderer):
       y = f"{obj['name2']}"
     
     return f"({x} |- {y})"
+
+
+  
+class CoordinateRenderer(Renderer):
+  def match(self, obj):
+    return "type" in obj and obj["type"] == "coordinate"
+  
+  def render(self, obj):
+    if obj['relative']:
+      return f"++({obj['x']},{obj['y']})"
+    return f"({obj['x']},{obj['y']})"
+
+
+class PointRenderer(Renderer):
+  def match(self, obj):
+    return "type" in obj and obj["type"] == "point"
+  
+  def render(self, obj):
+    return f"coordinate ({obj['id']})"

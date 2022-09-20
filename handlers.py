@@ -193,6 +193,7 @@ class ThereIsTextHandler(Handler):
     }
     context._picture.append(obj)
     context._state["refered_to"] = obj
+    context._state["filter_mode"] = False
   
   def process_text(self, context, text):
     context._state["refered_to"]["text"] = text
@@ -223,14 +224,14 @@ class DirectionOfHandler(Handler):
     target[direction] = DirectionOfHandler.find_object_with_name(context, name)["id"]
   
   def find_object_with_name(context, name):
-    ret = None
     for item in reversed(context._picture):
       if "name" in item and item["name"] == name:
-        ret = item
-        break
-    if ret is None:
-      raise Exception(f"Cannot find object with name {name}")
-    return ret
+        return item
+      if "items" in item and isinstance(item["items"], list):
+        for subitem in item["items"]:
+          if "name" in subitem and subitem["name"] == name:
+            return subitem
+    raise Exception(f"Cannot find object with name {name}")
 
 
 class ByHandler(Handler):
@@ -370,6 +371,291 @@ class LineToNodeHandler(Handler):
       }
     if command.startswith("point") or command.startswith("-->"):
       context._state["the_path"]["stealth"] = True
-    context._state["the_path"]["items"].append({"type": "line"})
+    line = {"type": "line"}
+    context._state["the_path"]["items"].append(line)
     context._state["the_path"]["items"].append(obj)
     context._state["refered_to"] = obj
+    context._state["the_line"] = line
+
+
+class IntersectionHandler(Handler):
+  def _match(self, command):
+    return re.match(r"intersection\.([\w\.]+)\.and\.([\w\.]+)", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    x, y = m.group(1), m.group(2)
+    obj = {
+      "type": "intersection"
+    }
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", x)
+    if match:
+      obj["name1"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
+      obj["anchor1"] = match.group(2)
+    else:
+      obj["name1"] = DirectionOfHandler.find_object_with_name(context, x)["id"]
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", y)
+    if match:
+      obj["name2"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
+      obj["anchor2"] = match.group(2)
+    else:
+      obj["name2"] = DirectionOfHandler.find_object_with_name(context, y)["id"]
+    context._state["the_path"]["items"].append(obj)
+    
+
+class CoordinateHandler(Handler):
+  def match(self, command):
+    return re.match(r"(x|y)\.[\-\w\.]+", command) is not None
+  
+  def __call__(self, context, command):
+    if command.endswith(".relative"):
+      relative = True
+      command = command[:-9]
+    else:
+      relative = False
+    match = re.match(r"x\.([\-\w\.]+)\.y\.([\-\w\.]+)", command)
+    if match:
+      x, y = match.group(1), match.group(2)
+      
+    if not match:
+      match = re.match(r"x\.(\-?[\w\.]+)", command)
+      if match:
+        x, y = match.group(1), "0"
+      
+    if not match:
+      match = re.match(r"y\.(\-?[\w\.]+)", command)
+      if match:
+        x, y = "0", match.group(1)
+  
+    context._state["the_path"]["items"].append({
+      "type": "coordinate",
+      "x": x,
+      "y": y,
+      "relative": relative,
+    })
+
+
+
+class LineToHandler(Handler):
+  def match(self, command):
+    return command == "--" or command == "line.to"
+  
+  def __call__(self, context, command):
+    line = {"type": "line"}
+    context._state["the_path"]["items"].append(line)
+    context._state["the_line"] = line
+
+
+class LineVerticalToHandler(Handler):
+  def _match(self, command):
+    return re.match(r"line.vertical.to.([\w\.]+)", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    node = m.group(1)
+    point_id = getid()
+    context._state["the_path"]["items"].append({
+      "type": "point",
+      "id": point_id,
+    })
+    line = {"type": "line"}
+    context._state["the_path"]["items"].append(line)
+    context._state["the_line"] = line
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", node)
+    if m:
+      context._state["the_path"]["items"].append({
+        "type": "intersection",
+        "name1": point_id,
+        "name2": DirectionOfHandler.find_object_with_name(context, m.group(1))["id"],
+        "anchor2": m.group(2),
+      })
+    else:
+      context._state["the_path"]["items"].append({
+        "type": "intersection",
+        "name1": point_id,
+        "name2": DirectionOfHandler.find_object_with_name(context, node)["id"],
+      })
+
+      
+class LineHorizontalToHandler(Handler):
+  def _match(self, command):
+    return re.match(r"line.horizontal.to.([\w\.]+)", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    node = m.group(1)
+    point_id = getid()
+    context._state["the_path"]["items"].append({
+      "type": "point",
+      "id": point_id,
+    })
+    line = {"type": "line"}
+    context._state["the_path"]["items"].append(line)
+    context._state["the_line"] = line
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", node)
+    if m:
+      context._state["the_path"]["items"].append({
+        "type": "intersection",
+        "name2": point_id,
+        "name1": DirectionOfHandler.find_object_with_name(context, m.group(1))["id"],
+        "anchor1": m.group(2),
+      })
+    else:
+      context._state["the_path"]["items"].append({
+        "type": "intersection",
+        "name2": point_id,
+        "name1": DirectionOfHandler.find_object_with_name(context, node)["id"],
+      })
+      
+      
+class MoveVerticalToHandler(Handler):
+  def _match(self, command):
+    return re.match(r"vertical.to.([\w\.]+)", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    node = m.group(1)
+    point_id = getid()
+    context._state["the_path"]["items"].append({
+      "type": "point",
+      "id": point_id,
+    })
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", node)
+    if m:
+      context._state["the_path"]["items"].append({
+        "type": "intersection",
+        "name1": point_id,
+        "name2": DirectionOfHandler.find_object_with_name(context, m.group(1))["id"],
+        "anchor2": m.group(2),
+      })
+    else:
+      context._state["the_path"]["items"].append({
+        "type": "intersection",
+        "name1": point_id,
+        "name2": DirectionOfHandler.find_object_with_name(context, node)["id"],
+      })
+
+      
+class MoveHorizontalToHandler(Handler):
+  def _match(self, command):
+    return re.match(r"horizontal.to.([\w\.]+)", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    node = m.group(1)
+    point_id = getid()
+    context._state["the_path"]["items"].append({
+      "type": "point",
+      "id": point_id,
+    })
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", node)
+    if m:
+      context._state["the_path"]["items"].append({
+        "type": "intersection",
+        "name2": point_id,
+        "name1": DirectionOfHandler.find_object_with_name(context, m.group(1))["id"],
+        "anchor1": m.group(2),
+      })
+    else:
+      context._state["the_path"]["items"].append({
+        "type": "intersection",
+        "name2": point_id,
+        "name1": DirectionOfHandler.find_object_with_name(context, node)["id"],
+      })
+
+
+class WithAnnotateHandler(Handler):
+  def match(self, command):
+    return re.match(r"(and\.)?with.annotates?", command) is not None
+  
+  def __call__(self, context, command):
+    line = context._state["the_line"]
+    if "annotates" not in line:
+      line["annotates"] = []
+    context._state["refered_to"] = []
+  
+  def process_text(self, context, text):
+    line = context._state["the_line"]
+    obj = {
+      "id": getid(),
+      "type": "annotate",
+      "text": text,
+      "scale": "0.7",
+      "midway": True,
+      "sloped": True,
+      "above": True,
+    }
+    line["annotates"].append(obj)
+    context._state["refered_to"].append(obj)
+
+
+class AtIntersectionHandler(Handler):
+  def _match(self, command):
+    return re.match(r"at\.intersection\.of\.([\w\.]+)\.and\.([\w\.]+)", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    x, y = m.group(1), m.group(2)
+    obj = {
+      "type": "intersection"
+    }
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", x)
+    if match:
+      obj["name1"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
+      obj["anchor1"] = match.group(2)
+    else:
+      obj["name1"] = DirectionOfHandler.find_object_with_name(context, x)["id"]
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", y)
+    if match:
+      obj["name2"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
+      obj["anchor2"] = match.group(2)
+    else:
+      obj["name2"] = DirectionOfHandler.find_object_with_name(context, y)["id"]
+    context._state["refered_to"]["at"] = obj
+
+
+class WhereIsInHandler(Handler):
+  def _match(self, command):
+    return re.match(r"where\.([\w\.]+)\.is\.in", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    context._state["filter_mode"] = True
+    context._state["filter_key"] = m.group(1)
+    context._state["select_from"] = context._state["refered_to"]
+    context._state["refered_to"] = []
+
+  def process_text(self, context, text):
+    key = context._state["filter_key"]
+    for item in context._state["select_from"]:
+      if key in item and str(item[key]) == text:
+        context._state["refered_to"].append(item)
+        return
