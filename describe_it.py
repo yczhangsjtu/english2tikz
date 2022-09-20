@@ -26,7 +26,7 @@ class DescribeIt(object):
       self._last_handler.process_text(self, text)
       return
     command = command_or_text
-    for handler in self._handlers:
+    for handler in reversed(self._handlers):
       if handler.match(command):
         handler(self, command)
         self._history.append(command)
@@ -35,7 +35,7 @@ class DescribeIt(object):
     raise Exception(f"Unsupported command: {command}")
   
   def _render(self, obj):
-    for renderer in self._renderers:
+    for renderer in reversed(self._renderers):
       if renderer.match(obj):
         return renderer.render(obj)
     raise Exception(f"Unknown object: {obj}")
@@ -90,17 +90,17 @@ class DescribeIt(object):
       
   def _register_fundamental_handlers(self):
     self._there_is_handler = ThereIsHandler()
+    self.register_handler(WithAttributeHandler())
+    self.register_handler(self._there_is_handler)
+    self.register_handler(ThereIsTextHandler())
+    self.register_handler(ByHandler())
     self.register_handler(WhereIsInHandler())
     self.register_handler(WithTextHandler())
     self.register_handler(WithNamesHandler())
     self.register_handler(WithAnnotateHandler())
     self.register_handler(AtIntersectionHandler())
-    self.register_handler(self._there_is_handler)
-    self.register_handler(DirectionOfHandler())
     self.register_handler(AnchorAtAnchorHandler())
-    self.register_handler(WithAttributeHandler())
-    self.register_handler(ThereIsTextHandler())
-    self.register_handler(ByHandler())
+    self.register_handler(DirectionOfHandler())
     self.register_handler(ForAllHandler())
     self.register_handler(DrawHandler())
     self.register_handler(MoveToNodeHandler())
