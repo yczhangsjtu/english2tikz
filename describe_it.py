@@ -89,9 +89,10 @@ class DescribeIt(object):
       break
       
   def _register_fundamental_handlers(self):
+    self._there_is_handler = ThereIsHandler()
     self.register_handler(WithTextHandler())
     self.register_handler(WithNamesHandler())
-    self.register_handler(ThereIsHandler())
+    self.register_handler(self._there_is_handler)
     self.register_handler(DirectionOfHandler())
     self.register_handler(AnchorAtAnchorHandler())
     self.register_handler(WithAttributeHandler())
@@ -108,3 +109,10 @@ class DescribeIt(object):
     self.register_renderer(PathRenderer(self))
     self.register_renderer(NodeNameRenderer())
     self.register_renderer(LineRenderer())
+    self.register_renderer(IntersectionRenderer())
+
+  def register_object_handler(self, handler):
+    self._there_is_handler.register_object_handler(handler)
+
+  def register_object_renderer(self, renderer):
+    self._there_is_handler.register_object_renderer(renderer)

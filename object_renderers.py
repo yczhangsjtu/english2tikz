@@ -75,3 +75,93 @@ class TreeObjectRenderer(ObjectRenderer):
         ret.append(node)
       index += 1
     return ret
+
+
+class GridObjectRenderer(ObjectRenderer):
+  def match(self, obj):
+    return isinstance(obj, dict) and "type" in obj and obj["type"] == "grid"
+    
+  def render(self, obj):
+    h, w, v_align, h_align = obj["rows"], obj["cols"], obj["v_align"], obj["h_align"]
+    nodes = [[
+      {
+        "type": "text",
+        "id": getid(),
+        "text": f"grid-{i}-{j}",
+      } for j in range(w)
+    ] for i in range(h)]
+    nodes[0][0]["origin"] = True
+    for i in range(h):
+      for j in range(w):
+        nodes[i][j]["row"] = i
+        nodes[i][j]["col"] = j
+        if i % 2 == 0:
+          nodes[i][j]["even.row"] = True
+        else:
+          nodes[i][j]["even.row"] = False
+        if j % 2 == 0:
+          nodes[i][j]["even.col"] = True
+        else:
+          nodes[i][j]["even.col"] = False
+        if i == 0 and j > 0:
+          nodes[i][j]["at"] = nodes[i][j-1]["id"]
+          if v_align == "top":
+            nodes[i][j]["anchor"] = "north.west"
+            nodes[i][j]["at.anchor"] = "north.east"
+          elif v_align == "center":
+            nodes[i][j]["anchor"] = "west"
+            nodes[i][j]["at.anchor"] = "east"
+          elif v_align == "bottom":
+            nodes[i][j]["anchor"] = "south.west"
+            nodes[i][j]["at.anchor"] = "south.east"
+        elif i > 0 and j == 0:
+          nodes[i][j]["at"] = nodes[i-1][j]["id"]
+          if h_align == "left":
+            nodes[i][j]["anchor"] = "north.west"
+            nodes[i][j]["at.anchor"] = "south.west"
+          elif h_align == "center":
+            nodes[i][j]["anchor"] = "north"
+            nodes[i][j]["at.anchor"] = "south"
+          elif h_align == "right":
+            nodes[i][j]["anchor"] = "north.east"
+            nodes[i][j]["at.anchor"] = "south.east"
+        elif i > 0 and j > 0:
+          nodes[i][j]["at"] = {
+            "type": "intersection",
+            "name1": nodes[0][j]["id"],
+            "name2": nodes[i][0]["id"],
+          }
+          if h_align == "left":
+            nodes[i][j]["at"]["anchor1"] = "west"
+          elif h_align == "center":
+            nodes[i][j]["at"]["anchor1"] = "center"
+          elif h_align == "right":
+            nodes[i][j]["at"]["anchor1"] = "east"
+            
+          if v_align == "top":
+            nodes[i][j]["at"]["anchor2"] = "north"
+          elif v_align == "center":
+            nodes[i][j]["at"]["anchor2"] = "center"
+          elif v_align == "bottom":
+            nodes[i][j]["at"]["anchor2"] = "south"
+            
+          if v_align == "top":
+            if h_align == "left":
+              nodes[i][j]["anchor"] = "north.west"
+            elif h_align == "center":
+              nodes[i][j]["anchor"] = "north"
+            elif h_align == "right":
+              nodes[i][j]["anchor"] = "north.east"
+          elif v_align == "center":
+            if h_align == "left":
+              nodes[i][j]["anchor"] = "west"
+            elif h_align == "right":
+              nodes[i][j]["anchor"] = "east"
+          elif v_align == "bottom":
+            if h_align == "left":
+              nodes[i][j]["anchor"] = "south.west"
+            elif h_align == "center":
+              nodes[i][j]["anchor"] = "south"
+            elif h_align == "right":
+              nodes[i][j]["anchor"] = "south.east"
+    return [node for row in nodes for node in row]

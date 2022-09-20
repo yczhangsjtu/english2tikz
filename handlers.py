@@ -59,10 +59,12 @@ class ThereIsHandler(Handler):
   def _register_fundamental_handlers(self):
     self.register_object_handler(BoxObjectHandler())
     self.register_object_handler(TreeObjectHandler())
+    self.register_object_handler(GridObjectHandler())
     
   def _register_fundamental_renderers(self):
     self.register_object_renderer(BoxObjectRenderer())
     self.register_object_renderer(TreeObjectRenderer())
+    self.register_object_renderer(GridObjectRenderer())
 
 
 class WithTextHandler(Handler):

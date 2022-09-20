@@ -42,7 +42,18 @@ class BoxRenderer(Renderer):
       if "at.anchor" in obj:
         ret["at"] = f"({obj['at']}.{obj['at.anchor'].replace('.', ' ')})"
       else:
-        ret["at"] = f"({obj['at']})"
+        if not isinstance(obj["at"], str):
+          if IntersectionRenderer().match(obj["at"]):
+            at = IntersectionRenderer().render(obj["at"])
+          else:
+            raise Exception(f"Unsupported node location: {obj['at']}")
+        else:
+          at = obj["at"]
+        ret["at"] = at
+    if "width" in obj:
+      ret["minimum width"] = obj["width"]
+    if "height" in obj:
+      ret["minimum height"] = obj["height"]
     return ret
   
   def render(self, obj):
@@ -120,3 +131,21 @@ class LineRenderer(Renderer):
   
   def render(self, obj):
     return "--"
+
+
+class IntersectionRenderer(Renderer):
+  def match(self, obj):
+    return "type" in obj and obj["type"] == "intersection"
+  
+  def render(self, obj):
+    if "anchor1" in obj:
+      x = f"{obj['name1']}.{obj['anchor1'].replace('.', ' ')}"
+    else:
+      x = f"{obj['name1']}"
+      
+    if "anchor2" in obj:
+      y = f"{obj['name2']}.{obj['anchor2'].replace('.', ' ')}"
+    else:
+      y = f"{obj['name2']}"
+    
+    return f"({x} |- {y})"
