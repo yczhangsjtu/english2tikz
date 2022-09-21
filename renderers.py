@@ -12,7 +12,7 @@ class Renderer(object):
 class BoxRenderer(Renderer):
   whitelist = set([
     "color", "line.width", "rounded.corners", "fill", "xshift", "yshift",
-    "scale", "rotate",
+    "scale", "rotate", "circle", "inner.sep",
   ] + colors)
   directions = set([
     "above", "below", "left", "right",
@@ -21,7 +21,7 @@ class BoxRenderer(Renderer):
   ])
   anchors = set([
     "south", "north", "south.west", "south.east",
-    "east", "west", "north.west", "north.east", "center"
+    "east", "west", "north.west", "north.east", "center",
   ])
   def match(self, obj):
     return "type" in obj and obj["type"] == "box"
@@ -46,15 +46,19 @@ class BoxRenderer(Renderer):
         if not isinstance(obj["at"], str):
           if IntersectionRenderer().match(obj["at"]):
             at = IntersectionRenderer().render(obj["at"])
+          elif CoordinateRenderer().match(obj["at"]):
+            at = "{{{}}}".format(CoordinateRenderer().render(obj["at"]))
           else:
             raise Exception(f"Unsupported node location: {obj['at']}")
         else:
-          at = obj["at"]
+          at = f"({obj['at']})"
         ret["at"] = at
     if "width" in obj:
       ret["minimum width"] = obj["width"]
     if "height" in obj:
       ret["minimum height"] = obj["height"]
+    if "inner sep" not in ret and ("text" not in obj or obj["text"] == ""):
+      ret["inner sep"] = "0"
     return ret
   
   def render(self, obj):
@@ -173,7 +177,7 @@ class CoordinateRenderer(Renderer):
     return "type" in obj and obj["type"] == "coordinate"
   
   def render(self, obj):
-    if obj['relative']:
+    if 'relative' in obj and obj['relative']:
       return f"++({obj['x']},{obj['y']})"
     return f"({obj['x']},{obj['y']})"
 
@@ -184,3 +188,11 @@ class PointRenderer(Renderer):
   
   def render(self, obj):
     return f"coordinate ({obj['id']})"
+
+
+class RectangleRenderer(Renderer):
+  def match(self, obj):
+    return "type" in obj and obj["type"] == "rectangle"
+
+  def render(self, obj):
+    return "rectangle"

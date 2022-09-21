@@ -1,4 +1,5 @@
 import re
+import copy
 from .object_handlers import *
 from .object_renderers import *
 
@@ -229,14 +230,18 @@ class DirectionOfHandler(Handler):
         return item
       if "items" in item and isinstance(item["items"], list):
         for subitem in item["items"]:
-          if "name" in subitem and subitem["name"] == name:
+          if "name" in subitem and subitem["name"] == name and "id" in subitem:
             return subitem
+          if "annotates" in subitem:
+            for annotate in subitem["annotates"]:
+              if "name" in annotate and annotate["name"] == name:
+                return annotate
     raise Exception(f"Cannot find object with name {name}")
 
 
 class ByHandler(Handler):
   def _match(self, command):
-    return re.match(r"by\.([\w\.]+)", command)
+    return re.match(r"by\.(\-?[\w\.]+)", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -309,6 +314,27 @@ class DrawHandler(Handler):
     path = {
       "type": "path",
       "draw": True,
+      "items": []
+    }
+    context._picture.append(path)
+    context._state["refered_to"] = path
+    context._state["the_path"] = path
+    context._state["filter_mode"] = False
+
+
+class FillHandler(Handler):
+  def _match(self, command):
+    return re.match("fill.with.([\w\.!]+)", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    path = {
+      "type": "path",
+      "fill": m.group(1),
       "items": []
     }
     context._picture.append(path)
@@ -392,13 +418,13 @@ class IntersectionHandler(Handler):
     obj = {
       "type": "intersection"
     }
-    match = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", x)
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", x)
     if match:
       obj["name1"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
       obj["anchor1"] = match.group(2)
     else:
       obj["name1"] = DirectionOfHandler.find_object_with_name(context, x)["id"]
-    match = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", y)
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", y)
     if match:
       obj["name2"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
       obj["anchor2"] = match.group(2)
@@ -469,7 +495,7 @@ class LineVerticalToHandler(Handler):
     line = {"type": "line"}
     context._state["the_path"]["items"].append(line)
     context._state["the_line"] = line
-    m = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", node)
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", node)
     if m:
       context._state["the_path"]["items"].append({
         "type": "intersection",
@@ -504,7 +530,7 @@ class LineHorizontalToHandler(Handler):
     line = {"type": "line"}
     context._state["the_path"]["items"].append(line)
     context._state["the_line"] = line
-    m = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", node)
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", node)
     if m:
       context._state["the_path"]["items"].append({
         "type": "intersection",
@@ -536,7 +562,7 @@ class MoveVerticalToHandler(Handler):
       "type": "point",
       "id": point_id,
     })
-    m = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", node)
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", node)
     if m:
       context._state["the_path"]["items"].append({
         "type": "intersection",
@@ -568,7 +594,7 @@ class MoveHorizontalToHandler(Handler):
       "type": "point",
       "id": point_id,
     })
-    m = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", node)
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", node)
     if m:
       context._state["the_path"]["items"].append({
         "type": "intersection",
@@ -623,19 +649,48 @@ class AtIntersectionHandler(Handler):
     obj = {
       "type": "intersection"
     }
-    match = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", x)
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", x)
     if match:
       obj["name1"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
       obj["anchor1"] = match.group(2)
     else:
       obj["name1"] = DirectionOfHandler.find_object_with_name(context, x)["id"]
-    match = re.match(r"([\w\.]+)\.(south|north|east|west|south east|south west|north east|north west|center)", y)
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", y)
     if match:
       obj["name2"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
       obj["anchor2"] = match.group(2)
     else:
       obj["name2"] = DirectionOfHandler.find_object_with_name(context, y)["id"]
-    context._state["refered_to"]["at"] = obj
+    target = context._state["refered_to"]
+    if isinstance(target, list):
+      for item in target:
+        item["at"] = obj
+    else:
+      target["at"] = obj
+
+
+class AtCoordinateHandler(Handler):
+  def _match(self, command):
+    return re.match(r"at\.x\.(\-?[\w\.]+)\.y\.(\-?[\w\.]+)", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    x, y = m.group(1), m.group(2)
+    obj = {
+      "type": "coordinate",
+      "x": x,
+      "y": y,
+    }
+    target = context._state["refered_to"]
+    if isinstance(target, list):
+      for item in target:
+        item["at"] = obj
+    else:
+      target["at"] = obj
 
 
 class WhereIsInHandler(Handler):
@@ -659,3 +714,413 @@ class WhereIsInHandler(Handler):
       if key in item and str(item[key]) == text:
         context._state["refered_to"].append(item)
         return
+
+
+class GridWithFixedDistancesHandler(Handler):
+  def _match(self, command):
+    return re.match(
+      r"there.is.a.(\d+)\.by\.(\d+)\.grid\.with\.fixed\.distances(?:\.aligned\.(top|bottom|center)\.(left|right|center))?",
+      command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    h, w = int(m.group(1)), int(m.group(2))
+    v_align = m.group(3) if m.group(3) is not None else "center"
+    h_align = m.group(4) if m.group(4) is not None else "center"
+    nodes = [[
+      {
+        "type": "text",
+        "id": getid(),
+        "text": f"grid-{i}-{j}",
+      } for j in range(w)
+    ] for i in range(h)]
+    nodes[0][0]["origin"] = True
+    context._state["to_set_value"] = []
+    for i in range(h):
+      for j in range(w):
+        nodes[i][j]["row"] = i
+        nodes[i][j]["col"] = j
+        if i % 2 == 0:
+          nodes[i][j]["even.row"] = True
+        else:
+          nodes[i][j]["even.row"] = False
+        if j % 2 == 0:
+          nodes[i][j]["even.col"] = True
+        else:
+          nodes[i][j]["even.col"] = False
+        if i == 0 and j > 0:
+          nodes[i][j]["at"] = nodes[i][j-1]["id"]
+          nodes[i][j]["xshift"] = "1cm"
+          context._state["to_set_value"].append(nodes[i][j])
+          context._state["to_set_value"].append("xshift")
+        elif i > 0 and j == 0:
+          nodes[i][j]["at"] = nodes[i-1][j]["id"]
+          nodes[i][j]["yshift"] = "-1cm"
+          context._state["to_set_value"].append(nodes[i][j])
+          context._state["to_set_value"].append("yshift")
+        elif i > 0 and j > 0:
+          nodes[i][j]["at"] = {
+            "type": "intersection",
+            "name1": nodes[0][j]["id"],
+            "name2": nodes[i][0]["id"],
+          }
+          if h_align == "left":
+            nodes[i][j]["at"]["anchor1"] = "west"
+          elif h_align == "center":
+            nodes[i][j]["at"]["anchor1"] = "center"
+          elif h_align == "right":
+            nodes[i][j]["at"]["anchor1"] = "east"
+            
+          if v_align == "top":
+            nodes[i][j]["at"]["anchor2"] = "north"
+          elif v_align == "center":
+            nodes[i][j]["at"]["anchor2"] = "center"
+          elif v_align == "bottom":
+            nodes[i][j]["at"]["anchor2"] = "south"
+            
+          if v_align == "top":
+            if h_align == "left":
+              nodes[i][j]["anchor"] = "north.west"
+            elif h_align == "center":
+              nodes[i][j]["anchor"] = "north"
+            elif h_align == "right":
+              nodes[i][j]["anchor"] = "north.east"
+          elif v_align == "center":
+            if h_align == "left":
+              nodes[i][j]["anchor"] = "west"
+            elif h_align == "right":
+              nodes[i][j]["anchor"] = "east"
+          elif v_align == "bottom":
+            if h_align == "left":
+              nodes[i][j]["anchor"] = "south.west"
+            elif h_align == "center":
+              nodes[i][j]["anchor"] = "south"
+            elif h_align == "right":
+              nodes[i][j]["anchor"] = "south.east"
+
+        if (i == 0 and j > 0) or (i > 0 and j == 0):
+          if v_align == "top":
+            if h_align == "left":
+              nodes[i][j]["anchor"] = "north.west"
+            elif h_align == "center":
+              nodes[i][j]["anchor"] = "north"
+            elif h_align == "right":
+              nodes[i][j]["anchor"] = "north.east"
+          elif v_align == "center":
+            if h_align == "left":
+              nodes[i][j]["anchor"] = "west"
+            elif h_align == "right":
+              nodes[i][j]["anchor"] = "east"
+          elif v_align == "bottom":
+            if h_align == "left":
+              nodes[i][j]["anchor"] = "south.west"
+            elif h_align == "center":
+              nodes[i][j]["anchor"] = "south"
+            elif h_align == "right":
+              nodes[i][j]["anchor"] = "south.east"
+          if "anchor" in nodes[i][j]:
+            nodes[i][j]["at.anchor"] = nodes[i][j]["anchor"]
+
+    context._state["refered_to"] = []
+    for row in nodes:
+      for node in row:
+        context._picture.append(node)
+        context._state["refered_to"].append(node)
+
+  def process_text(self, context, text):
+    obj = context._state["to_set_value"][0]
+    key = context._state["to_set_value"][1]
+    context._state["to_set_value"] = context._state["to_set_value"][2:]
+    obj[key] = text
+
+
+class RectangleHandler(Handler):
+  def match(self, command):
+    return command == "rectangle" or command == "rectangle.to"
+
+  def __call__(self, context, command):
+    context._state["the_path"]["items"].append({
+      "type": "rectangle"
+    })
+
+
+class TextOperationHandler(Handler):
+  pass
+
+
+class RepeatedHandler(TextOperationHandler):
+  def _match(self, command):
+    return re.match(r"repeated\.((\d+|three|four|five|six|seven|eight|nine|ten)\.times|twice)", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    times = m.group(1)
+    number = m.group(2)
+    if times == "twice":
+      count = 2
+    else:
+      assert number is not None
+      if number == "three":
+        count = 3
+      elif number == "four":
+        count = 4
+      elif number == "five":
+        count = 5
+      elif number == "six":
+        count = 6
+      elif number == "seven":
+        count = 7
+      elif number == "eight":
+        count = 8
+      elif number == "nine":
+        count = 9
+      elif number == "ten":
+        count = 10
+      else:
+        count = int(number)
+    if context._last_is_command:
+      """
+      Repeat the search for every count, because we do not assume
+      that some handlers can only be invoked once or a limited number of
+      times and may no longer matches.
+      We do not invoke context.process recursively because we want to avoid
+      other side effects brought by this method.
+      """
+      for i in range(count - 1):
+        for handler in reversed(context._handlers):
+          if handler.match(context._last_command):
+            if isinstance(handler, TextOperationHandler):
+              raise Exception("Cannot repeat a text operation handler")
+            """
+            Remember this last handler, because if this repeated handler is
+            followed by text, then the text will be fed into this last handler
+            """
+            context._state["handler_to_repeat"] = handler
+            handler(context, context._last_command)
+    elif context._last_is_text:
+      if not isinstance(context._last_handler, TextOperationHandler):
+        handler = context._last_handler
+        context._state["handler_to_repeat"] = handler
+      else:
+        handler = context._state["handler_to_repeat"]
+      for i in range(count - 1):
+        handler.process_text(context, context._last_text)
+    else:
+      raise Exception("Neither _last_is_command or _last_is_text is set")
+
+  def process_text(self, context, text):
+    context._state["handler_to_repeat"].process_text(context, text)
+
+
+class CopyLastObjectHandler(Handler):
+  def _match(self, command):
+    return re.match(r"copy\.last(?:\.(\d+|two|three|four|five|six|seven|eight|nine|ten))?\.objects?(?:\.((\d+|three|four|five|six|seven|eight|nine|ten)\.times|twice))?", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    copied_count = m.group(1)
+    copies_count = m.group(2)
+    copies_number = m.group(3)
+    if copied_count is None:
+      copied_count = 1
+    elif copied_count == "three":
+      copied_count = 3
+    elif copied_count == "four":
+      copied_count = 4
+    elif copied_count == "five":
+      copied_count = 5
+    elif copied_count == "six":
+      copied_count = 6
+    elif copied_count == "seven":
+      copied_count = 7
+    elif copied_count == "eight":
+      copied_count = 8
+    elif copied_count == "nine":
+      copied_count = 9
+    elif copied_count == "ten":
+      copied_count = 10
+    else:
+      copied_count = int(copied_count)
+
+    if copies_count is None:
+      copies_count = 1
+    elif copies_count == "twice":
+      copies_count = 2
+    else:
+      assert copies_number is not None
+      if copies_number == "three":
+        copies_count = 3
+      elif copies_number == "four":
+        copies_count = 4
+      elif copies_number == "five":
+        copies_count = 5
+      elif copies_number == "six":
+        copies_count = 6
+      elif copies_number == "seven":
+        copies_count = 7
+      elif copies_number == "eight":
+        copies_count = 8
+      elif copies_number == "nine":
+        copies_count = 9
+      elif copies_number == "ten":
+        copies_count = 10
+      else:
+        copies_count = int(copies_number)
+
+    to_copy = context._picture[-copied_count:]
+    context._state["refered_to"] = []
+    for i in range(copies_count):
+      for item in to_copy:
+        new_item = copy.deepcopy(item)
+        if "id" in new_item:
+          new_item["id"] = getid()
+        context._picture.append(new_item)
+        context._state["refered_to"].append(new_item)
+
+
+class RespectivelyWithHandler(Handler):
+  def _match(self, command):
+    return re.match(
+      r"(?:(?:and|that)\.)?respectively\.(?:with|have|are|set|make\.them|make\.their)\.([\w\.]+)?",
+      command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    key = m.group(1)
+    context._state["to_set_objects"] = [item for item in context._state["refered_to"]]
+    if key is not None:
+      context._state["to_set_key"] = key
+    else:
+      context._state["to_set_key"] = None
+
+  def process_text(self, context, text):
+    to_set_key = context._state["to_set_key"]
+    if to_set_key is None:
+      key, value = text, True
+    else:
+      key, value = to_set_key, text
+    context._state["to_set_objects"][0][key] = value
+    context._state["to_set_objects"] = context._state["to_set_objects"][1:]
+
+
+class RespectivelyAtHandler(Handler):
+  def _match(self, command):
+    return re.match(r"respectively.at", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    context._state["to_set_objects"] = [item for item in context._state["refered_to"]]
+
+  def process_text(self, context, text):
+    m = re.match(r"x\.(\-?[\w\.]+)\.y\.(\-?[\w\.]+)", text)
+    if m is not None:
+      context._state["to_set_objects"][0]["at"] = {
+        "type": "coordinate",
+        "x": m.group(1),
+        "y": m.group(2),
+      }
+      context._state["to_set_objects"] = context._state["to_set_objects"][1:]
+      return
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", text)
+    if m is not None:
+      context._state["to_set_objects"][0]["at"] = {
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, m.group(1)),
+        "anchor": m.group(2),
+      }
+    else:
+      context._state["to_set_objects"][0]["at"] = {
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, text),
+      }
+    context._state["to_set_objects"] = context._state["to_set_objects"][1:]
+
+
+class RangeHandler(TextOperationHandler):
+  def match(self, command):
+    return command == "range"
+
+  def __call__(self, context, command):
+    """
+    Ensure that "handler_to_repeat" is the correct one
+    """
+    if not isinstance(context._last_handler, TextOperationHandler):
+      context._state["handler_to_repeat"] = context._last_handler
+      context._state["expect_range"] = True
+    else:
+      assert "handler_to_repeat" in context._state
+
+  def process_text(self, context, text):
+    if context._state["expect_range"]:
+      context._state["expect_range"] = False
+      texts = self._generate_range(text)
+      for text in texts:
+        context._state["handler_to_repeat"].process_text(context, text)
+    else:
+      context._state["handler_to_repeat"].process_text(context, text)
+
+  def _generate_range(self, text):
+    ranges = []
+    original_text = text
+    while len(text) > 0:
+      m = re.search(r"\{\{\{((\-?\d+)(?:\:(\-?\d+))?\:(\-?\d+)|([A-Za-z])(?:\:(\-?\d+))?\:([A-Za-z])|.+?(?:,.+?)+)\}\}\}", text)
+      if m is None:
+        ranges.append(text)
+        break
+      ranges.append(text[:m.span()[0]])
+      text = text[m.span()[1]:]
+      rng = m.group(1)
+      start_number, end_number = m.group(2), m.group(4)
+      step_number = int(m.group(3)) if m.group(3) else None
+      start_letter, end_letter = m.group(5), m.group(7)
+      step_letter = int(m.group(6)) if m.group(6) else None
+      if start_number is not None:
+        start_number, end_number = int(start_number), int(end_number)
+        if step_number is None:
+          step_number = 1 if start_number < end_number else -1
+        """
+        Python range is open at the end, we make it close
+        """
+        ranges.append(list(range(start_number, end_number+step_number, step_number)))
+      elif start_letter is not None:
+        if step_letter is None:
+          step_letter = 1 if start_letter < end_letter else -1
+        ranges.append([
+          chr(i)
+          for i in list(range(ord(start_letter), ord(end_letter)+step_letter, step_letter))
+        ])
+      else:
+        ranges.append([item.strip() for item in rng.split(',')])
+    repeated = 1
+    for r in ranges:
+      if isinstance(r, list):
+        if len(r) < 2:
+          raise Exception(f"The range size is smaller than 2: {r}")
+        if repeated > 1:
+          assert len(r) == repeated
+        else:
+          repeated = len(r)
+    if repeated == 1:
+      raise Exception(f"No range found in text: {original_text}")
+    return [''.join([r if isinstance(r, str) else str(r[i]) for r in ranges])
+            for i in range(repeated)]

@@ -24,6 +24,10 @@ class DescribeIt(object):
       if self._last_handler is None:
         raise Exception("Cannot start with text")
       self._last_handler.process_text(self, text)
+      self._last_text = text
+      self._last_is_text = True
+      self._last_is_command = False
+      self._last_command_or_text = command_or_text
       return
     command = command_or_text
     for handler in reversed(self._handlers):
@@ -31,6 +35,9 @@ class DescribeIt(object):
         handler(self, command)
         self._history.append(command)
         self._last_handler = handler
+        self._last_is_text = False
+        self._last_is_command = True
+        self._last_command_or_text = command_or_text
         return
     raise Exception(f"Unsupported command: {command}")
   
@@ -99,10 +106,12 @@ class DescribeIt(object):
     self.register_handler(WithNamesHandler())
     self.register_handler(WithAnnotateHandler())
     self.register_handler(AtIntersectionHandler())
+    self.register_handler(AtCoordinateHandler())
     self.register_handler(AnchorAtAnchorHandler())
     self.register_handler(DirectionOfHandler())
     self.register_handler(ForAllHandler())
     self.register_handler(DrawHandler())
+    self.register_handler(FillHandler())
     self.register_handler(MoveToNodeHandler())
     self.register_handler(LineToNodeHandler())
     self.register_handler(IntersectionHandler())
@@ -112,6 +121,13 @@ class DescribeIt(object):
     self.register_handler(MoveHorizontalToHandler())
     self.register_handler(LineVerticalToHandler())
     self.register_handler(LineHorizontalToHandler())
+    self.register_handler(GridWithFixedDistancesHandler())
+    self.register_handler(RectangleHandler())
+    self.register_handler(RepeatedHandler())
+    self.register_handler(CopyLastObjectHandler())
+    self.register_handler(RespectivelyWithHandler())
+    self.register_handler(RespectivelyAtHandler())
+    self.register_handler(RangeHandler())
     
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())
@@ -122,6 +138,7 @@ class DescribeIt(object):
     self.register_renderer(IntersectionRenderer())
     self.register_renderer(CoordinateRenderer())
     self.register_renderer(PointRenderer())
+    self.register_renderer(RectangleRenderer())
 
   def register_object_handler(self, handler):
     self._there_is_handler.register_object_handler(handler)
