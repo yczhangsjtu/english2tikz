@@ -12,7 +12,7 @@ class Renderer(object):
 class BoxRenderer(Renderer):
   whitelist = set([
     "color", "line.width", "rounded.corners", "fill", "xshift", "yshift",
-    "scale", "rotate", "circle", "inner.sep",
+    "scale", "rotate", "circle", "inner.sep", "shape", "dashed", "font",
   ] + colors)
   directions = set([
     "above", "below", "left", "right",
@@ -110,8 +110,6 @@ class PathRenderer(Renderer):
       options["<->"] = True
     if "double.stealth" in obj:
       options["stealth-stealth"] = True
-    if "dashed" in obj:
-      options["dashed"] = True
     return r"\path[{}] {};".format(
       dump_options(options),
       " ".join(
@@ -135,7 +133,17 @@ class LineRenderer(Renderer):
     return "type" in obj and obj["type"] == "line"
   
   def render(self, obj):
-    ret = ["--"]
+    options = {}
+    if "out" in obj:
+      options["out"] = obj["out"]
+    if "in" in obj:
+      options["in"] = obj["in"]
+
+    if len(options) > 0:
+      ret = ["to [{}]".format(dump_options(options))]
+    else:
+      ret = ["--"]
+
     if "annotates" in obj:
       for annotate in obj["annotates"]:
         options = BoxRenderer.prepare_options(annotate)
@@ -145,6 +153,8 @@ class LineRenderer(Renderer):
           options["midway"] = annotate["midway"]
         if "above" in annotate:
           options["above"] = annotate["above"]
+        if "draw" in annotate:
+          options["draw"] = annotate["draw"]
         if len(options) > 0:
           ret.append(r"node[{options}] ({id}) {{{text}}}".format(
             **annotate, options=dump_options(options)))

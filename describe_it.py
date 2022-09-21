@@ -128,6 +128,17 @@ class DescribeIt(object):
     self.register_handler(RespectivelyWithHandler())
     self.register_handler(RespectivelyAtHandler())
     self.register_handler(RangeHandler())
+    self.register_handler(NamedHandler())
+    self.register_handler(SizedHandler())
+    self.register_handler(ShiftedHandler())
+    self.register_handler(StartOutHandler())
+    self.register_handler(CloseInHandler())
+    self.register_handler(MoveDirectionHandler())
+    self.register_handler(RectangleHorizontalToByHandler())
+    self.register_handler(RectangleVerticalToByHandler())
+    self.register_handler(LineDirectionHandler())
+    self.register_handler(CopyThemHandler())
+    self.register_handler(CopyStyleFromHandler())
     
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())

@@ -91,6 +91,8 @@ class GridObjectRenderer(ObjectRenderer):
       } for j in range(w)
     ] for i in range(h)]
     nodes[0][0]["origin"] = True
+    nodes[0][0]["first.row"] = True
+    nodes[0][0]["first.col"] = True
     for i in range(h):
       for j in range(w):
         nodes[i][j]["row"] = i
@@ -105,6 +107,7 @@ class GridObjectRenderer(ObjectRenderer):
           nodes[i][j]["even.col"] = False
         if i == 0 and j > 0:
           nodes[i][j]["at"] = nodes[i][j-1]["id"]
+          nodes[i][j]["first.row"] = True
           if v_align == "top":
             nodes[i][j]["anchor"] = "north.west"
             nodes[i][j]["at.anchor"] = "north.east"
@@ -116,6 +119,7 @@ class GridObjectRenderer(ObjectRenderer):
             nodes[i][j]["at.anchor"] = "south.east"
         elif i > 0 and j == 0:
           nodes[i][j]["at"] = nodes[i-1][j]["id"]
+          nodes[i][j]["first.col"] = True
           if h_align == "left":
             nodes[i][j]["anchor"] = "north.west"
             nodes[i][j]["at.anchor"] = "south.west"

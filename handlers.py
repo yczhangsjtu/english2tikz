@@ -71,7 +71,7 @@ class ThereIsHandler(Handler):
 class WithTextHandler(Handler):
   def match(self, command):
     return re.match(
-      r"(and|that\.)?(without|with|where|set|let|make\.it|make\.them)\.texts?",
+      r"(and|that\.)?(without|with|where|set|let|make\.it|make\.them)\.texts?$",
       command) is not None
   
   def __call__(self, context, command):
@@ -120,7 +120,7 @@ class WithTextHandler(Handler):
 class WithNamesHandler(Handler):
   def match(self, command):
     return re.match(
-      r"(and|that\.)?(with|set)\.names",
+      r"(and|that\.)?(with|set)\.names$",
       command) is not None
   
   def __call__(self, context, command):
@@ -135,10 +135,126 @@ class WithNamesHandler(Handler):
       target["name"] = text
 
 
+class NamedHandler(Handler):
+  def _match(self, command):
+    return re.match(r"named\.([\w\.]+)$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    name = m.group(1)
+    target = context._state["refered_to"]
+    if isinstance(target, list):
+      assert len(target) == 1
+      target = target[0]
+    target["name"] = name
+
+
+class SizedHandler(Handler):
+  def _match(self, command):
+    return re.match(r"sized\.([\w\.]+)\.by\.([\w\.]+)$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    w, h = m.group(1), m.group(2)
+    target = context._state["refered_to"]
+    if isinstance(target, list):
+      for item in target:
+        item["width"] = w
+        item["height"] = h
+    else:
+      target["width"] = w
+      target["height"] = h
+
+
+class ShiftedHandler(Handler):
+  def _match(self, command):
+    return re.match(r"shifted\.(left|right|up|down)\.by\.([\w\.]+)$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    direction, distance = m.group(1), m.group(2)
+    target = context._state["refered_to"]
+    if isinstance(target, list):
+      for item in target:
+        self._handle(item, direction, distance)
+    else:
+      self._handle(target, direction, distance)
+
+  def _handle(self, target, direction, distance):
+    if direction == "left":
+      target["xshift"] = f"-{distance}"
+    elif direction == "right":
+      target["xshift"] = distance
+    elif direction == "up":
+      target["yshift"] = distance
+    elif direction == "down":
+      target["yshift"] = f"-{distance}"
+
+
+class StartOutHandler(Handler):
+  def _match(self, command):
+    return re.match(r"start.out.(\d+|up|down|left|right)$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    direction = m.group(1)
+    if direction == "up":
+      direction = 90
+    elif direction == "down":
+      direction = 270
+    elif direction == "left":
+      direction = 180
+    elif direction == "right":
+      direction = 0
+    else:
+      direction = int(direction)
+    context._state["the_line"]["out"] = direction
+
+
+class CloseInHandler(Handler):
+  def _match(self, command):
+    return re.match(r"close.in.(\d+|up|down|left|right)$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    direction = m.group(1)
+    if direction == "up":
+      direction = 90
+    elif direction == "down":
+      direction = 270
+    elif direction == "left":
+      direction = 180
+    elif direction == "right":
+      direction = 0
+    else:
+      direction = int(direction)
+    context._state["the_line"]["in"] = direction
+
+
 class WithAttributeHandler(Handler):
   def _match(self, command):
     return re.match(
-      r"(?:(?:and|that)\.)?(?:without|with|where|has|have|is|are|set|let|make\.it|make\.them)\.([\w\.]+)(?:=([\w\.!\-]+))?",
+      r"(?:(?:and|that)\.)?(?:without|with|where|has|have|is|are|set|let|make\.it|make\.them)\.([\w\.]+)(?:=([\w\.!\-]+))?$",
       command)
   
   def match(self, command):
@@ -203,7 +319,7 @@ class ThereIsTextHandler(Handler):
 class DirectionOfHandler(Handler):
   def _match(self, command):
     return re.match(
-      r"(?:(?:is|are|set|let)\.)?(left|right|below|above|below.left|below.right|above.left|above.right)\.of\.([\w\.]+)",
+      r"(?:(?:is|are|set|let)\.)?(left|right|below|above|below.left|below.right|above.left|above.right)\.of\.([\w\.]+)$",
       command)
   
   def match(self, command):
@@ -241,7 +357,7 @@ class DirectionOfHandler(Handler):
 
 class ByHandler(Handler):
   def _match(self, command):
-    return re.match(r"by\.(\-?[\w\.]+)", command)
+    return re.match(r"by\.(\-?[\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -264,7 +380,7 @@ class ByHandler(Handler):
 class AnchorAtAnchorHandler(Handler):
   def _match(self, command):
     return re.match(r"(?:with|whose)\.(south|north|west|east|south.west|south.east|north.west|north.east|center)\.(?:(?:is|are)\.)?at\."
-                    r"(south|north|west|east|south.west|south.east|north.west|north.east|center)\.of\.([\w\.]+)", command)
+                    r"(south|north|west|east|south.west|south.east|north.west|north.east|center)\.of\.([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -289,7 +405,7 @@ class AnchorAtAnchorHandler(Handler):
 
 class ForAllHandler(Handler):
   def _match(self, command):
-    return re.match(r"for.all.([\w\.]+)", command)
+    return re.match(r"for.all.([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -324,7 +440,7 @@ class DrawHandler(Handler):
 
 class FillHandler(Handler):
   def _match(self, command):
-    return re.match("fill.with.([\w\.!]+)", command)
+    return re.match("fill.with.([\w\.!]+)$", command)
 
   def match(self, command):
     return self._match(command) is not None
@@ -345,7 +461,7 @@ class FillHandler(Handler):
 
 class MoveToNodeHandler(Handler):
   def _match(self, command):
-    return re.match(r"(?:from|move\.to)\.([\w\.]+)", command)
+    return re.match(r"(?:from|move\.to)\.([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -355,7 +471,7 @@ class MoveToNodeHandler(Handler):
     assert m is not None
     node = m.group(1)
     m = re.match(
-      r"([\w\.]+)\.(south|north|east|west|south.west|south.east|north.west|north.east)", node)
+      r"([\w\.]+?)\.(south|north|east|west|south.west|south.east|north.west|north.east)$", node)
     if m:
       obj = {
         "type": "nodename",
@@ -371,9 +487,149 @@ class MoveToNodeHandler(Handler):
     context._state["refered_to"] = obj
 
 
+class RectangleHorizontalToByHandler(Handler):
+  def _match(self, command):
+    return re.match(r"rectangle\.horizontal\.to\.([\w\.]+)\.and\.(up|down)\.by\.([\w\.]+)$", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    node, direction, distance = m.group(1), m.group(2), m.group(3)
+    start_point_id = getid()
+    context._state["the_path"]["items"].append({
+      "type": "point",
+      "id": start_point_id,
+    })
+
+    m = re.match(
+      r"([\w\.]+?)\.(south|north|east|west|south.west|south.east|north.west|north.east)$", node)
+    if m:
+      obj = {
+        "type": "intersection",
+        "name1": DirectionOfHandler.find_object_with_name(context, m.group(1))["id"],
+        "anchor1": m.group(2),
+        "name2": start_point_id,
+      }
+    else:
+      obj = {
+        "type": "intersection",
+        "name1": DirectionOfHandler.find_object_with_name(context, node)["id"],
+        "name2": start_point_id,
+      }
+    context._state["the_path"]["items"].append(obj)
+
+    if direction == "up":
+      context._state["the_path"]["items"].append({
+        "type": "coordinate",
+        "x": "0",
+        "y": distance,
+        "relative": True,
+      })
+    else:
+      context._state["the_path"]["items"].append({
+        "type": "coordinate",
+        "x": "0",
+        "y": f"-{distance}",
+        "relative": True,
+      })
+
+    end_point_id = getid()
+    context._state["the_path"]["items"].append({
+      "type": "point",
+      "id": end_point_id,
+    })
+
+    context._state["the_path"]["items"].append({
+      "type": "nodename",
+      "name": start_point_id,
+    })
+
+    context._state["the_path"]["items"].append({
+      "type": "rectangle",
+    })
+
+    context._state["the_path"]["items"].append({
+      "type": "nodename",
+      "name": end_point_id,
+    })
+
+
+class RectangleVerticalToByHandler(Handler):
+  def _match(self, command):
+    return re.match(r"rectangle\.vertical\.to\.([\w\.]+)\.and\.(left|right)\.by\.([\w\.]+)$", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    node, direction, distance = m.group(1), m.group(2), m.group(3)
+    start_point_id = getid()
+    context._state["the_path"]["items"].append({
+      "type": "point",
+      "id": start_point_id,
+    })
+
+    m = re.match(
+      r"([\w\.]+?)\.(south|north|east|west|south.west|south.east|north.west|north.east)$", node)
+    if m:
+      obj = {
+        "type": "intersection",
+        "name2": DirectionOfHandler.find_object_with_name(context, m.group(1))["id"],
+        "anchor2": m.group(2),
+        "name1": start_point_id,
+      }
+    else:
+      obj = {
+        "type": "intersection",
+        "name2": DirectionOfHandler.find_object_with_name(context, node)["id"],
+        "name1": start_point_id,
+      }
+    context._state["the_path"]["items"].append(obj)
+
+    if direction == "right":
+      context._state["the_path"]["items"].append({
+        "type": "coordinate",
+        "x": distance,
+        "y": "0",
+        "relative": True,
+      })
+    else:
+      context._state["the_path"]["items"].append({
+        "type": "coordinate",
+        "x": f"-{distance}",
+        "y": "0",
+        "relative": True,
+      })
+
+    end_point_id = getid()
+    context._state["the_path"]["items"].append({
+      "type": "point",
+      "id": end_point_id,
+    })
+
+    context._state["the_path"]["items"].append({
+      "type": "nodename",
+      "name": start_point_id,
+    })
+
+    context._state["the_path"]["items"].append({
+      "type": "rectangle",
+    })
+
+    context._state["the_path"]["items"].append({
+      "type": "nodename",
+      "name": end_point_id,
+    })
+
+
 class LineToNodeHandler(Handler):
   def _match(self, command):
-    return re.match(r"(?:\-\->?|(?:line|point)\.to\.)([\w\.]+)", command)
+    return re.match(r"(?:\-\->?|(?:line|point)\.to\.)([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -383,7 +639,7 @@ class LineToNodeHandler(Handler):
     assert m is not None
     node = m.group(1)
     m = re.match(
-      r"([\w\.]+)\.(south|north|east|west|south.west|south.east|north.west|north.east)", node)
+      r"([\w\.]+?)\.(south|north|east|west|south.west|south.east|north.west|north.east)$", node)
     if m:
       obj = {
         "type": "nodename",
@@ -406,7 +662,7 @@ class LineToNodeHandler(Handler):
 
 class IntersectionHandler(Handler):
   def _match(self, command):
-    return re.match(r"intersection\.([\w\.]+)\.and\.([\w\.]+)", command)
+    return re.match(r"intersection\.([\w\.]+)\.and\.([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -418,13 +674,13 @@ class IntersectionHandler(Handler):
     obj = {
       "type": "intersection"
     }
-    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", x)
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", x)
     if match:
       obj["name1"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
       obj["anchor1"] = match.group(2)
     else:
       obj["name1"] = DirectionOfHandler.find_object_with_name(context, x)["id"]
-    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", y)
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", y)
     if match:
       obj["name2"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
       obj["anchor2"] = match.group(2)
@@ -435,7 +691,7 @@ class IntersectionHandler(Handler):
 
 class CoordinateHandler(Handler):
   def match(self, command):
-    return re.match(r"(x|y)\.[\-\w\.]+", command) is not None
+    return re.match(r"(x|y)\.[\-\w\.]+$", command) is not None
   
   def __call__(self, context, command):
     if command.endswith(".relative"):
@@ -443,17 +699,17 @@ class CoordinateHandler(Handler):
       command = command[:-9]
     else:
       relative = False
-    match = re.match(r"x\.([\-\w\.]+)\.y\.([\-\w\.]+)", command)
+    match = re.match(r"x\.([\-\w\.]+)\.y\.([\-\w\.]+)$", command)
     if match:
       x, y = match.group(1), match.group(2)
       
     if not match:
-      match = re.match(r"x\.(\-?[\w\.]+)", command)
+      match = re.match(r"x\.(\-?[\w\.]+)$", command)
       if match:
         x, y = match.group(1), "0"
       
     if not match:
-      match = re.match(r"y\.(\-?[\w\.]+)", command)
+      match = re.match(r"y\.(\-?[\w\.]+)$", command)
       if match:
         x, y = "0", match.group(1)
   
@@ -464,6 +720,64 @@ class CoordinateHandler(Handler):
       "relative": relative,
     })
 
+
+class MoveDirectionHandler(Handler):
+  def _match(self, command):
+    return re.match(r"move\.(up|down|left|right)\.by\.([\w\.]+)$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    direction, distance = m.group(1), m.group(2)
+    if direction == "up":
+      x, y = "0", distance
+    elif direction == "down":
+      x, y = "0", f"-{distance}"
+    elif direction == "left":
+      x, y = f"-{distance}", "0"
+    elif direction == "right":
+      x, y = distance, "0"
+    context._state["the_path"]["items"].append({
+      "type": "coordinate",
+      "x": x,
+      "y": y,
+      "relative": True,
+    })
+
+
+class LineDirectionHandler(Handler):
+  def _match(self, command):
+    return re.match(r"line\.(up|down|left|right)\.by\.([\w\.]+)$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    direction, distance = m.group(1), m.group(2)
+    if direction == "up":
+      x, y = "0", distance
+    elif direction == "down":
+      x, y = "0", f"-{distance}"
+    elif direction == "left":
+      x, y = f"-{distance}", "0"
+    elif direction == "right":
+      x, y = distance, "0"
+    line = {
+      "type": "line",
+    }
+    context._state["the_path"]["items"].append(line)
+    context._state["the_path"]["items"].append({
+      "type": "coordinate",
+      "x": x,
+      "y": y,
+      "relative": True,
+    })
+    context._state["the_line"] = line
 
 
 class LineToHandler(Handler):
@@ -478,7 +792,7 @@ class LineToHandler(Handler):
 
 class LineVerticalToHandler(Handler):
   def _match(self, command):
-    return re.match(r"line.vertical.to.([\w\.]+)", command)
+    return re.match(r"line.vertical.to.([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -495,7 +809,7 @@ class LineVerticalToHandler(Handler):
     line = {"type": "line"}
     context._state["the_path"]["items"].append(line)
     context._state["the_line"] = line
-    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", node)
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", node)
     if m:
       context._state["the_path"]["items"].append({
         "type": "intersection",
@@ -513,7 +827,7 @@ class LineVerticalToHandler(Handler):
       
 class LineHorizontalToHandler(Handler):
   def _match(self, command):
-    return re.match(r"line.horizontal.to.([\w\.]+)", command)
+    return re.match(r"line.horizontal.to.([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -530,7 +844,7 @@ class LineHorizontalToHandler(Handler):
     line = {"type": "line"}
     context._state["the_path"]["items"].append(line)
     context._state["the_line"] = line
-    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", node)
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", node)
     if m:
       context._state["the_path"]["items"].append({
         "type": "intersection",
@@ -548,7 +862,7 @@ class LineHorizontalToHandler(Handler):
       
 class MoveVerticalToHandler(Handler):
   def _match(self, command):
-    return re.match(r"vertical.to.([\w\.]+)", command)
+    return re.match(r"vertical.to.([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -562,7 +876,7 @@ class MoveVerticalToHandler(Handler):
       "type": "point",
       "id": point_id,
     })
-    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", node)
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", node)
     if m:
       context._state["the_path"]["items"].append({
         "type": "intersection",
@@ -580,7 +894,7 @@ class MoveVerticalToHandler(Handler):
       
 class MoveHorizontalToHandler(Handler):
   def _match(self, command):
-    return re.match(r"horizontal.to.([\w\.]+)", command)
+    return re.match(r"horizontal.to.([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -594,7 +908,7 @@ class MoveHorizontalToHandler(Handler):
       "type": "point",
       "id": point_id,
     })
-    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", node)
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", node)
     if m:
       context._state["the_path"]["items"].append({
         "type": "intersection",
@@ -612,7 +926,7 @@ class MoveHorizontalToHandler(Handler):
 
 class WithAnnotateHandler(Handler):
   def match(self, command):
-    return re.match(r"(and\.)?with.annotates?", command) is not None
+    return re.match(r"(and\.)?with.annotates?$", command) is not None
   
   def __call__(self, context, command):
     line = context._state["the_line"]
@@ -637,7 +951,7 @@ class WithAnnotateHandler(Handler):
 
 class AtIntersectionHandler(Handler):
   def _match(self, command):
-    return re.match(r"at\.intersection\.of\.([\w\.]+)\.and\.([\w\.]+)", command)
+    return re.match(r"at\.intersection\.of\.([\w\.]+)\.and\.([\w\.]+)$", command)
 
   def match(self, command):
     return self._match(command) is not None
@@ -649,13 +963,13 @@ class AtIntersectionHandler(Handler):
     obj = {
       "type": "intersection"
     }
-    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", x)
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", x)
     if match:
       obj["name1"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
       obj["anchor1"] = match.group(2)
     else:
       obj["name1"] = DirectionOfHandler.find_object_with_name(context, x)["id"]
-    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", y)
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", y)
     if match:
       obj["name2"] = DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
       obj["anchor2"] = match.group(2)
@@ -671,7 +985,7 @@ class AtIntersectionHandler(Handler):
 
 class AtCoordinateHandler(Handler):
   def _match(self, command):
-    return re.match(r"at\.x\.(\-?[\w\.]+)\.y\.(\-?[\w\.]+)", command)
+    return re.match(r"at\.x\.(\-?[\w\.]+)\.y\.(\-?[\w\.]+)$", command)
 
   def match(self, command):
     return self._match(command) is not None
@@ -695,7 +1009,7 @@ class AtCoordinateHandler(Handler):
 
 class WhereIsInHandler(Handler):
   def _match(self, command):
-    return re.match(r"where\.([\w\.]+)\.is\.in", command)
+    return re.match(r"where\.([\w\.]+)\.is\.in$", command)
 
   def match(self, command):
     return self._match(command) is not None
@@ -719,7 +1033,7 @@ class WhereIsInHandler(Handler):
 class GridWithFixedDistancesHandler(Handler):
   def _match(self, command):
     return re.match(
-      r"there.is.a.(\d+)\.by\.(\d+)\.grid\.with\.fixed\.distances(?:\.aligned\.(top|bottom|center)\.(left|right|center))?",
+      r"there.is.a.(\d+)\.by\.(\d+)\.grid\.with\.fixed\.distances(?:\.aligned\.(top|bottom|center)\.(left|right|center))?$",
       command)
   
   def match(self, command):
@@ -739,6 +1053,8 @@ class GridWithFixedDistancesHandler(Handler):
       } for j in range(w)
     ] for i in range(h)]
     nodes[0][0]["origin"] = True
+    nodes[0][0]["first.row"] = True
+    nodes[0][0]["first.col"] = True
     context._state["to_set_value"] = []
     for i in range(h):
       for j in range(w):
@@ -753,11 +1069,13 @@ class GridWithFixedDistancesHandler(Handler):
         else:
           nodes[i][j]["even.col"] = False
         if i == 0 and j > 0:
+          nodes[i][j]["first.row"] = True
           nodes[i][j]["at"] = nodes[i][j-1]["id"]
           nodes[i][j]["xshift"] = "1cm"
           context._state["to_set_value"].append(nodes[i][j])
           context._state["to_set_value"].append("xshift")
         elif i > 0 and j == 0:
+          nodes[i][j]["first.col"] = True
           nodes[i][j]["at"] = nodes[i-1][j]["id"]
           nodes[i][j]["yshift"] = "-1cm"
           context._state["to_set_value"].append(nodes[i][j])
@@ -854,7 +1172,7 @@ class TextOperationHandler(Handler):
 
 class RepeatedHandler(TextOperationHandler):
   def _match(self, command):
-    return re.match(r"repeated\.((\d+|three|four|five|six|seven|eight|nine|ten)\.times|twice)", command)
+    return re.match(r"repeated\.((\d+|three|four|five|six|seven|eight|nine|ten)\.times|twice)$", command)
 
   def match(self, command):
     return self._match(command) is not None
@@ -922,7 +1240,7 @@ class RepeatedHandler(TextOperationHandler):
 
 class CopyLastObjectHandler(Handler):
   def _match(self, command):
-    return re.match(r"copy\.last(?:\.(\d+|two|three|four|five|six|seven|eight|nine|ten))?\.objects?(?:\.((\d+|three|four|five|six|seven|eight|nine|ten)\.times|twice))?", command)
+    return re.match(r"copy\.last(?:\.(\d+|two|three|four|five|six|seven|eight|nine|ten))?\.objects?(?:\.((\d+|three|four|five|six|seven|eight|nine|ten)\.times|twice))?$", command)
 
   def match(self, command):
     return self._match(command) is not None
@@ -990,10 +1308,60 @@ class CopyLastObjectHandler(Handler):
         context._state["refered_to"].append(new_item)
 
 
+class CopyThemHandler(Handler):
+  def match(self, command):
+    return command == "copy.them" or command == "copy.it"
+
+  def __call__(self, context, command):
+    target = context._state["refered_to"]
+    if isinstance(target, list):
+      copied = [copy.deepcopy(item) for item in target]
+      for item in copied:
+        if "id" in item:
+          item["id"] = getid()
+      for item in copied:
+        context._picture.append(item)
+      context._state["refered_to"] = copied
+    else:
+      copied = copy.deepcopy(target)
+      if "id" in copied:
+        copied["id"] = getid()
+      context._picture.append(copied)
+      context._state["refered_to"] = copied
+    context._state["filter_mode"] = False
+
+
+class CopyStyleFromHandler(Handler):
+  def _match(self, command):
+    return re.match(r"copy\.style\.from\.([\w\.]+)", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    name = m.group(1)
+    obj = DirectionOfHandler.find_object_with_name(context, name)
+    target = context._state["refered_to"]
+    if isinstance(target, list):
+      for item in target:
+        self._handle(item, obj)
+    else:
+      self._handle(target, obj)
+
+  def _handle(self, target, obj):
+    for key in ["color", "line.width", "rounded.corners", "fill",
+                "scale", "rotate", "circle", "inner.sep", "text",
+                "width", "height", "shape", "dashed", "font", "draw"]:
+      if key in obj:
+        target[key] = obj[key]
+
+
 class RespectivelyWithHandler(Handler):
   def _match(self, command):
     return re.match(
-      r"(?:(?:and|that)\.)?respectively\.(?:with|have|are|set|make\.them|make\.their)\.([\w\.]+)?",
+      r"(?:(?:and|that)\.)?respectively\.(?:with|have|are|set|make\.them|make\.their)\.([\w\.]+)?$",
       command)
   
   def match(self, command):
@@ -1021,7 +1389,7 @@ class RespectivelyWithHandler(Handler):
 
 class RespectivelyAtHandler(Handler):
   def _match(self, command):
-    return re.match(r"respectively.at", command)
+    return re.match(r"respectively.at$", command)
 
   def match(self, command):
     return self._match(command) is not None
@@ -1032,7 +1400,7 @@ class RespectivelyAtHandler(Handler):
     context._state["to_set_objects"] = [item for item in context._state["refered_to"]]
 
   def process_text(self, context, text):
-    m = re.match(r"x\.(\-?[\w\.]+)\.y\.(\-?[\w\.]+)", text)
+    m = re.match(r"x\.(\-?[\w\.]+)\.y\.(\-?[\w\.]+)$", text)
     if m is not None:
       context._state["to_set_objects"][0]["at"] = {
         "type": "coordinate",
@@ -1041,7 +1409,7 @@ class RespectivelyAtHandler(Handler):
       }
       context._state["to_set_objects"] = context._state["to_set_objects"][1:]
       return
-    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)", text)
+    m = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", text)
     if m is not None:
       context._state["to_set_objects"][0]["at"] = {
         "type": "nodename",
@@ -1066,9 +1434,9 @@ class RangeHandler(TextOperationHandler):
     """
     if not isinstance(context._last_handler, TextOperationHandler):
       context._state["handler_to_repeat"] = context._last_handler
-      context._state["expect_range"] = True
     else:
       assert "handler_to_repeat" in context._state
+    context._state["expect_range"] = True
 
   def process_text(self, context, text):
     if context._state["expect_range"]:
