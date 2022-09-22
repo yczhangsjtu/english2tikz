@@ -13,6 +13,7 @@ class BoxRenderer(Renderer):
   whitelist = set([
     "color", "line.width", "rounded.corners", "fill", "xshift", "yshift",
     "scale", "rotate", "circle", "inner.sep", "shape", "dashed", "font",
+    "text.width",
   ] + colors)
   directions = set([
     "above", "below", "left", "right",
@@ -114,6 +115,8 @@ class PathRenderer(Renderer):
       options["<->"] = True
     if "double.stealth" in obj:
       options["stealth-stealth"] = True
+    if "inner.sep" not in obj and "inner sep" in options:
+      del options["inner sep"]
     return r"\path[{}] {};".format(
       dump_options(options),
       " ".join(
@@ -173,6 +176,31 @@ class LineRenderer(Renderer):
       ret = ["to [{}]".format(dump_options(options))]
     else:
       ret = ["--"]
+
+    if "annotates" in obj:
+      for annotate in obj["annotates"]:
+        options = BoxRenderer.prepare_options(annotate)
+        if "sloped" in annotate:
+          options["sloped"] = annotate["sloped"]
+        for annotate_pos in LineRenderer.annotate_positions:
+          if annotate_pos in annotate:
+            options[annotate_pos] = annotate[annotate_pos]
+        if "draw" in annotate:
+          options["draw"] = annotate["draw"]
+        if len(options) > 0:
+          ret.append(r"node[{options}] ({id}) {{{text}}}".format(
+            **annotate, options=dump_options(options)))
+        else:
+          ret.append(r"node ({id}) {{{text}}}".format(**annotate))
+    return " ".join(ret)
+
+
+class VerticalHorizontalRenderer(Renderer):
+  def match(self, obj):
+    return "type" in obj and obj["type"] == "vertical.horizontal"
+  
+  def render(self, obj):
+    ret = ["|-"]
 
     if "annotates" in obj:
       for annotate in obj["annotates"]:

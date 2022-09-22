@@ -267,7 +267,7 @@ class WithAttributeHandler(Handler):
   ]
   def _match(self, command):
     return re.match(
-      r"(?:(?:and|that)\.)?(?:without|with|where|has|have|is|are|set|let|make\.it|make\.them)\.([\w\.]+)(?:=([\w\.!\-]+))?$",
+      r"(?:(?:and|that)\.)?(?:without|with|where|has|have|is|are|set|let|make\.it|make\.them)\.([\w\.]+)(?:=([\w\.!\-\(\),]+))?$",
       command)
   
   def match(self, command):
@@ -290,6 +290,10 @@ class WithAttributeHandler(Handler):
     value = m.group(2)
     if value is None:
       value = True
+    if isinstance(value, str):
+      m = re.match(r"rgb\((\d+),(\d+),(\d+)\)", value)
+      if m is not None:
+        value = f"{{rgb,255:red,{m.group(1)};green,{m.group(2)};blue,{m.group(3)}}}"
     
     if filter_mode:
       assert isinstance(context._state["refered_to"], list)
@@ -360,6 +364,11 @@ class DirectionOfHandler(Handler):
   
   def _handle(self, context, target, direction, name):
     target[direction] = DirectionOfHandler.find_object_with_name(context, name)["id"]
+    for other_direction in ["above", "below", "left", "right",
+                            "above.left", "above.right",
+                            "below.left", "below.right"]:
+      if other_direction != direction and other_direction in target:
+        del target[other_direction]
   
   def find_object_with_name(context, name):
     for item in reversed(context._picture):
@@ -374,6 +383,23 @@ class DirectionOfHandler(Handler):
               if "name" in annotate and annotate["name"] == name:
                 return annotate
     raise Exception(f"Cannot find object with name {name}")
+
+
+class NoSlopeHandler(Handler):
+  def match(self, command):
+    return command == "no.slope" or command == "without.slope"
+
+  def __call__(self, context, command):
+    target = context._state["refered_to"]
+    if isinstance(target, list):
+      for item in target:
+        self._handle(item)
+    else:
+      self._handle(target)
+
+  def _handle(self, target):
+    if "sloped" in target:
+      del target["sloped"]
 
 
 class ByHandler(Handler):
@@ -663,6 +689,65 @@ class RectangleVerticalToByHandler(Handler):
     })
 
 
+class RectangleToNodeShiftedHandler(Handler):
+  def _match(self, command):
+    return re.match(r"rectangle\.to\.([\w\.]+)\.shifted\.by(?:\.x\.(\-?[\w\.]+))?(?:\.y\.(\-?[\w\.]+))?$", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    node, x, y = m.group(1), m.group(2), m.group(3)
+    start_point_id = getid()
+    context._state["the_path"]["items"].append({
+      "type": "point",
+      "id": start_point_id,
+    })
+
+    m = re.match(
+      r"([\w\.]+?)\.(south|north|east|west|south.west|south.east|north.west|north.east)$", node)
+    if m:
+      obj = {
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, m.group(1))["id"],
+        "anchor": m.group(2),
+      }
+    else:
+      obj = {
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, node)["id"],
+      }
+    context._state["the_path"]["items"].append(obj)
+    context._state["the_path"]["items"].append({
+      "type": "coordinate",
+      "x": x if x is not None else "0",
+      "y": y if y is not None else "0",
+      "relative": True,
+    })
+
+    end_point_id = getid()
+    context._state["the_path"]["items"].append({
+      "type": "point",
+      "id": end_point_id,
+    })
+
+    context._state["the_path"]["items"].append({
+      "type": "nodename",
+      "name": start_point_id,
+    })
+
+    context._state["the_path"]["items"].append({
+      "type": "rectangle",
+    })
+
+    context._state["the_path"]["items"].append({
+      "type": "nodename",
+      "name": end_point_id,
+    })
+
+
 class LineToNodeHandler(Handler):
   def _match(self, command):
     return re.match(r"(?:\-\->?|(?:line|point)\.to\.)([\w\.]+)$", command)
@@ -818,10 +903,20 @@ class LineDirectionHandler(Handler):
 
 class LineToHandler(Handler):
   def match(self, command):
-    return command == "--" or command == "line.to"
+    return command == "--" or command == "line.to" or command == "line"
   
   def __call__(self, context, command):
     line = {"type": "line"}
+    context._state["the_path"]["items"].append(line)
+    context._state["the_line"] = line
+
+
+class VerticalHorizontalToHandler(Handler):
+  def match(self, command):
+    return command == "|-" or command == "vertical.horizontal.to" or command == "vertical.horizontal"
+  
+  def __call__(self, context, command):
+    line = {"type": "vertical.horizontal"}
     context._state["the_path"]["items"].append(line)
     context._state["the_line"] = line
 

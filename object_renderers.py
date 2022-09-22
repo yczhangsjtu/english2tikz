@@ -97,6 +97,10 @@ class GridObjectRenderer(ObjectRenderer):
       for j in range(w):
         nodes[i][j]["row"] = i
         nodes[i][j]["col"] = j
+        if i == h - 1:
+          nodes[i][j]["last.row"] = True
+        if j == w - 1:
+          nodes[i][j]["last.col"] = True
         if i % 2 == 0:
           nodes[i][j]["even.row"] = True
         else:
