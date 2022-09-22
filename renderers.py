@@ -32,11 +32,15 @@ class BoxRenderer(Renderer):
            if name in BoxRenderer.whitelist}
     for direction in BoxRenderer.directions:
       if direction in obj:
-        if "distance" in obj:
-          distance = obj["distance"].replace(".and.", " and ")
-          ret[direction.replace(".", " ")] = f"{distance} of {obj[direction]}"
+        if isinstance(obj[direction], str):
+          if "distance" in obj:
+            distance = obj["distance"].replace(".and.", " and ")
+            ret[direction.replace(".", " ")] = f"{distance} of {obj[direction]}"
+          else:
+            ret[direction.replace(".", " ")] = f"of {obj[direction]}"
         else:
-          ret[direction.replace(".", " ")] = f"of {obj[direction]}"
+          ret[direction.replace(".", " ")] = True
+        break
     if "anchor" in obj:
       ret["anchor"] = obj["anchor"].replace(".", " ")
     if "at" in obj:
@@ -118,6 +122,26 @@ class PathRenderer(Renderer):
     )
 
 
+class BraceRenderer(Renderer):
+  def __init__(self, context):
+    self._context = context
+    
+  def match(self, obj):
+    return "type" in obj and obj["type"] == "brace"
+  
+  def render(self, obj):
+    options = BoxRenderer.prepare_options(obj)
+    options["draw"] = True
+    options["decorate"] = True
+    options["decoration"] = "{brace}"
+    return r"\path[{}] {};".format(
+      dump_options(options),
+      " ".join(
+        [self._context._render(item) for item in obj["items"]]
+      )
+    )
+
+
 class NodeNameRenderer(Renderer):
   def match(self, obj):
     return "type" in obj and obj["type"] == "nodename"
@@ -129,6 +153,12 @@ class NodeNameRenderer(Renderer):
 
 
 class LineRenderer(Renderer):
+  annotate_positions =  set([
+    "midway", "pos",
+    "near.end", "near.start",
+    "very.near.end", "very.near.start",
+    "at.end", "at.start"
+  ])
   def match(self, obj):
     return "type" in obj and obj["type"] == "line"
   
@@ -149,10 +179,9 @@ class LineRenderer(Renderer):
         options = BoxRenderer.prepare_options(annotate)
         if "sloped" in annotate:
           options["sloped"] = annotate["sloped"]
-        if "midway" in annotate:
-          options["midway"] = annotate["midway"]
-        if "above" in annotate:
-          options["above"] = annotate["above"]
+        for annotate_pos in LineRenderer.annotate_positions:
+          if annotate_pos in annotate:
+            options[annotate_pos] = annotate[annotate_pos]
         if "draw" in annotate:
           options["draw"] = annotate["draw"]
         if len(options) > 0:

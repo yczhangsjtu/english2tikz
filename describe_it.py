@@ -139,6 +139,7 @@ class DescribeIt(object):
     self.register_handler(LineDirectionHandler())
     self.register_handler(CopyThemHandler())
     self.register_handler(CopyStyleFromHandler())
+    self.register_handler(DrawBraceHandler())
     
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())
@@ -150,6 +151,7 @@ class DescribeIt(object):
     self.register_renderer(CoordinateRenderer())
     self.register_renderer(PointRenderer())
     self.register_renderer(RectangleRenderer())
+    self.register_renderer(BraceRenderer(self))
 
   def register_object_handler(self, handler):
     self._there_is_handler.register_object_handler(handler)

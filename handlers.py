@@ -252,6 +252,19 @@ class CloseInHandler(Handler):
 
 
 class WithAttributeHandler(Handler):
+  mutually_exclusive = [
+    set([
+      "above", "below", "left", "right",
+      "below.left", "below.right",
+      "above.left", "above.right",
+    ]),
+    set([
+      "midway", "pos",
+      "near.end", "near.start",
+      "very.near.end", "very.near.start",
+      "at.end", "at.start"
+    ]),
+  ]
   def _match(self, command):
     return re.match(
       r"(?:(?:and|that)\.)?(?:without|with|where|has|have|is|are|set|let|make\.it|make\.them)\.([\w\.]+)(?:=([\w\.!\-]+))?$",
@@ -293,9 +306,17 @@ class WithAttributeHandler(Handler):
     target = context._state["refered_to"]
     if isinstance(target, list):
       for item in target:
-        item[key] = value
+        self._handle(item, key, value)
     else:
-      target[key] = value
+      self._handle(target, key, value)
+
+  def _handle(self, target, key, value):
+    target[key] = value
+    for me in WithAttributeHandler.mutually_exclusive:
+      if key in me:
+        for other_key in me:
+          if other_key != key and other_key in target:
+            del target[other_key]
 
 
 class ThereIsTextHandler(Handler):
@@ -430,6 +451,21 @@ class DrawHandler(Handler):
     path = {
       "type": "path",
       "draw": True,
+      "items": []
+    }
+    context._picture.append(path)
+    context._state["refered_to"] = path
+    context._state["the_path"] = path
+    context._state["filter_mode"] = False
+
+
+class DrawBraceHandler(Handler):
+  def match(self, command):
+    return command == "draw.brace"
+  
+  def __call__(self, context, command):
+    path = {
+      "type": "brace",
       "items": []
     }
     context._picture.append(path)
