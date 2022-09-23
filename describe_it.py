@@ -2,6 +2,7 @@ import json
 import re
 from .handlers import *
 from .renderers import *
+from .preprocessor import *
 
 
 class DescribeIt(object):
@@ -11,8 +12,10 @@ class DescribeIt(object):
     self._history = []
     self._handlers = []
     self._renderers = []
+    self._preprocessors = []
     self._register_fundamental_handlers()
     self._register_fundamental_renderers()
+    self._register_fundamental_preprocessors()
     self._last_handler = None
     self._scale = 1
   
@@ -21,9 +24,15 @@ class DescribeIt(object):
         command_or_text.endswith('"')) or \
        (command_or_text.startswith("'") and
         command_or_text.endswith("'")):
-      text = command_or_text[1:-1]
+      """
+      This is a string. Pass it to the string processor
+      of the handler for the last command
+      """
       if self._last_handler is None:
         raise Exception("Cannot start with text")
+      text = command_or_text[1:-1]
+      for preprocessor in self._preprocessors:
+        text = preprocessor.preprocess_text(text)
       self._last_handler.process_text(self, text)
       self._last_text = text
       self._last_is_text = True
@@ -32,6 +41,8 @@ class DescribeIt(object):
       return
     command = command_or_text
     for handler in reversed(self._handlers):
+      for preprocessor in self._preprocessors:
+        command = preprocessor.preprocess_command(command)
       if handler.match(command):
         handler(self, command)
         self._history.append(command)
@@ -69,6 +80,10 @@ class DescribeIt(object):
   def register_renderer(self, renderer):
     assert isinstance(renderer, Renderer)
     self._renderers.append(renderer)
+
+  def register_preprocessor(self, preprocessor):
+    assert isinstance(preprocessor, Preprocessor)
+    self._preprocessors.append(preprocessor)
   
   def parse(self, code):
     code = code.strip()
@@ -148,6 +163,7 @@ class DescribeIt(object):
     self.register_handler(RectangleToNodeShiftedHandler())
     self.register_handler(NoSlopeHandler())
     self.register_handler(VerticalHorizontalToHandler())
+    self.register_handler(DefineCommandHandler())
     
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())
@@ -162,8 +178,15 @@ class DescribeIt(object):
     self.register_renderer(BraceRenderer(self))
     self.register_renderer(VerticalHorizontalRenderer())
 
+  def _register_fundamental_preprocessors(self):
+    self._custom_command_preprocessor = CustomCommandPreprocessor()
+    self.register_preprocessor(self._custom_command_preprocessor)
+
   def register_object_handler(self, handler):
     self._there_is_handler.register_object_handler(handler)
 
   def register_object_renderer(self, renderer):
     self._there_is_handler.register_object_renderer(renderer)
+
+  def define(self, command, text):
+    self._custom_command_preprocessor.define(command, text)

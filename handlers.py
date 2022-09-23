@@ -28,6 +28,22 @@ class GlobalHandler(Handler):
     raise Exception(f"Unsupported command: {command}")
 
 
+class DefineCommandHandler(Handler):
+  def _match(self, command):
+    return re.match(r"define\.([A-Za-z0-9]+)", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    self._to_define_command = m.group(1)
+
+  def process_text(self, context, text):
+    context.define(self._to_define_command, text)
+
+
 class ThereIsHandler(Handler):
   def __init__(self):
     self._object_handlers = []
