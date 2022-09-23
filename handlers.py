@@ -1652,3 +1652,226 @@ class RangeHandler(TextOperationHandler):
       raise Exception(f"No range found in text: {original_text}")
     return [''.join([r if isinstance(r, str) else str(r[i]) for r in ranges])
             for i in range(repeated)]
+
+
+class DynamicGridHandler(Handler):
+  def _match(self, command):
+    return re.match(
+        r"there\.is\.dynamic\.grid(?:\.aligned\.(top|center|bottom)\.(left|center|right))\.with\.id.([\w\.]+)$",
+        command)
+
+  def match(self, command):
+    return self._match(command)
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    v_align, h_align, id_ = m.group(1), m.group(2), m.group(3)
+    h_align = h_align if h_align is not None else "center"
+    v_align = v_align if v_align is not None else "center"
+    origin_id = getid()
+    context._state[f"dynamic.grid.{id_}"] = {
+      "node.ids": [[origin_id]],
+      "col.aligns": [h_align],
+      "row.aligns": [v_align],
+    }
+    origin = {
+      "id": origin_id,
+      "type": "text",
+      "text": "",
+      "grid.id": id_,
+      "col": 0,
+      "row": 0,
+    }
+    context._picture.append(origin)
+    context._state["refered_to"] = origin
+    context._state["filter_mode"] = False
+
+
+class AddRowHandler(Handler):
+  def _match(self, command):
+    return re.match(
+        r"add\.row(?:\.aligned\.(top|center|bottom))\.to\.grid\.([\w\.]+)$",
+        command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    align, id_ = m.group(1), m.group(2)
+    align = align if align is not None else "center"
+    key = f"dynamic.grid.{id_}"
+    if key not in context._state:
+      raise Exception(f"Dynamic grid {id_} is not created yet")
+    grid = context._state[key]
+    nrows = len(grid["row.aligns"])
+    ncols = len(grid["col.aligns"])
+    assert nrows == len(grid["node.ids"])
+    assert ncols == len(grid["node.ids"][0])
+    grid["row.aligns"].append(align)
+    node_ids, nodes = [], []
+    for i in range(ncols):
+      node_id = getid()
+      node = {
+          "id": node_id,
+          "type": "text",
+          "text": "",
+          "grid.id": id_,
+          "col": i,
+          "row": nrows,
+      }
+      h_align = grid["col.aligns"][i]
+      if i == 0:
+        node["at"] = grid["node.ids"][-1][0]
+        if h_align == "left":
+          node["anchor"] = "north.west"
+          node["at.anchor"] = "south.west"
+        elif h_align == "center":
+          node["anchor"] = "north"
+          node["at.anchor"] = "south"
+        elif h_align == "right":
+          node["anchor"] = "north.east"
+          node["at.anchor"] = "south.east"
+      else:
+        intersection = {
+          "type": "intersection",
+          "name1": grid["node.ids"][0][i],
+          "name2": node_ids[0],
+        }
+        if align == "top":
+          intersection["anchor2"] = "north"
+          if h_align == "left":
+            node["anchor"] = "north.west"
+            intersection["anchor1"] = "west"
+          elif h_align == "center":
+            node["anchor"] = "north"
+            intersection["anchor1"] = "center"
+          elif h_align == "right":
+            node["anchor"] = "north.east"
+            intersection["anchor1"] = "east"
+        elif align == "center":
+          intersection["anchor2"] = "center"
+          if h_align == "left":
+            node["anchor"] = "west"
+            intersection["anchor1"] = "west"
+          elif h_align == "center":
+            node["anchor"] = "center"
+            intersection["anchor1"] = "center"
+          elif h_align == "right":
+            node["anchor"] = "east"
+            intersection["anchor1"] = "east"
+        elif align == "bottom":
+          intersection["anchor2"] = "south"
+          if h_align == "left":
+            node["anchor"] = "south.west"
+            intersection["anchor1"] = "west"
+          elif h_align == "center":
+            node["anchor"] = "south"
+            intersection["anchor1"] = "center"
+          elif h_align == "right":
+            node["anchor"] = "south.east"
+            intersection["anchor1"] = "east"
+        node["at"] = intersection
+      context._picture.append(node)
+      node_ids.append(node_id)
+      nodes.append(node)
+    grid["node.ids"].append(node_ids)
+    context._state["refered_to"] = nodes
+    context._state["filter_mode"] = False
+
+
+class AddColHandler(Handler):
+  def _match(self, command):
+    return re.match(
+        r"add\.column(?:\.aligned\.(left|center|right))\.to\.grid\.([\w\.]+)$",
+        command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    align, id_ = m.group(1), m.group(2)
+    align = align if align is not None else "center"
+    key = f"dynamic.grid.{id_}"
+    if key not in context._state:
+      raise Exception(f"Dynamic grid {id_} is not created yet")
+    grid = context._state[key]
+    nrows = len(grid["row.aligns"])
+    ncols = len(grid["col.aligns"])
+    assert nrows == len(grid["node.ids"])
+    assert ncols == len(grid["node.ids"][0])
+    grid["col.aligns"].append(align)
+    node_ids, nodes = [], []
+    for i in range(nrows):
+      node_id = getid()
+      node = {
+          "id": node_id,
+          "type": "text",
+          "text": "",
+          "grid.id": id_,
+          "col": ncols,
+          "row": i,
+      }
+      v_align = grid["row.aligns"][i]
+      if i == 0:
+        node["at"] = grid["node.ids"][0][-1]
+        if v_align == "top":
+          node["anchor"] = "north.west"
+          node["at.anchor"] = "north.east"
+        elif v_align == "center":
+          node["anchor"] = "west"
+          node["at.anchor"] = "east"
+        elif v_align == "bottom":
+          node["anchor"] = "south.west"
+          node["at.anchor"] = "south.east"
+      else:
+        intersection = {
+          "type": "intersection",
+          "name1": node_ids[0],
+          "name2": grid["node.ids"][i][0],
+        }
+        if v_align == "top":
+          intersection["anchor2"] = "north"
+          if align == "left":
+            node["anchor"] = "north.west"
+            intersection["anchor1"] = "west"
+          elif align == "center":
+            node["anchor"] = "north"
+            intersection["anchor1"] = "center"
+          elif align == "right":
+            node["anchor"] = "north.east"
+            intersection["anchor1"] = "east"
+        elif v_align == "center":
+          intersection["anchor2"] = "center"
+          if align == "left":
+            node["anchor"] = "west"
+            intersection["anchor1"] = "west"
+          elif align == "center":
+            node["anchor"] = "center"
+            intersection["anchor1"] = "center"
+          elif align == "right":
+            node["anchor"] = "east"
+            intersection["anchor1"] = "east"
+        elif v_align == "bottom":
+          intersection["anchor2"] = "south"
+          if align == "left":
+            node["anchor"] = "south.west"
+            intersection["anchor1"] = "west"
+          elif align == "center":
+            node["anchor"] = "south"
+            intersection["anchor1"] = "center"
+          elif align == "right":
+            node["anchor"] = "south.east"
+            intersection["anchor1"] = "east"
+        node["at"] = intersection
+      context._picture.append(node)
+      node_ids.append(node_id)
+      nodes.append(node)
+    for i in range(nrows):
+      grid["node.ids"][i].append(node_ids[i])
+    context._state["refered_to"] = nodes
+    context._state["filter_mode"] = False

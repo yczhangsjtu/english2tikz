@@ -164,6 +164,9 @@ class DescribeIt(object):
     self.register_handler(NoSlopeHandler())
     self.register_handler(VerticalHorizontalToHandler())
     self.register_handler(DefineCommandHandler())
+    self.register_handler(DynamicGridHandler())
+    self.register_handler(AddRowHandler())
+    self.register_handler(AddColHandler())
     
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())
