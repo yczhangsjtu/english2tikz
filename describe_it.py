@@ -14,6 +14,7 @@ class DescribeIt(object):
     self._register_fundamental_handlers()
     self._register_fundamental_renderers()
     self._last_handler = None
+    self._scale = 1
   
   def process(self, command_or_text):
     if (command_or_text.startswith('"') and
@@ -54,9 +55,12 @@ class DescribeIt(object):
       if rendered is None:
         raise Exception(f"Object not supported by any render: {json.dumps(obj)}")
       paths.append(rendered)
-    return r"""\begin{tikzpicture}
+    ret = r"""\begin{tikzpicture}
   %s
 \end{tikzpicture}""" % "\n  ".join(paths)
+    if self._scale != 1:
+      ret = f"\\scalebox{{{self._scale}}}{{{ret}}}"
+    return ret
   
   def register_handler(self, handler):
     assert isinstance(handler, Handler)
@@ -97,6 +101,7 @@ class DescribeIt(object):
       
   def _register_fundamental_handlers(self):
     self._there_is_handler = ThereIsHandler()
+    self.register_handler(GlobalHandler())
     self.register_handler(WithAttributeHandler())
     self.register_handler(self._there_is_handler)
     self.register_handler(ThereIsTextHandler())

@@ -15,6 +15,19 @@ class Handler(object):
     raise Exception("This handler does not support handling text")
 
 
+class GlobalHandler(Handler):
+  def match(self, command):
+    return command.startswith("global.")
+
+  def __call__(self, context, command):
+    m = re.match(r"global\.scale\.([\d\.]+)$", command)
+    if m:
+      context._scale = m.group(1)
+      return
+
+    raise Exception(f"Unsupported command: {command}")
+
+
 class ThereIsHandler(Handler):
   def __init__(self):
     self._object_handlers = []
