@@ -1819,11 +1819,14 @@ class RunMacroHandler(Handler):
       if not matched:
         raise Exception(f"Unsupported command: {command}")
 
-    context.last_handler = last_handler_backup
-    context.last_text = last_text_backup
-    context.last_is_text = last_is_text_backup
-    context.last_is_command = last_is_command_backup
-    context.last_command_or_text = last_command_or_text_backup
+    if context._last_handler is not None:
+      context._last_handler.on_finished(context)
+
+    context._last_handler = last_handler_backup
+    context._last_text = last_text_backup
+    context._last_is_text = last_is_text_backup
+    context._last_is_command = last_is_command_backup
+    context._last_command_or_text = last_command_or_text_backup
 
 
 class DynamicGridHandler(Handler):
