@@ -166,8 +166,8 @@ class CommentPreprocessor(Preprocessor):
   ACTIVE_ONCE = 2
   def __init__(self):
     self._mode = CommentPreprocessor.NORMAL
-    self._comment_start_mark = "/*"
-    self._comment_end_mark = "*/"
+    self._comment_start_mark = "###"
+    self._comment_end_mark = "###"
     self._one_time_comment_mark = "//"
 
   def preprocess_command(self, command):
