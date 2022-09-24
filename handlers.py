@@ -71,6 +71,17 @@ class ReplaceHandler(Handler):
         context.replace_text(self.pattern, text, self.regexp)
 
 
+class CommentHandler(Handler):
+  def match(self, command):
+    return command == "comment"
+
+  def __call__(self, context, command):
+    pass
+
+  def process_text(self, context, text):
+    pass
+
+
 class ThereIsHandler(Handler):
   def __init__(self):
     self._object_handlers = []
@@ -1684,7 +1695,7 @@ class RangeHandler(TextOperationHandler):
 class DynamicGridHandler(Handler):
   def _match(self, command):
     return re.match(
-        r"there\.is\.dynamic\.grid(?:\.aligned\.(top|center|bottom)\.(left|center|right))\.with\.id.([\w\.]+)$",
+        r"there\.is\.dynamic\.grid(?:\.aligned\.(top|center|bottom)\.(left|center|right))?\.with\.id.([\w\.]+)$",
         command)
 
   def match(self, command):
@@ -1718,7 +1729,7 @@ class DynamicGridHandler(Handler):
 class AddRowHandler(Handler):
   def _match(self, command):
     return re.match(
-        r"add\.row(?:\.aligned\.(top|center|bottom))\.to\.grid\.([\w\.]+)$",
+        r"add\.row(?:\.aligned\.(top|center|bottom))?\.to\.grid\.([\w\.]+)$",
         command)
 
   def match(self, command):
@@ -1812,7 +1823,7 @@ class AddRowHandler(Handler):
 class AddColHandler(Handler):
   def _match(self, command):
     return re.match(
-        r"add\.column(?:\.aligned\.(left|center|right))\.to\.grid\.([\w\.]+)$",
+        r"add\.column(?:\.aligned\.(left|center|right))?\.to\.grid\.([\w\.]+)$",
         command)
 
   def match(self, command):

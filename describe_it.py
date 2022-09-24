@@ -168,6 +168,7 @@ class DescribeIt(object):
     self.register_handler(AddRowHandler())
     self.register_handler(AddColHandler())
     self.register_handler(ReplaceHandler())
+    self.register_handler(CommentHandler())
     
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())
@@ -187,6 +188,7 @@ class DescribeIt(object):
     self.register_preprocessor(self._custom_command_preprocessor)
     self._replace_preprocessor = ReplacePreprocessor()
     self.register_preprocessor(self._replace_preprocessor)
+    self.register_preprocessor(CommentPreprocessor())
 
   def register_object_handler(self, handler):
     self._there_is_handler.register_object_handler(handler)

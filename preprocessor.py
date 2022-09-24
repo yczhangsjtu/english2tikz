@@ -158,3 +158,34 @@ class ReplacePreprocessor(Preprocessor):
       pattern = re.compile(pattern)
     self._command_replaces.append((pattern, repl))
     self._text_replaces.append((pattern, repl))
+
+
+class CommentPreprocessor(Preprocessor):
+  NORMAL = 0
+  ACTIVE = 1
+  ACTIVE_ONCE = 2
+  def __init__(self):
+    self._mode = CommentPreprocessor.NORMAL
+    self._comment_start_mark = "/*"
+    self._comment_end_mark = "*/"
+    self._one_time_comment_mark = "//"
+
+  def preprocess_command(self, command):
+    if self._mode == CommentPreprocessor.NORMAL:
+      if command.startswith(self._comment_start_mark):
+        self._mode = CommentPreprocessor.ACTIVE
+        return "comment"
+      if command == self._one_time_comment_mark:
+        self._mode = CommentPreprocessor.ACTIVE_ONCE
+        return "comment"
+      if command.startswith(self._one_time_comment_mark):
+        return "comment"
+      return command
+    if self._mode == CommentPreprocessor.ACTIVE:
+      if command.endswith(self._comment_end_mark):
+        self._mode = CommentPreprocessor.NORMAL
+      return "comment"
+    if self._mode == CommentPreprocessor.ACTIVE_ONCE:
+      self._mode = CommentPreprocessor.NORMAL
+      return "comment"
+    raise Exception(f"Invalid comment mode {self._mode}")
