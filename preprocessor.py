@@ -120,3 +120,41 @@ class CustomCommandPreprocessor(Preprocessor):
         raise Exception(f"Impossible mode {mode}")
 
       label, token, line = CustomCommandPreprocessor.tokenize(line)
+
+
+class ReplacePreprocessor(Preprocessor):
+  def __init__(self):
+    self._command_replaces = []
+    self._text_replaces = []
+
+  def preprocess_command(self, command):
+    for replace, repl in self._command_replaces:
+      if isinstance(replace, str):
+        command = command.replace(replace, repl)
+      else:
+        command = replace.sub(repl, command)
+    return command
+
+  def preprocess_text(self, text):
+    for replace, repl in self._text_replaces:
+      if isinstance(replace, str):
+        text = text.replace(replace, repl)
+      else:
+        text = replace.sub(repl, text)
+    return text
+
+  def add_replace_command(self, pattern, repl, regexp=True):
+    if regexp:
+      pattern = re.compile(pattern)
+    self._command_replaces.append((pattern, repl))
+
+  def add_replace_text(self, pattern, repl, regexp=True):
+    if regexp:
+      pattern = re.compile(pattern)
+    self._text_replaces.append((pattern, repl))
+
+  def add_replace_command_and_text(self, pattern, repl, regexp=True):
+    if regexp:
+      pattern = re.compile(pattern)
+    self._command_replaces.append((pattern, repl))
+    self._text_replaces.append((pattern, repl))

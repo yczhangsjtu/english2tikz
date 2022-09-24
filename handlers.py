@@ -30,7 +30,7 @@ class GlobalHandler(Handler):
 
 class DefineCommandHandler(Handler):
   def _match(self, command):
-    return re.match(r"define\.([A-Za-z0-9]+)", command)
+    return re.match(r"define\.([A-Za-z0-9]+)$", command)
 
   def match(self, command):
     return self._match(command) is not None
@@ -42,6 +42,33 @@ class DefineCommandHandler(Handler):
 
   def process_text(self, context, text):
     context.define(self._to_define_command, text)
+
+
+class ReplaceHandler(Handler):
+  def _match(self, command):
+    return re.match(r"replace(\.command)?(\.text)?\.([\w\.]+)?$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    self.repl_command = m.group(1) is not None
+    self.repl_text = m.group(2) is not None
+    assert self.repl_text or self.repl_command
+    self.pattern = m.group(3)
+    self.regexp = False
+
+  def process_text(self, context, text):
+    if self.pattern is None:
+      self.pattern = text
+      self.regexp = True
+    else:
+      if self.repl_command:
+        context.replace_command(self.pattern, text, self.regexp)
+      if self.repl_text:
+        context.replace_text(self.pattern, text, self.regexp)
 
 
 class ThereIsHandler(Handler):

@@ -40,9 +40,9 @@ class DescribeIt(object):
       self._last_command_or_text = command_or_text
       return
     command = command_or_text
+    for preprocessor in self._preprocessors:
+      command = preprocessor.preprocess_command(command)
     for handler in reversed(self._handlers):
-      for preprocessor in self._preprocessors:
-        command = preprocessor.preprocess_command(command)
       if handler.match(command):
         handler(self, command)
         self._history.append(command)
@@ -167,6 +167,7 @@ class DescribeIt(object):
     self.register_handler(DynamicGridHandler())
     self.register_handler(AddRowHandler())
     self.register_handler(AddColHandler())
+    self.register_handler(ReplaceHandler())
     
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())
@@ -184,6 +185,8 @@ class DescribeIt(object):
   def _register_fundamental_preprocessors(self):
     self._custom_command_preprocessor = CustomCommandPreprocessor()
     self.register_preprocessor(self._custom_command_preprocessor)
+    self._replace_preprocessor = ReplacePreprocessor()
+    self.register_preprocessor(self._replace_preprocessor)
 
   def register_object_handler(self, handler):
     self._there_is_handler.register_object_handler(handler)
@@ -193,3 +196,12 @@ class DescribeIt(object):
 
   def define(self, command, text):
     self._custom_command_preprocessor.define(command, text)
+
+  def replace_command(self, pattern, repl, regexp=True):
+    self._replace_preprocessor.add_replace_command(pattern, repl, regexp)
+
+  def replace_text(self, pattern, repl, regexp=True):
+    self._replace_preprocessor.add_replace_text(pattern, repl, regexp)
+
+  def replace_command_and_text(self, pattern, repl, regexp=True):
+    self._replace_preprocessor.add_replace_command_and_text(pattern, repl, regexp)
