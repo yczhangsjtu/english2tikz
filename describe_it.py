@@ -121,6 +121,7 @@ class DescribeIt(object):
   def _register_fundamental_handlers(self):
     self._there_is_handler = ThereIsHandler()
     self.register_handler(GlobalHandler())
+    self.register_handler(ThisHandler())
     self.register_handler(WithAttributeHandler())
     self.register_handler(self._there_is_handler)
     self.register_handler(ThereIsTextHandler())

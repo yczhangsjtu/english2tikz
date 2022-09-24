@@ -116,8 +116,11 @@ class ThereIsHandler(Handler):
         else:
           context._picture.append(obj)
         context._state["refered_to"] = obj
-        break
-    context._state["filter_mode"] = False
+        if "type" in m:
+          context._state["the_" + m["type"]] = obj
+        context._state["filter_mode"] = False
+        return
+    raise Exception(f"No renderer found for the object {m}")
   
   def register_object_handler(self, handler):
     assert isinstance(handler, ObjectHandler)
@@ -522,7 +525,7 @@ class AnchorAtAnchorHandler(Handler):
 
 class ForAllHandler(Handler):
   def _match(self, command):
-    return re.match(r"for.all.([\w\.]+)$", command)
+    return re.match(r"for\.all\.([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -537,6 +540,20 @@ class ForAllHandler(Handler):
       if "type" in obj and obj["type"] == type_name
     ]
     context._state["filter_mode"] = True
+
+
+class ThisHandler(Handler):
+  def _match(self, command):
+    return re.match(r"this\.([\w\.]+)$", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    object_type = m.group(1)
+    context._state["refered_to"] = context._state["the_" + object_type]
 
 
 class DrawHandler(Handler):
@@ -1841,6 +1858,7 @@ class DynamicGridHandler(Handler):
     context._picture.append(origin)
     context._state["refered_to"] = origin
     context._state["filter_mode"] = False
+    context._state["this_grid"] = [origin]
 
 
 class AddRowHandler(Handler):
@@ -1935,6 +1953,7 @@ class AddRowHandler(Handler):
     grid["node.ids"].append(node_ids)
     context._state["refered_to"] = nodes
     context._state["filter_mode"] = False
+    context._state["this_grid"] += nodes
 
 
 class AddColHandler(Handler):
@@ -2030,3 +2049,4 @@ class AddColHandler(Handler):
       grid["node.ids"][i].append(node_ids[i])
     context._state["refered_to"] = nodes
     context._state["filter_mode"] = False
+    context._state["this_grid"] += nodes
