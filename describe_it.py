@@ -37,9 +37,11 @@ class DescribeIt(object):
       self._last_text = text
       self._last_is_text = True
       self._last_is_command = False
-      self._last_command_or_text = command_or_text
+      self._last_command_or_text = text
       return
     command = command_or_text
+    if self._last_handler is not None:
+      self._last_handler.on_finished(self)
     for preprocessor in self._preprocessors:
       command = preprocessor.preprocess_command(command)
     for handler in reversed(self._handlers):
@@ -49,7 +51,7 @@ class DescribeIt(object):
         self._last_handler = handler
         self._last_is_text = False
         self._last_is_command = True
-        self._last_command_or_text = command_or_text
+        self._last_command_or_text = command
         return
     raise Exception(f"Unsupported command: {command}")
   
@@ -113,6 +115,8 @@ class DescribeIt(object):
         continue
       self.process(code)
       break
+    if self._last_handler is not None:
+      self._last_handler.on_finished(self)
       
   def _register_fundamental_handlers(self):
     self._there_is_handler = ThereIsHandler()
@@ -169,6 +173,8 @@ class DescribeIt(object):
     self.register_handler(AddColHandler())
     self.register_handler(ReplaceHandler())
     self.register_handler(CommentHandler())
+    self.register_handler(DefineMacroHandler())
+    self.register_handler(RunMacroHandler())
     
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())
@@ -189,6 +195,8 @@ class DescribeIt(object):
     self._replace_preprocessor = ReplacePreprocessor()
     self.register_preprocessor(self._replace_preprocessor)
     self.register_preprocessor(CommentPreprocessor())
+    self._macro_preprocessor = MacroPreprocessor()
+    self.register_preprocessor(self._macro_preprocessor)
 
   def register_object_handler(self, handler):
     self._there_is_handler.register_object_handler(handler)

@@ -189,3 +189,38 @@ class CommentPreprocessor(Preprocessor):
       self._mode = CommentPreprocessor.NORMAL
       return "comment"
     raise Exception(f"Invalid comment mode {self._mode}")
+
+
+class MacroPreprocessor(Preprocessor):
+  def __init__(self):
+    self._commands = []
+    self._current_macro_defined = None
+    self._defined_macros = {}
+
+  def preprocess_command(self, command):
+    if self._current_macro_defined is None:
+      m = re.match("define.macro.([\w\.]+)$", command)
+      if m:
+        self._current_macro_defined = m.group(1)
+        return "macro.define"
+      else:
+        if command == "end.macro":
+          raise Exception("Cannot end macro outside macro definition")
+        return command
+
+    if command.startswith("define.macro"):
+      raise Exception("Cannot define macro inside macro definition")
+
+    if command == "end.macro":
+      self._defined_macros[self._current_macro_defined] = self._commands
+      self._commands = []
+      self._current_macro_defined = None
+      return "macro.define.end"
+
+    self._commands.append(("CMD", command))
+    return "macro.define"
+
+  def preprocess_text(self, text):
+    if self._current_macro_defined is not None:
+      self._commands.append(("TXT", text))
+    return text

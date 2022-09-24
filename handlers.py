@@ -12,7 +12,10 @@ class Handler(object):
     raise Exception("'__call__' cannot be invoked directly")
   
   def process_text(self, context, text):
-    raise Exception("This handler does not support handling text")
+    raise Exception(f"The handler {self.__class__} does not support handling text")
+
+  def on_finished(self, context):
+    pass
 
 
 class GlobalHandler(Handler):
@@ -1690,6 +1693,120 @@ class RangeHandler(TextOperationHandler):
       raise Exception(f"No range found in text: {original_text}")
     return [''.join([r if isinstance(r, str) else str(r[i]) for r in ranges])
             for i in range(repeated)]
+
+
+class DefineMacroHandler(Handler):
+  def match(self, command):
+    return command == "macro.define" or command == "macro.define.end"
+
+  def __call__(self, context, command):
+    context._state["macro.define"] = command == "macro.define"
+
+  def process_text(self, context, text):
+    if not context._state["macro.define"]:
+      raise Exception("end.macro cannot be followed by text")
+
+
+class RunMacroHandler(Handler):
+  def _match(self, command):
+    return re.match(r"run\.macro\.([\w\.]+)$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    macro_name = m.group(1)
+    if macro_name not in context._macro_preprocessor._defined_macros:
+      raise Exception(f"No macro named {macro_name}")
+
+    macro = context._macro_preprocessor._defined_macros[macro_name]
+    context._state["macro_to_run"] = [(t, item) for t, item in macro]
+
+  def process_text(self, context, text):
+    """
+    The texts passed to the RunMacroHandler will be used to provide 'arguments'
+    to the macro, such that the behavior of this macro may be different on each
+    run. Without this mechanism, macros would be almost useless.
+    """
+    index = text.find(" => ")
+    if index < 0:
+      raise Exception("Texts passed to run.macro must contain '=>'")
+    to_be_replaced = text[:index]
+    repl = text[index + len(' => '):]
+    """
+    Although very unlikely, there are cases where the string may need to contain
+    ' => ' in other places. In that case, these ' => ' should be
+    replaced with ' {=>} ', and we recover them here
+    """
+    to_be_replaced = to_be_replaced.replace('{=>}', '=>')
+    repl = repl.replace('{=>}', '=>')
+    macro = context._state["macro_to_run"]
+    for i, item in enumerate(macro):
+      macro[i] = (macro[i][0], re.sub(to_be_replaced, repl, macro[i][1]))
+
+  def on_finished(self, context):
+    macro = context._state["macro_to_run"]
+    last_handler_backup = context._last_handler
+    last_text_backup = context._last_text
+    last_is_text_backup = context._last_is_text
+    last_is_command_backup = context._last_is_command
+    last_command_or_text_backup = context._last_command_or_text
+
+    context._last_handler = None
+    context._last_text = None
+    context._last_is_text = False
+    context._last_is_command = False
+    context._last_command_or_text = None
+    for t, item in macro:
+      if t == "TXT":
+        if context._last_handler is None:
+          raise Exception("Macro cannot start with text")
+        text = item
+        for preprocessor in context._preprocessors:
+          text = preprocessor.preprocess_text(text)
+        context._last_handler.process_text(context, text)
+        context._last_text = text
+        context._last_is_text = True
+        context._last_is_command = False
+        context._last_command_or_text = text
+        continue
+
+      assert t == "CMD"
+      command = item
+
+      """
+      The handler might be RunMacroHandler itself. However,
+      context._state["macro_to_run"] will be used at the start of
+      'on_finished' method of RunMacroHandler, before the recursion
+      starts, so context._state["macro_to_run"] is safe.
+      """
+      if context._last_handler is not None:
+        context._last_handler.on_finished(context)
+
+      for preprocessor in context._preprocessors:
+        command = preprocessor.preprocess_command(command)
+
+      matched = False
+      for handler in reversed(context._handlers):
+        if handler.match(command):
+          matched = True
+          handler(context, command)
+          context._history.append(command)
+          context._last_handler = handler
+          context._last_is_text = False
+          context._last_is_command = True
+          context._last_command_or_text = command
+          break
+      if not matched:
+        raise Exception(f"Unsupported command: {command}")
+
+    context.last_handler = last_handler_backup
+    context.last_text = last_text_backup
+    context.last_is_text = last_is_text_backup
+    context.last_is_command = last_is_command_backup
+    context.last_command_or_text = last_command_or_text_backup
 
 
 class DynamicGridHandler(Handler):
