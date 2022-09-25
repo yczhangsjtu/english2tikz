@@ -442,6 +442,8 @@ class DirectionOfHandler(Handler):
                             "below.left", "below.right"]:
       if other_direction != direction and other_direction in target:
         del target[other_direction]
+    if "distance" in target:
+      del target["distance"]
   
   def find_object_with_name(context, name):
     for item in reversed(context._picture):
@@ -1004,6 +1006,16 @@ class VerticalHorizontalToHandler(Handler):
   
   def __call__(self, context, command):
     line = {"type": "vertical.horizontal"}
+    context._state["the_path"]["items"].append(line)
+    context._state["the_line"] = line
+
+
+class HorizontalVerticalToHandler(Handler):
+  def match(self, command):
+    return command == "-|" or command == "horizontal.vertical.to" or command == "horizontal.vertical"
+  
+  def __call__(self, context, command):
+    line = {"type": "horizontal.vertical"}
     context._state["the_path"]["items"].append(line)
     context._state["the_line"] = line
 
@@ -1759,9 +1771,26 @@ class RunMacroHandler(Handler):
     """
     to_be_replaced = to_be_replaced.replace('{=>}', '=>')
     repl = repl.replace('{=>}', '=>')
+    # repl = repl.replace('\\', r'\\')
     macro = context._state["macro_to_run"]
+    replaced_macro = []
     for i, item in enumerate(macro):
-      macro[i] = (macro[i][0], re.sub(to_be_replaced, repl, macro[i][1]))
+      replaced = re.sub(to_be_replaced, lambda _: repl, macro[i][1])
+      if macro[i][0] == "TXT":
+        """
+        Text may contain a lot of backslahses.
+        """
+        replaced_macro.append(("TXT", replaced))
+      else:
+        command = replaced
+        if ' ' in command:
+          commands = re.split(r'\s+', command)
+          for command in commands:
+            if len(command) > 0:
+              replaced_macro.append(("CMD", command))
+        else:
+          replaced_macro.append(("CMD", command))
+    context._state["macro_to_run"] = replaced_macro
 
   def on_finished(self, context):
     macro = context._state["macro_to_run"]

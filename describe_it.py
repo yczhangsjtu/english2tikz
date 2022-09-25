@@ -168,6 +168,7 @@ class DescribeIt(object):
     self.register_handler(RectangleToNodeShiftedHandler())
     self.register_handler(NoSlopeHandler())
     self.register_handler(VerticalHorizontalToHandler())
+    self.register_handler(HorizontalVerticalToHandler())
     self.register_handler(DefineCommandHandler())
     self.register_handler(DynamicGridHandler())
     self.register_handler(AddRowHandler())
@@ -189,6 +190,7 @@ class DescribeIt(object):
     self.register_renderer(RectangleRenderer())
     self.register_renderer(BraceRenderer(self))
     self.register_renderer(VerticalHorizontalRenderer())
+    self.register_renderer(HorizontalVerticalRenderer())
 
   def _register_fundamental_preprocessors(self):
     self._custom_command_preprocessor = CustomCommandPreprocessor()
