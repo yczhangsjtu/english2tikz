@@ -536,11 +536,19 @@ class ForAllHandler(Handler):
     m = self._match(command)
     assert m is not None
     type_name = m.group(1)
-    context._state["refered_to"] = [
-      obj
-      for obj in context._picture
-      if "type" in obj and obj["type"] == type_name
-    ]
+    refered_to = []
+    for obj in context._picture:
+      if "type" in obj and obj["type"] == type_name:
+        refered_to.append(obj)
+      if "items" in obj and isinstance(obj["items"], list):
+        for item in obj["items"]:
+          if "type" in item and item["type"] == type_name:
+            refered_to.append(item)
+          if "annotates" in item and isinstance(item["annotates"], list):
+            for annotate in item["annotates"]:
+              if "type" in annotate and annotate["type"] == type_name:
+                refered_to.append(annotate)
+    context._state["refered_to"] = refered_to
     context._state["filter_mode"] = True
 
 
@@ -1208,9 +1216,16 @@ class AtIntersectionHandler(Handler):
     target = context._state["refered_to"]
     if isinstance(target, list):
       for item in target:
-        item["at"] = obj
+        self._handle(item, obj)
     else:
-      target["at"] = obj
+      self._handle(target, obj)
+  def _handle(self, target, obj):
+    target["at"] = obj
+    for direction in ["above", "below", "left", "right",
+                      "above.left", "above.right",
+                      "below.left", "below.right"]:
+      if direction in target:
+        del target[direction]
 
 
 class AtCoordinateHandler(Handler):
