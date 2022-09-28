@@ -1,8 +1,10 @@
 import json
 import re
+from functools import partial
 from .handlers import *
 from .renderers import *
 from .preprocessor import *
+from .utils import *
 
 
 class DescribeIt(object):
@@ -23,14 +25,21 @@ class DescribeIt(object):
     if (command_or_text.startswith('"') and
         command_or_text.endswith('"')) or \
        (command_or_text.startswith("'") and
-        command_or_text.endswith("'")):
+        command_or_text.endswith("'")) or \
+       (command_or_text.startswith("'''") and
+        command_or_text.endswith("'''")) or \
+       (command_or_text.startswith('"""') and
+        command_or_text.endswith('"""')):
       """
       This is a string. Pass it to the string processor
       of the handler for the last command
       """
       if self._last_handler is None:
         raise Exception("Cannot start with text")
-      text = command_or_text[1:-1]
+      if command_or_text.startswith('"""') or command_or_text.startswith("'''"):
+        text = command_or_text[3:-3]
+      else:
+        text = command_or_text[1:-1]
       for preprocessor in self._preprocessors:
         text = preprocessor.preprocess_text(text)
       self._last_handler.process_text(self, text)
@@ -90,6 +99,24 @@ class DescribeIt(object):
   def parse(self, code):
     code = code.strip()
     while len(code) > 0:
+      if code.startswith("'''") or code.startswith('"""'):
+        escaped, text = False, None
+        for i in range(1, len(code)):
+          if escaped:
+            escaped = False
+            continue
+          if code[i] == '\\':
+            escaped = True
+            continue
+          if i + 3 <= len(code) and code[i:i+3] == code[0] * 3:
+            text = code[0:i+3]
+            code = code[i+3:].strip()
+            break
+        if text:
+          self.process(text)
+          continue
+        else:
+          raise Exception(f"Unended quote: {code}")
       if code.startswith("'") or code.startswith('"'):
         escaped, text = False, None
         for i in range(1, len(code)):
@@ -108,6 +135,18 @@ class DescribeIt(object):
           continue
         else:
           raise Exception(f"Unended quote: {code}")
+      if code.startswith("python{{{"):
+        end = code.find("python}}}")
+        if end < 0:
+          raise Exception(f"Unended python code: {code}")
+        python_code = code[9:end]
+        code = code[end+9:].strip()
+        variables = {}
+        variables["ctx"] = self
+        variables["parse"] = self.parse
+        python_code = unindent(python_code)
+        exec(python_code, variables)
+        continue
       match = re.search(r'[\n\s]+', code)
       if match:
         self.process(code[0:match.span()[0]])
@@ -177,20 +216,22 @@ class DescribeIt(object):
     self.register_handler(CommentHandler())
     self.register_handler(DefineMacroHandler())
     self.register_handler(RunMacroHandler())
+    self.register_handler(ThereIsTextBetweenHandler())
+    self.register_handler(MoveToMiddleOfHandler())
     
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())
     self.register_renderer(TextRenderer())
     self.register_renderer(PathRenderer(self))
     self.register_renderer(NodeNameRenderer())
-    self.register_renderer(LineRenderer())
+    self.register_renderer(LineRenderer(self))
     self.register_renderer(IntersectionRenderer())
     self.register_renderer(CoordinateRenderer())
     self.register_renderer(PointRenderer())
     self.register_renderer(RectangleRenderer())
     self.register_renderer(BraceRenderer(self))
-    self.register_renderer(VerticalHorizontalRenderer())
-    self.register_renderer(HorizontalVerticalRenderer())
+    self.register_renderer(VerticalHorizontalRenderer(self))
+    self.register_renderer(HorizontalVerticalRenderer(self))
 
   def _register_fundamental_preprocessors(self):
     self._custom_command_preprocessor = CustomCommandPreprocessor()

@@ -414,6 +414,68 @@ class ThereIsTextHandler(Handler):
     context._state["refered_to"]["text"] = text
 
 
+class ThereIsTextBetweenHandler(Handler):
+  def _match(self, command):
+    return re.match(r"there.is.text.between.([\w\.]+).and.([\w\.]+)", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    node1, node2 = m.group(1), m.group(2)
+    path = {
+      "id": getid(),
+      "type": "path",
+      "items": []
+    }
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", node1)
+    if match:
+      path["items"].append({
+        "type": "nodename",
+        "anchor": match.group(2),
+        "name": DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
+      })
+    else:
+      path["items"].append({
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, node1)["id"]
+      })
+    obj = {
+      "id": getid(),
+      "type": "text",
+      "text": "",
+      "in_path": True,
+      "midway": True,
+    }
+    path["items"].append({
+      "type": "line",
+      "annotates": [
+        obj
+      ]
+    })
+
+    match = re.match(r"([\w\.]+)\.(south|north|east|west|south\.east|south\.west|north\.east|north\.west|center)$", node2)
+    if match:
+      path["items"].append({
+        "type": "nodename",
+        "anchor": match.group(2),
+        "name": DirectionOfHandler.find_object_with_name(context, match.group(1))["id"]
+      })
+    else:
+      path["items"].append({
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, node2)["id"]
+      })
+    context._picture.append(path)
+    context._state["refered_to"] = obj
+    context._state["filter_mode"] = False
+  
+  def process_text(self, context, text):
+    context._state["refered_to"]["text"] = text
+
+
 class DirectionOfHandler(Handler):
   def _match(self, command):
     return re.match(
@@ -644,6 +706,67 @@ class MoveToNodeHandler(Handler):
       }
     context._state["the_path"]["items"].append(obj)
     context._state["refered_to"] = obj
+
+
+class MoveToMiddleOfHandler(Handler):
+  def _match(self, command):
+    return re.match(r"(?:from|move\.to)\.middle\.of\.([\w\.]+)\.and\.([\w\.]+)$", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    node1, node2 = m.group(1), m.group(2)
+    m = re.match(
+      r"([\w\.]+?)\.(south|north|east|west|south.west|south.east|north.west|north.east)$", node1)
+    if m:
+      obj = {
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, m.group(1))["id"],
+        "anchor": m.group(2),
+      }
+    else:
+      obj = {
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, node1)["id"],
+      }
+    context._state["the_path"]["items"].append(obj)
+
+    annotate_id = getid()
+    annotate = {
+      "type": "point",
+      "midway": True,
+      "id": annotate_id,
+    }
+    context._state["the_path"]["items"].append({
+      "type": "edge",
+      "annotates": [annotate],
+      "opacity": 0,
+    })
+
+    m = re.match(
+      r"([\w\.]+?)\.(south|north|east|west|south.west|south.east|north.west|north.east)$", node2)
+    if m:
+      obj = {
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, m.group(1))["id"],
+        "anchor": m.group(2),
+      }
+    else:
+      obj = {
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, node2)["id"],
+      }
+    context._state["the_path"]["items"].append(obj)
+
+    context._state["the_path"]["items"].append({
+      'type': "nodename",
+      'name': annotate_id
+    })
+
+    context._state["refered_to"] = annotate
 
 
 class RectangleHorizontalToByHandler(Handler):
@@ -1176,7 +1299,8 @@ class WithAnnotateHandler(Handler):
     line = context._state["the_line"]
     obj = {
       "id": getid(),
-      "type": "annotate",
+      "type": "text",
+      "in_path": True,
       "text": text,
       "scale": "0.7",
       "midway": True,
@@ -1597,10 +1721,12 @@ class CopyStyleFromHandler(Handler):
 
   def _handle(self, target, obj):
     for key in ["color", "line.width", "rounded.corners", "fill",
-                "scale", "rotate", "circle", "inner.sep", "text",
+                "scale", "rotate", "circle", "inner.sep",
                 "width", "height", "shape", "dashed", "font", "draw"]:
       if key in obj:
         target[key] = obj[key]
+    if "type" in obj and obj["type"] == "box":
+      target["draw"] = True
 
 
 class RespectivelyWithHandler(Handler):

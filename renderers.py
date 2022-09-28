@@ -13,7 +13,7 @@ class BoxRenderer(Renderer):
   whitelist = set([
     "color", "line.width", "rounded.corners", "fill", "xshift", "yshift",
     "scale", "rotate", "circle", "inner.sep", "shape", "dashed", "font",
-    "text.width",
+    "text.width", "sloped", "align",
   ] + colors)
   directions = set([
     "above", "below", "left", "right",
@@ -41,6 +41,10 @@ class BoxRenderer(Renderer):
             ret[direction.replace(".", " ")] = f"of {obj[direction]}"
         else:
           ret[direction.replace(".", " ")] = True
+        break
+    for annotate_pos in LineRenderer.annotate_positions:
+      if annotate_pos in obj:
+        ret[annotate_pos] = obj[annotate_pos]
         break
     if "anchor" in obj:
       ret["anchor"] = obj["anchor"].replace(".", " ")
@@ -81,15 +85,22 @@ class TextRenderer(Renderer):
     return "type" in obj and obj["type"] == "text"
   
   def render(self, obj):
+    if "in_path" in obj:
+      prefix, postfix = "node", ""
+    else:
+      prefix, postfix = r"\node", ";"
     options = BoxRenderer.prepare_options(obj)
     if "draw" in obj:
       options["draw"] = obj["draw"]
     if len(options) > 0:
-      return r"\node[{options}] ({id}) {{{text}}};".format(
+      return r"{prefix}[{options}] ({id}) {{{text}}}{postfix}".format(
         **obj,
+        prefix=prefix,
+        postfix=postfix,
         options=dump_options(options),
       )
-    return r"\node ({id}) {{{text}}};".format(**obj)
+    return r"{prefix} ({id}) {{{text}}}{postfix}".format(
+        **obj, prefix=prefix, postfix=postfix)
 
 
 class PathRenderer(Renderer):
@@ -150,9 +161,20 @@ class NodeNameRenderer(Renderer):
     return "type" in obj and obj["type"] == "nodename"
   
   def render(self, obj):
-    if "anchor" in obj:
-      return f"({obj['name']}.{obj['anchor'].replace('.', ' ')})"
-    return f"({obj['name']})"
+    options = {}
+    if "xshift" in obj:
+      options["xshift"] = obj["xshift"]
+    if "yshift" in obj:
+      options["yshift"] = obj["yshift"]
+    if len(options) > 0:
+      options = dump_options(options)
+      if "anchor" in obj:
+        return f"([{options}] {obj['name']}.{obj['anchor'].replace('.', ' ')})"
+      return f"([{options}] {obj['name']})"
+    else:
+      if "anchor" in obj:
+        return f"({obj['name']}.{obj['anchor'].replace('.', ' ')})"
+      return f"({obj['name']})"
 
 
 class LineRenderer(Renderer):
@@ -162,8 +184,11 @@ class LineRenderer(Renderer):
     "very.near.end", "very.near.start",
     "at.end", "at.start"
   ])
+  def __init__(self, context):
+    self._context = context
+
   def match(self, obj):
-    return "type" in obj and obj["type"] == "line"
+    return "type" in obj and obj["type"] in ["line", "to", "edge"]
   
   def render(self, obj):
     options = {}
@@ -171,31 +196,31 @@ class LineRenderer(Renderer):
       options["out"] = obj["out"]
     if "in" in obj:
       options["in"] = obj["in"]
+    if "opacity" in obj:
+      options["opacity"] = obj["opacity"]
 
     if len(options) > 0:
-      ret = ["to [{}]".format(dump_options(options))]
+      if obj["type"] == "edge":
+        ret = ["edge [{}]".format(dump_options(options))]
+      else:
+        ret = ["to [{}]".format(dump_options(options))]
+    elif obj["type"] == "to":
+      ret = ["to"]
+    elif obj["type"] == "edge":
+      ret = ["edge"]
     else:
       ret = ["--"]
 
     if "annotates" in obj:
       for annotate in obj["annotates"]:
-        options = BoxRenderer.prepare_options(annotate)
-        if "sloped" in annotate:
-          options["sloped"] = annotate["sloped"]
-        for annotate_pos in LineRenderer.annotate_positions:
-          if annotate_pos in annotate:
-            options[annotate_pos] = annotate[annotate_pos]
-        if "draw" in annotate:
-          options["draw"] = annotate["draw"]
-        if len(options) > 0:
-          ret.append(r"node[{options}] ({id}) {{{text}}}".format(
-            **annotate, options=dump_options(options)))
-        else:
-          ret.append(r"node ({id}) {{{text}}}".format(**annotate))
+        ret.append(self._context._render(annotate))
     return " ".join(ret)
 
 
 class VerticalHorizontalRenderer(Renderer):
+  def __init__(self, context):
+    self._context = context
+
   def match(self, obj):
     return "type" in obj and obj["type"] == "vertical.horizontal"
   
@@ -204,23 +229,14 @@ class VerticalHorizontalRenderer(Renderer):
 
     if "annotates" in obj:
       for annotate in obj["annotates"]:
-        options = BoxRenderer.prepare_options(annotate)
-        if "sloped" in annotate:
-          options["sloped"] = annotate["sloped"]
-        for annotate_pos in LineRenderer.annotate_positions:
-          if annotate_pos in annotate:
-            options[annotate_pos] = annotate[annotate_pos]
-        if "draw" in annotate:
-          options["draw"] = annotate["draw"]
-        if len(options) > 0:
-          ret.append(r"node[{options}] ({id}) {{{text}}}".format(
-            **annotate, options=dump_options(options)))
-        else:
-          ret.append(r"node ({id}) {{{text}}}".format(**annotate))
+        ret.append(self._context._render(annotate))
     return " ".join(ret)
 
 
 class HorizontalVerticalRenderer(Renderer):
+  def __init__(self, context):
+    self._context = context
+
   def match(self, obj):
     return "type" in obj and obj["type"] == "horizontal.vertical"
   
@@ -229,19 +245,7 @@ class HorizontalVerticalRenderer(Renderer):
 
     if "annotates" in obj:
       for annotate in obj["annotates"]:
-        options = BoxRenderer.prepare_options(annotate)
-        if "sloped" in annotate:
-          options["sloped"] = annotate["sloped"]
-        for annotate_pos in LineRenderer.annotate_positions:
-          if annotate_pos in annotate:
-            options[annotate_pos] = annotate[annotate_pos]
-        if "draw" in annotate:
-          options["draw"] = annotate["draw"]
-        if len(options) > 0:
-          ret.append(r"node[{options}] ({id}) {{{text}}}".format(
-            **annotate, options=dump_options(options)))
-        else:
-          ret.append(r"node ({id}) {{{text}}}".format(**annotate))
+        ret.append(self._context._render(annotate))
     return " ".join(ret)
 
 
@@ -279,7 +283,13 @@ class PointRenderer(Renderer):
     return "type" in obj and obj["type"] == "point"
   
   def render(self, obj):
-    return f"coordinate ({obj['id']})"
+    options = {}
+    if "midway" in obj:
+      options["midway"] = True
+    if len(options) > 0:
+      return f"coordinate[{dump_options(options)}] ({obj['id']})"
+    else:
+      return f"coordinate ({obj['id']})"
 
 
 class RectangleRenderer(Renderer):
