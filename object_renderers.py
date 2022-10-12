@@ -9,7 +9,11 @@ class ObjectRenderer(object):
     raise Exception("'render' cannot be invoked directly")
 
 
-class BoxObjectRenderer(ObjectRenderer):
+class SupportMultipleRenderer(object):
+  pass
+
+
+class BoxObjectRenderer(ObjectRenderer, SupportMultipleRenderer):
   def match(self, obj):
     return obj == "box"
   

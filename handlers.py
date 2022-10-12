@@ -141,6 +141,126 @@ class ThereIsHandler(Handler):
     self.register_object_renderer(GridObjectRenderer())
 
 
+class ThereAreHandler(Handler):
+  def __init__(self):
+    self._object_handlers = []
+    self._object_renderers = []
+    self._register_fundamental_handlers()
+    self._register_fundamental_renderers()
+    
+  def _match(self, command):
+    m = re.match(r"^there\.are\.(\d+)\.([\w\.]+)$", command)
+    if m:
+      obj_name = m.group(2)
+      for handler in self._object_handlers:
+        if handler.match(obj_name):
+          count = int(m.group(1))
+          return [handler(obj_name) for i in range(count)]
+    return None
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    objs = self._match(command)
+    assert objs is not None
+    refered_to = []
+    context._state["refered_to"] = refered_to
+    type_maps = {}
+    for m in objs:
+      rendered = False
+      for renderer in self._object_renderers:
+        if renderer.match(m):
+          rendered = True
+          obj = renderer.render(m)
+          if isinstance(obj, list):
+            for item in obj:
+              context._picture.append(item)
+          else:
+            context._picture.append(obj)
+          refered_to.append(obj)
+          if "type" in m:
+            key = "the_" + m["type"]
+            if key not in type_maps:
+              type_maps[key] = []
+            type_maps[key].append(obj)
+          context._state["filter_mode"] = False
+          break
+      if not rendered:
+        raise Exception(f"No renderer found for the object {m}")
+    for key in type_maps:
+      context._state[key] = type_maps[key]
+  
+  def register_object_handler(self, handler):
+    assert isinstance(handler, ObjectHandler)
+    assert isinstance(handler, SupportMultipleHandler)
+    self._object_handlers.append(handler)
+  
+  def register_object_renderer(self, renderer):
+    assert isinstance(renderer, ObjectRenderer)
+    assert isinstance(renderer, SupportMultipleRenderer)
+    self._object_renderers.append(renderer)
+      
+  def _register_fundamental_handlers(self):
+    self.register_object_handler(BoxObjectHandler())
+    
+  def _register_fundamental_renderers(self):
+    self.register_object_renderer(BoxObjectRenderer())
+
+
+class ArrangedInHandler(Handler):
+  def _match(self, command):
+    return re.match(r"arranged\.in\.([\w\.]+)$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    arrangement = m.group(1)
+    objects = context._state["refered_to"]
+    assert isinstance(objects, list)
+    if arrangement == "horizontal.line":
+      for i in range(1, len(objects)):
+        objects[i]["at"] = objects[i-1]["id"]
+        objects[i]["at.anchor"] = "east"
+        objects[i]["anchor"] = "west"
+    elif arrangement == "horizontal.line.aligned.top":
+      for i in range(1, len(objects)):
+        objects[i]["at"] = objects[i-1]["id"]
+        objects[i]["at.anchor"] = "north.east"
+        objects[i]["anchor"] = "north.west"
+    elif arrangement == "horizontal.line.aligned.bottom":
+      for i in range(1, len(objects)):
+        objects[i]["at"] = objects[i-1]["id"]
+        objects[i]["at.anchor"] = "south.east"
+        objects[i]["anchor"] = "south.west"
+    elif arrangement == "vertical.line":
+      for i in range(1, len(objects)):
+        objects[i]["at"] = objects[i-1]["id"]
+        objects[i]["at.anchor"] = "south"
+        objects[i]["anchor"] = "north"
+    elif arrangement == "vertical.line.aligned.left":
+      for i in range(1, len(objects)):
+        objects[i]["at"] = objects[i-1]["id"]
+        objects[i]["at.anchor"] = "south.west"
+        objects[i]["anchor"] = "north.west"
+    elif arrangement == "vertical.line.aligned.right":
+      for i in range(1, len(objects)):
+        objects[i]["at"] = objects[i-1]["id"]
+        objects[i]["at.anchor"] = "south.east"
+        objects[i]["anchor"] = "north.east"
+    elif arrangement == "triangle":
+      assert len(objects) == 3
+      objects[1]["at"] = objects[0]["id"]
+      objects[2]["at"] = objects[0]["id"]
+      objects[1]["at.anchor"] = "south"
+      objects[2]["at.anchor"] = "south"
+      objects[1]["anchor"] = "north.east"
+      objects[2]["anchor"] = "north.west"
+
+
 class WithTextHandler(Handler):
   def match(self, command):
     return re.match(
@@ -708,6 +828,35 @@ class MoveToNodeHandler(Handler):
     context._state["refered_to"] = obj
 
 
+class RectangleToNodeHandler(Handler):
+  def _match(self, command):
+    return re.match(r"(?:rectangle\.to)\.([\w\.]+)$", command)
+  
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    node = m.group(1)
+    m = re.match(
+      r"([\w\.]+?)\.(south|north|east|west|south.west|south.east|north.west|north.east)$", node)
+    if m:
+      obj = {
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, m.group(1))["id"],
+        "anchor": m.group(2),
+      }
+    else:
+      obj = {
+        "type": "nodename",
+        "name": DirectionOfHandler.find_object_with_name(context, node)["id"],
+      }
+    context._state["the_path"]["items"].append({"type": "rectangle"})
+    context._state["the_path"]["items"].append(obj)
+    context._state["refered_to"] = obj
+
+
 class MoveToMiddleOfHandler(Handler):
   def _match(self, command):
     return re.match(r"(?:from|move\.to)\.middle\.of\.([\w\.]+)\.and\.([\w\.]+)$", command)
@@ -1003,7 +1152,7 @@ class LineToNodeHandler(Handler):
 
 class IntersectionHandler(Handler):
   def _match(self, command):
-    return re.match(r"intersection\.([\w\.]+)\.and\.([\w\.]+)$", command)
+    return re.match(r"(?:from\.|point\.to\.)?intersection(?:\.of)?\.([\w\.]+)\.and\.([\w\.]+)$", command)
   
   def match(self, command):
     return self._match(command) is not None
@@ -1011,7 +1160,7 @@ class IntersectionHandler(Handler):
   def __call__(self, context, command):
     m = self._match(command)
     assert m is not None
-    x, y = m.group(1), m.group(2)
+    x, y, point_to = m.group(1), m.group(2), command.startswith("point.to")
     obj = {
       "type": "intersection"
     }
@@ -1027,6 +1176,11 @@ class IntersectionHandler(Handler):
       obj["anchor2"] = match.group(2)
     else:
       obj["name2"] = DirectionOfHandler.find_object_with_name(context, y)["id"]
+
+    if point_to:
+      context._state["the_path"]["items"].append({"type": "line"})
+      context._state["the_path"]["stealth"] = True
+
     context._state["the_path"]["items"].append(obj)
     
 

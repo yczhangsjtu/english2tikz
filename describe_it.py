@@ -3,6 +3,8 @@ import re
 from functools import partial
 from .handlers import *
 from .renderers import *
+from .object_handlers import SupportMultipleHandler
+from .object_renderers import SupportMultipleRenderer
 from .preprocessor import *
 from .utils import *
 
@@ -159,10 +161,12 @@ class DescribeIt(object):
       
   def _register_fundamental_handlers(self):
     self._there_is_handler = ThereIsHandler()
+    self._there_are_handler = ThereAreHandler()
     self.register_handler(GlobalHandler())
     self.register_handler(ThisHandler())
     self.register_handler(WithAttributeHandler())
     self.register_handler(self._there_is_handler)
+    self.register_handler(self._there_are_handler)
     self.register_handler(ThereIsTextHandler())
     self.register_handler(ByHandler())
     self.register_handler(WhereIsInHandler())
@@ -187,6 +191,7 @@ class DescribeIt(object):
     self.register_handler(LineHorizontalToHandler())
     self.register_handler(GridWithFixedDistancesHandler())
     self.register_handler(RectangleHandler())
+    self.register_handler(RectangleToNodeHandler())
     self.register_handler(RepeatedHandler())
     self.register_handler(CopyLastObjectHandler())
     self.register_handler(RespectivelyWithHandler())
@@ -218,6 +223,7 @@ class DescribeIt(object):
     self.register_handler(RunMacroHandler())
     self.register_handler(ThereIsTextBetweenHandler())
     self.register_handler(MoveToMiddleOfHandler())
+    self.register_handler(ArrangedInHandler())
     
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())
@@ -244,9 +250,13 @@ class DescribeIt(object):
 
   def register_object_handler(self, handler):
     self._there_is_handler.register_object_handler(handler)
+    if isinstance(handler, SupportMultipleHandler):
+      self._there_are_handler.register_object_handler(handler)
 
   def register_object_renderer(self, renderer):
     self._there_is_handler.register_object_renderer(renderer)
+    if isinstance(renderer, SupportMultipleRenderer):
+      self._there_are_handler.register_object_renderer(renderer)
 
   def define(self, command, text):
     self._custom_command_preprocessor.define(command, text)

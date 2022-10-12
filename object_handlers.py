@@ -9,9 +9,13 @@ class ObjectHandler(object):
     raise Exception("'__call__' cannot be invoked directly")
 
 
-class BoxObjectHandler(ObjectHandler):
+class SupportMultipleHandler(object):
+  pass
+
+
+class BoxObjectHandler(ObjectHandler, SupportMultipleHandler):
   def match(self, obj_name):
-    return obj_name == "box"
+    return obj_name == "box" or obj_name == "boxes"
   
   def __call__(self, obj_name):
     return "box"
