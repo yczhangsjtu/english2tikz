@@ -107,6 +107,8 @@ class ThereIsHandler(Handler):
   def __call__(self, context, command):
     m = self._match(command)
     assert m is not None
+    if "arrange" in context._state:
+      del context._state["arrange"]
     for renderer in self._object_renderers:
       if renderer.match(m):
         obj = renderer.render(m)
@@ -166,6 +168,8 @@ class ThereAreHandler(Handler):
     assert objs is not None
     refered_to = []
     context._state["refered_to"] = refered_to
+    if "arrange" in context._state:
+      del context._state["arrange"]
     type_maps = {}
     for m in objs:
       rendered = False
@@ -226,31 +230,37 @@ class ArrangedInHandler(Handler):
         objects[i]["at"] = objects[i-1]["id"]
         objects[i]["at.anchor"] = "east"
         objects[i]["anchor"] = "west"
+      context._state["arrange"] = "horizontal"
     elif arrangement == "horizontal.line.aligned.top":
       for i in range(1, len(objects)):
         objects[i]["at"] = objects[i-1]["id"]
         objects[i]["at.anchor"] = "north.east"
         objects[i]["anchor"] = "north.west"
+      context._state["arrange"] = "horizontal"
     elif arrangement == "horizontal.line.aligned.bottom":
       for i in range(1, len(objects)):
         objects[i]["at"] = objects[i-1]["id"]
         objects[i]["at.anchor"] = "south.east"
         objects[i]["anchor"] = "south.west"
+      context._state["arrange"] = "horizontal"
     elif arrangement == "vertical.line":
       for i in range(1, len(objects)):
         objects[i]["at"] = objects[i-1]["id"]
         objects[i]["at.anchor"] = "south"
         objects[i]["anchor"] = "north"
+      context._state["arrange"] = "vertical"
     elif arrangement == "vertical.line.aligned.left":
       for i in range(1, len(objects)):
         objects[i]["at"] = objects[i-1]["id"]
         objects[i]["at.anchor"] = "south.west"
         objects[i]["anchor"] = "north.west"
+      context._state["arrange"] = "vertical"
     elif arrangement == "vertical.line.aligned.right":
       for i in range(1, len(objects)):
         objects[i]["at"] = objects[i-1]["id"]
         objects[i]["at.anchor"] = "south.east"
         objects[i]["anchor"] = "north.east"
+      context._state["arrange"] = "vertical"
     elif arrangement == "triangle":
       assert len(objects) == 3
       objects[1]["at"] = objects[0]["id"]
@@ -259,6 +269,128 @@ class ArrangedInHandler(Handler):
       objects[2]["at.anchor"] = "south"
       objects[1]["anchor"] = "north.east"
       objects[2]["anchor"] = "north.west"
+      context._state["arrange"] = "triangle"
+
+
+class SpacedByHandler(Handler):
+  def _match(self, command):
+    return re.match(r"spaced\.by\.([\w\.]+?)(?:\.and\.([\w\.]+))?$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    distance1 = m.group(1)
+    distance2 = m.group(2)
+    if distance2 is None:
+      distance2 = distance1
+    targets = context._state["refered_to"]
+    assert isinstance(targets, list)
+    if "arrange" in context._state:
+      arrangement = context._state["arrange"]
+      if arrangement == "horizontal":
+        for i in range(1, len(targets)):
+          targets[i]["xshift"] = distance1
+      elif arrangement == "vertical":
+        for i in range(1, len(targets)):
+          targets[i]["yshift"] = f"-{distance1}"
+      elif arrangement == "triangle":
+        assert len(targets) == 3
+        targets[1]["xshift"] = f"-{distance1}"
+        targets[1]["yshift"] = f"-{distance2}"
+        targets[2]["xshift"] = distance1
+        targets[2]["yshift"] = f"-{distance2}"
+    else:
+      raise Exception("No arranged objects")
+
+
+class ChainedByArrowsHandler(Handler):
+  def match(self, command):
+    return command == "chained" or command == "chained.by.arrows"
+
+  def __call__(self, context, command):
+    targets = context._state["refered_to"]
+    assert isinstance(targets, list)
+    assert len(targets) > 1
+
+    context._state["chain"] = []
+    context._state["chain_annotate_index"] = 0
+    context._state["annotates"] = []
+    for i in range(1, len(targets)):
+      path = {
+        "type": "path",
+        "draw": True,
+        "items": [
+          {
+            "type": "nodename",
+            "name": targets[i-1]["id"],
+          },
+          {
+            "type": "line",
+          },
+          {
+            "type": "nodename",
+            "name": targets[i]["id"],
+          },
+        ]
+      }
+      if command == "chained.by.arrows":
+        path["stealth"] = True
+      context._picture.append(path)
+      context._state["chain"].append(path)
+
+  def process_text(self, context, text):
+    items = context._state["chain"][context._state["chain_annotate_index"]]["items"]
+    context._state["chain_annotate_index"] += 1
+    line = items[1]
+    assert line["type"] == "line"
+    annotate = {
+      "id": getid(),
+      "type": "text",
+      "scale": "0.7",
+      "above": True,
+      "midway": True,
+      "text": text,
+      "in_path": True,
+    }
+    line["annotates"] = [annotate]
+    context._state["annotates"].append(annotate)
+
+
+class TheChainHandler(Handler):
+  def match(self, command):
+    return command == "the.chain"
+
+  def __call__(self, context, command):
+    context._state["refered_to"] = context._state["chain"]
+    context._state["filter_mode"] = True
+
+
+class TheAnnotatesHandler(Handler):
+  def match(self, command):
+    return command == "the.annotates"
+
+  def __call__(self, context, command):
+    context._state["refered_to"] = context._state["annotates"]
+    context._state["filter_mode"] = True
+
+
+class TheFirstHandler(Handler):
+  def match(self, command):
+    return command == "the.first"
+
+  def __call__(self, context, command):
+    context._state["refered_to"] = context._state["refered_to"][0]
+
+
+class TheSecondHandler(Handler):
+  def match(self, command):
+    return command == "the.second"
+
+  def __call__(self, context, command):
+    context._state["refered_to"] = context._state["refered_to"][1]
 
 
 class WithTextHandler(Handler):
@@ -384,6 +516,39 @@ class ShiftedHandler(Handler):
         self._handle(item, direction, distance)
     else:
       self._handle(target, direction, distance)
+
+  def _handle(self, target, direction, distance):
+    if direction == "left":
+      target["xshift"] = f"-{distance}"
+    elif direction == "right":
+      target["xshift"] = distance
+    elif direction == "up":
+      target["yshift"] = distance
+    elif direction == "down":
+      target["yshift"] = f"-{distance}"
+
+
+class ShiftedTwoHandler(Handler):
+  def _match(self, command):
+    return re.match(r"shifted\.(left|right|up|down)\.and\.(left|right|up|down)\.by\.([\w\.]+)(?:\.and\.([\w\.]+))?$", command)
+
+  def match(self, command):
+    return self._match(command) is not None
+  
+  def __call__(self, context, command):
+    m = self._match(command)
+    assert m is not None
+    direction1, direction2, distance1, distance2 = m.group(1), m.group(2), m.group(3), m.group(4)
+    if distance2 is None:
+      distance2 = distance1
+    target = context._state["refered_to"]
+    if isinstance(target, list):
+      if len(target) != 2:
+        raise Exception(f"Expected two objects, got {len(target)}")
+      self._handle(target[0], direction1, distance1)
+      self._handle(target[1], direction2, distance2)
+    else:
+      raise Exception("Refered objects is not list")
 
   def _handle(self, target, direction, distance):
     if direction == "left":
@@ -529,9 +694,31 @@ class ThereIsTextHandler(Handler):
     context._picture.append(obj)
     context._state["refered_to"] = obj
     context._state["filter_mode"] = False
-  
+    if "arrange" in context._state:
+      del context._state["arrange"]
+
   def process_text(self, context, text):
     context._state["refered_to"]["text"] = text
+
+
+class ThereAreTextsHandler(Handler):
+  def match(self, command):
+    return command == "there.are.texts"
+  
+  def __call__(self, context, command):
+    context._state["refered_to"] = []
+    context._state["filter_mode"] = False
+    if "arrange" in context._state:
+      del context._state["arrange"]
+  
+  def process_text(self, context, text):
+    obj = {
+      "id": getid(),
+      "type": "text",
+      "text": text,
+    }
+    context._picture.append(obj)
+    context._state["refered_to"].append(obj)
 
 
 class ThereIsTextBetweenHandler(Handler):
@@ -1448,6 +1635,7 @@ class WithAnnotateHandler(Handler):
     if "annotates" not in line:
       line["annotates"] = []
     context._state["refered_to"] = []
+    context._state["annotates"] = []
   
   def process_text(self, context, text):
     line = context._state["the_line"]
@@ -1463,6 +1651,7 @@ class WithAnnotateHandler(Handler):
     }
     line["annotates"].append(obj)
     context._state["refered_to"].append(obj)
+    context._state["annotates"].append(obj)
 
 
 class AtIntersectionHandler(Handler):
@@ -1497,6 +1686,7 @@ class AtIntersectionHandler(Handler):
         self._handle(item, obj)
     else:
       self._handle(target, obj)
+
   def _handle(self, target, obj):
     target["at"] = obj
     for direction in ["above", "below", "left", "right",
@@ -2377,3 +2567,239 @@ class AddColHandler(Handler):
     context._state["refered_to"] = nodes
     context._state["filter_mode"] = False
     context._state["this_grid"] += nodes
+
+
+class DynamicLayeredGraphHandler(Handler):
+  def match(self, command):
+    return command == "there.is.a.dynamic.layered.graph"
+
+  def __call__(self, context, command):
+    context._state["layer"] = []
+    context._state["layered_graph"] = [context._state["layer"]]
+    context._state["refered_to"] = []
+    context._state["arrange"] = "horizontal"
+    context._state["filter_mode"] = False
+
+  def process_text(self, context, text):
+    obj = {
+      "id": getid(),
+      "type": "text",
+      "text": text,
+    }
+    if len(context._state["layer"]) > 0:
+      last = context._state["layer"][-1]
+      obj["at"] = last["id"]
+      obj["at.anchor"] = "east"
+      obj["anchor"] = "west"
+    context._picture.append(obj)
+    context._state["layer"].append(obj)
+    context._state["refered_to"].append(obj)
+
+
+class AddLayerHandler(Handler):
+  def match(self, command):
+    return command == "add.layer"
+
+  def __call__(self, context, command):
+    if "layered_graph" not in context._state:
+      raise Exception("There is no dynamic layered graph yet")
+    context._state["layer"] = []
+    context._state["layered_graph"].append(context._state["layer"])
+    context._state["refered_to"] = []
+    context._state["filter_mode"] = False
+
+  def process_text(self, context, text):
+    obj = {
+      "id": getid(),
+      "type": "text",
+      "text": text,
+    }
+    context._state["layer"].append(obj)
+    context._state["refered_to"].append(obj)
+
+  def on_finished(self, context):
+    last_layer = context._state["layered_graph"][-2]
+    current_layer = context._state["layered_graph"][-1]
+    if (len(current_layer) - len(last_layer)) % 2 == 0:
+      centered_objects = min(len(last_layer), len(current_layer))
+      start_index_last_layer = max((len(last_layer) - len(current_layer)) // 2, 0)
+      aligned = True
+    else:
+      centered_objects = min(len(last_layer) - 1, len(current_layer))
+      start_index_last_layer = max((len(last_layer) - len(current_layer) - 1) // 2, 0)
+      aligned = False
+    side_objects = (len(current_layer) - centered_objects) // 2
+    if aligned:
+      for i in range(side_objects, len(current_layer)):
+        obj = current_layer[i]
+        if i == side_objects:
+          obj["at"] = last_layer[start_index_last_layer+i-side_objects]["id"]
+          obj["at.anchor"] = "south"
+          obj["anchor"] = "north"
+          obj["layer.base"] = True
+          context._state["layer.base"] = obj
+        elif i < len(current_layer) - side_objects:
+          obj["at"] = {
+            "type": "intersection",
+            "name1": last_layer[start_index_last_layer+i-side_objects]["id"],
+            "name2": current_layer[side_objects]["id"],
+          }
+        else:
+          obj["at"] = current_layer[i-1]["id"]
+          obj["at.anchor"] = "east"
+          obj["anchor"] = "west"
+          obj["right.side"] = True
+        context._picture.append(obj)
+    else:
+      for i in range(side_objects, len(current_layer)):
+        obj = current_layer[i]
+        if i < len(current_layer) - side_objects:
+          a = last_layer[start_index_last_layer+i-side_objects]
+          b = last_layer[start_index_last_layer+i-side_objects+1]
+          center_id = getid()
+          path = {
+            "id": getid(),
+            "type": "path",
+            "items": [
+              {
+                "type": "nodename",
+                "name": a["id"],
+              },
+              {
+                "type": "line",
+                "annotates": [
+                  {
+                    "id": center_id,
+                    "type": "text",
+                    "text": "",
+                    "in_path": True,
+                    "midway": True,
+                  }
+                ]
+              },
+              {
+                "type": "nodename",
+                "name": b["id"],
+              },
+            ]
+          }
+          context._picture.append(path)
+          if i == side_objects:
+            obj["at"] = {
+              "type": "intersection",
+              "name1": center_id,
+              "name2": last_layer[start_index_last_layer+i-side_objects]["id"],
+              "anchor2": "south",
+            }
+            obj["anchor"] = "north"
+            obj["layer.base"] = True
+            context._state["layer.base"] = obj
+          else:
+            obj["at"] = {
+              "type": "intersection",
+              "name1": center_id,
+              "name2": current_layer[side_objects]["id"],
+            }
+        else:
+          obj["at"] = current_layer[i-1]["id"]
+          obj["at.anchor"] = "east"
+          obj["anchor"] = "west"
+          obj["right.side"] = True
+        context._picture.append(obj)
+    for i in reversed(range(side_objects)):
+      obj = current_layer[i]
+      obj["at"] = current_layer[i+1]["id"]
+      obj["at.anchor"] = "west"
+      obj["anchor"] = "east"
+      obj["left.side"] = True
+      context._picture.append(obj)
+
+
+class TheLayerBaseHandler(Handler):
+  def match(self, command):
+    return command == "the.layer.base"
+
+  def __call__(self, context, command):
+    context._state["refered_to"] = context._state["layer.base"]
+
+
+class TheLayerHandler(Handler):
+  def match(self, command):
+    return command == "the.layer"
+
+  def __call__(self, context, command):
+    context._state["refered_to"] = [obj for obj in context._state["layer"]]
+    context._state["filter_mode"] = True
+
+
+class TheLayeredGraphHandler(Handler):
+  def match(self, command):
+    return command == "the.layered.graph"
+
+  def __call__(self, context, command):
+    context._state["refered_to"] = [obj
+                                    for layer in context._state["layered_graph"]
+                                    for obj in layer]
+    context._state["filter_mode"] = True
+
+
+class ConnectLayeredGraphNodesHandler(Handler):
+  def match(self, command):
+    return command == "connect.layered.graph.nodes"
+
+  def __call__(self, context, command):
+    context._state["filter_mode"] = False
+
+  def process_text(self, context, text):
+    arrow, bold = False, False
+    if text.find("=>") > 0:
+      a, b = text.split("=>")
+      bold, arrow = True, True
+    elif text.find("->") > 0:
+      a, b = text.split("->")
+      arrow = True
+    elif text.find("-") > 0:
+      a, b = text.split("-")
+    elif text.find("=") > 0:
+      a, b = text.split("=")
+      bold = True
+    else:
+      context._state["the_line"]["annotates"] = [
+        {
+          "type": "text",
+          "text": text,
+          "in_path": True,
+          "scale": "0.7",
+        }
+      ]
+      return
+
+    a1, a2 = a.split(".")
+    b1, b2 = b.split(".")
+    a1, a2, b1, b2 = int(a1.strip()), int(a2.strip()), int(b1.strip()), int(b2.strip())
+
+    line = {
+      "type": "line",
+    }
+    context._state["the_line"] = line
+    path = {
+      "type": "path",
+      "draw": True,
+      "items": [
+        {
+          "type": "nodename",
+          "name": context._state["layered_graph"][a1][a2]["id"],
+        },
+        line,
+        {
+          "type": "nodename",
+          "name": context._state["layered_graph"][b1][b2]["id"],
+        }
+      ]
+    }
+    if bold:
+      path["line.width"] = "1"
+    if arrow:
+      path["stealth"] = True
+    context._state["the_path"] = path
+    context._picture.append(path)
