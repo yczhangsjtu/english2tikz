@@ -21,7 +21,8 @@ class CanvasManager(object):
     self._scale = 100
     self._command_line = None
     self._error_msg = None
-    self._grid_size = 1
+    self._grid_size_index = 0
+    self._grid_sizes = [1, 0.5, 0.2, 0.1, 0.05]
     self._show_axes = True
     self._show_grid = True
     self._obj_to_edit_text = None
@@ -60,6 +61,9 @@ class CanvasManager(object):
     self._history_index += 1
     self._context._picture = self._history[self._history_index]
 
+  def _grid_size(self):
+    return self._grid_sizes[self._grid_size_index]
+
   def handle_key(self, event):
     if self._command_line is not None:
       if event.char:
@@ -96,8 +100,8 @@ class CanvasManager(object):
           """
           if event.keysym == "c":
             if self._obj_to_edit_text is None:
-              x = self._pointerx * self._grid_size
-              y = self._pointery * self._grid_size
+              x = self._pointerx * self._grid_size()
+              y = self._pointery * self._grid_size()
               if x != 0:
                 x = f"{x}cm"
               if y != 0:
@@ -156,7 +160,34 @@ class CanvasManager(object):
       elif event.state == 4 and event.keysym in string.ascii_lowercase:
         if event.keysym == "r":
           self._redo()
+        elif event.keysym == "g":
+          x, y = self._get_pointer_pos()
+          self._grid_size_index = min(self._grid_size_index + 1, len(self._grid_sizes) - 1)
+          self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
+          self._move_pointer_into_screen()
+        elif event.keysym == "f":
+          x, y = self._get_pointer_pos()
+          self._grid_size_index = max(self._grid_size_index - 1, 0)
+          self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
+          self._move_pointer_into_screen()
+        elif event.keysym == "e":
+          self._centery -= 100
+          self._reset_pointer_into_screen()
+        elif event.keysym == "y":
+          self._centery += 100
+          self._reset_pointer_into_screen()
     self.draw()
+
+  def _get_pointer_pos(self):
+    return self._pointerx * self._grid_size(), self._pointery * self._grid_size()
+
+  def _get_pointer_screen_pos(self):
+    x, y = self._get_pointer_pos()
+    return map_point(x, y, self._coordinate_system())
+
+  def _find_closest_pointer_grid_coord(self, x, y):
+    gs = self._grid_size()
+    return round(x / gs), round(y / gs)
 
   def _move_pointer(self, x, y):
     self._pointerx += x
@@ -164,10 +195,7 @@ class CanvasManager(object):
     self._move_pointer_into_screen()
 
   def _move_pointer_into_screen(self):
-    screenx, screeny = map_point(
-        self._pointerx * self._grid_size,
-        self._pointery * self._grid_size,
-        self._coordinate_system())
+    screenx, screeny = self._get_pointer_screen_pos()
     if screenx < 0:
       self._centerx -= screenx
     elif screenx >= screen_width:
@@ -177,13 +205,20 @@ class CanvasManager(object):
     elif screeny >= screen_height:
       self._centery += screen_height - screeny
 
+  def _reset_pointer_into_screen(self):
+    screenx, screeny = self._get_pointer_screen_pos()
+    screenx = max(min(screenx, screen_width - self._scale + 10), self._scale - 10)
+    screeny = max(min(screeny, screen_height - self._scale + 10), self._scale - 10)
+    x, y = reverse_map_point(screenx, screeny, self._coordinate_system())
+    self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
+
   def _boundary_grids(self):
     x0, y0 = reverse_map_point(0, 0, self._coordinate_system())
     x1, y1 = reverse_map_point(screen_width, screen_height, self._coordinate_system())
-    step_upper = int(y0 / self._grid_size)
-    step_lower = int(y1 / self._grid_size)
-    step_left  = int(x0 / self._grid_size)
-    step_right = int(x1 / self._grid_size)
+    step_upper = int(y0 / self._grid_size())
+    step_lower = int(y1 / self._grid_size())
+    step_left  = int(x0 / self._grid_size())
+    step_right = int(x1 / self._grid_size())
     return step_upper, step_lower, step_left, step_right
     
   def draw(self):
@@ -196,18 +231,25 @@ class CanvasManager(object):
 
   def _draw_grid(self, c):
     step_upper, step_lower, step_left, step_right = self._boundary_grids()
+    step = round(1 / self._grid_size())
     for i in range(step_lower, step_upper+1):
-      x, y = map_point(0, self._grid_size * i, self._coordinate_system())
+      x, y = map_point(0, self._grid_size() * i, self._coordinate_system())
       c.create_line((0, y, screen_width, y), fill="gray", dash=2)
+      draw_text = i == self._pointery or i % step == 0
       color = "red" if i == self._pointery else "gray"
-      c.create_text(5, y, text=str(i), anchor="sw", fill=color)
-      c.create_text(screen_width-3, y, text=str(i), anchor="se", fill=color)
+      if draw_text:
+        text = "%.2g" % (i * self._grid_size())
+        c.create_text(5, y, text=text, anchor="sw", fill=color)
+        c.create_text(screen_width-3, y, text=text, anchor="se", fill=color)
     for i in range(step_left, step_right+1):
-      x, y = map_point(self._grid_size * i, 0, self._coordinate_system())
+      x, y = map_point(self._grid_size() * i, 0, self._coordinate_system())
       c.create_line((x, 0, x, screen_height), fill="gray", dash=2)
+      draw_text = i == self._pointerx or i % step == 0
       color = "red" if i == self._pointerx else "gray"
-      c.create_text(x, 0, text=str(i), anchor="nw", fill=color)
-      c.create_text(x, screen_height, text=str(i), anchor="sw", fill=color)
+      if draw_text:
+        text = "%.2g" % (i * self._grid_size())
+        c.create_text(x, 0, text=text, anchor="nw", fill=color)
+        c.create_text(x, screen_height, text=text, anchor="sw", fill=color)
 
   def _draw_axes(self, c):
     c.create_line((0, self._centery, screen_width, self._centery), fill="blue", width=1.5)
@@ -236,7 +278,7 @@ class CanvasManager(object):
           break
 
   def _draw_pointer(self, c):
-    x, y = map_point(self._pointerx * self._grid_size, self._pointery * self._grid_size,
+    x, y = map_point(self._pointerx * self._grid_size(), self._pointery * self._grid_size(),
                      self._coordinate_system())
     if self._editing_text is not None:
       if len(self._editing_text.strip()) == 0:
