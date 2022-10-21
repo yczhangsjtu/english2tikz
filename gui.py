@@ -291,6 +291,15 @@ class CanvasManager(object):
           else:
             x, y = self._get_pointer_pos()
             self._visual_start = (x, y)
+        elif event.char == "D":
+          self._history = self._history[:self._history_index+1]
+          self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
+          if len(self._selected_ids) > 0:
+            deleted_ids = []
+            for id_ in self._selected_ids:
+              self._delete_objects_related_to_id(id_, deleted_ids)
+          self._history.append(self._context._picture)
+          self._history_index = len(self._history) - 1
       elif event.keysym == "Return":
         self._error_msg = None
         if self._visual_start is not None:
@@ -402,6 +411,36 @@ class CanvasManager(object):
         x, y, width, height = bb
         if id_ not in self._selected_ids and intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
           self._selected_ids.append(id_)
+
+  def _delete_objects_related_to_id(self, id_, deleted_ids = []):
+    to_removes = [obj for obj in self._context._picture if self._related_to(obj, id_)]
+    deleted_ids.append(id_)
+    related_ids = [item["id"] for item in to_removes
+                              if "id" in item and
+                              item["id"] not in deleted_ids]
+    self._context._picture = [obj for obj in self._context._picture
+                                  if not self._related_to(obj, id_)]
+
+    for obj in self._context._picture:
+      if "items" in obj:
+        for item in obj["items"]:
+          if "annotates" in item:
+            item["annotates"] = [annotate for annotate in item["annotates"]
+                                          if "id" not in annotate or annotate["id"] != id_]
+    for id_ in related_ids:
+      self._delete_objects_related_to_id(id_, deleted_ids)
+
+  def _related_to(self, obj, id_):
+    if "id" in obj and obj["id"] == id_:
+      return True
+    if "at" in obj and obj["at"] == id_:
+      return True
+    if "items" in obj:
+      for item in obj["items"]:
+        if "type" in item and item["type"] == "nodename":
+          if item["name"] == id_:
+            return True
+    return False
 
   def _get_pointer_pos(self):
     return self._pointerx * self._grid_size(), self._pointery * self._grid_size()
@@ -614,6 +653,7 @@ class CanvasManager(object):
       self._context._picture = data["picture"]
     if "nextid" in data:
       self._context._state["nextid"] = data["nextid"]
+    self._history = [self._context._picture]
     self.draw()
 
   def _process_command(self, cmd):
