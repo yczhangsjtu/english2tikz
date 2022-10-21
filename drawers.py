@@ -14,11 +14,23 @@ class BoxDrawer(Drawer):
     return "type" in obj and obj["type"] in ["box", "text"]
 
   def draw(self, canvas, obj, env):
-    assert "width" in obj
-    assert "height" in obj
     assert "id" in obj
+    tmptext = None
     draw = ("draw" in obj and obj["draw"]) or obj["type"] == "box"
-    width, height = dist_to_num(obj["width"]), dist_to_num(obj["height"])
+    if "width" in obj and "height" in obj:
+      width, height = dist_to_num(obj["width"]), dist_to_num(obj["height"])
+    elif "text" in obj:
+      tmptext = canvas.create_text(0, 0, text=obj["text"])
+      x0, y0, x1, y1 = canvas.bbox(tmptext)
+      if "inner.sep" in obj:
+        inner_sep = obj["inner.sep"]
+      else:
+        inner_sep = 0.1
+      width = (x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2
+      height = (y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2
+    else:
+      width, height = 1, 1
+
     if "at" not in obj:
       x, y = 0, 0
     elif isinstance(obj["at"], str):
@@ -29,8 +41,8 @@ class BoxDrawer(Drawer):
         anchor = "center"
       x, y = get_anchor_pos(at_bounding_box, anchor)
     elif obj["at"]["type"] == "coordinate":
-      x = obj["at"]["x"] if "x" in obj["at"] else 0
-      y = obj["at"]["y"] if "y" in obj["at"] else 0
+      x = dist_to_num(obj["at"]["x"]) if "x" in obj["at"] else 0
+      y = dist_to_num(obj["at"]["y"]) if "y" in obj["at"] else 0
     else:
       raise Exception(f"Unsupported at {obj['at']}")
     anchor = "center"
@@ -42,11 +54,24 @@ class BoxDrawer(Drawer):
     if "yshift" in obj:
       y += dist_to_num(obj["yshift"])
     env["bounding box"][obj["id"]] = (x, y, width, height)
+    if "color" in obj:
+      color = obj["color"]
+    else:
+      color = "black"
+    if "fill" in obj:
+      fill = obj["fill"]
+    else:
+      fill = None
     cs = env["coordinate system"]
     x0, y0 = map_point(x, y, cs)
     x1, y1 = map_point(x + width, y + height, cs)
-    canvas.create_rectangle((x0, y0, x1, y1))
+    if fill is not None or draw:
+      canvas.create_rectangle((x0, y0, x1, y1), fill=fill, outline=color)
     if "text" in obj and obj["text"]:
       center_x, center_y = get_anchor_pos((x, y, width, height), "center")
       x, y = map_point(center_x, center_y, cs)
-      canvas.create_text(x, y, text=obj["text"])
+      if tmptext is None:
+        canvas.create_text(x, y, text=obj["text"], fill=color)
+      else:
+        canvas.move(tmptext, x, y)
+        canvas.itemconfig(tmptext, fill=color)

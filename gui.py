@@ -1,5 +1,6 @@
 import tkinter as tk
 import string
+import copy
 from english2tikz.describe_it import DescribeIt
 from english2tikz.drawers import *
 from english2tikz.utils import *
@@ -23,8 +24,11 @@ class CanvasManager(object):
     self._grid_size = 1
     self._show_axes = True
     self._show_grid = True
+    self._obj_to_edit_text = None
+    self._editing_text = None
+    self._history = [self._context._picture]
+    self._history_index = 0
     root.bind("<Key>", self.handle_key)
-    self._context.parse("there.is.a.box with.text 'ABC' sized.1cm.by.1cm")
     self.draw()
 
   def _register_fundamental_drawers(self):
@@ -33,6 +37,28 @@ class CanvasManager(object):
   def register_drawer(self, drawer):
     assert isinstance(drawer, Drawer)
     self._drawers.append(drawer)
+
+  def _parse(self, code):
+    self._history = self._history[:self._history_index+1]
+    self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
+    self._context.parse(code)
+    self._history.append(self._context._picture)
+    self._history_index = len(self._history) - 1
+
+  def _undo(self):
+    if self._history_index == 0:
+      self._error_msg = "Already the oldest"
+      return
+
+    self._history_index -= 1
+    self._context._picture = self._history[self._history_index]
+
+  def _redo(self):
+    if self._history_index >= len(self._history) - 1:
+      self._error_msg = "Already the newest"
+      return
+    self._history_index += 1
+    self._context._picture = self._history[self._history_index]
 
   def handle_key(self, event):
     if self._command_line is not None:
@@ -56,7 +82,35 @@ class CanvasManager(object):
         print(dir(event))
         print(event.state, event.keysym)
     else:
-      if event.char:
+      if self._editing_text is not None:
+        if event.char:
+          self._editing_text += event.char
+        elif event.keysym == "Return":
+          self._editing_text += "\n"
+        elif event.keysym == "BackSpace":
+          if len(self._editing_text) > 0:
+            self._editing_text = self._editing_text[:-1]
+        elif event.state == 4 and event.keysym in string.ascii_lowercase:
+          """
+          Ctrl + letter
+          """
+          if event.keysym == "c":
+            if self._obj_to_edit_text is None:
+              x = self._pointerx * self._grid_size
+              y = self._pointery * self._grid_size
+              if x != 0:
+                x = f"{x}cm"
+              if y != 0:
+                y = f"{y}cm"
+              self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
+                              with.text.align=left""")
+            else:
+              self._obj_to_edit_text["text"] = self._editing_text
+            self._editing_text = None
+        else:
+          print(dir(event))
+          print(event.state, event.keysym)
+      elif event.char:
         if event.char == ":":
           self._command_line = ""
           self._error_msg = None
@@ -93,8 +147,15 @@ class CanvasManager(object):
           self._pointery = 0
           self._centerx = screen_width / 2
           self._centery = screen_height / 2
+        elif event.char == "i":
+          self._editing_text = ""
+        elif event.char == "u":
+          self._undo()
       elif event.keysym == "Return":
         self._error_msg = None
+      elif event.state == 4 and event.keysym in string.ascii_lowercase:
+        if event.keysym == "r":
+          self._redo()
     self.draw()
 
   def _move_pointer(self, x, y):
@@ -138,13 +199,15 @@ class CanvasManager(object):
     for i in range(step_lower, step_upper+1):
       x, y = map_point(0, self._grid_size * i, self._coordinate_system())
       c.create_line((0, y, screen_width, y), fill="gray", dash=2)
-      c.create_text(5, y, text=str(i), anchor="sw", fill="gray")
-      c.create_text(screen_width-3, y, text=str(i), anchor="se", fill="gray")
+      color = "red" if i == self._pointery else "gray"
+      c.create_text(5, y, text=str(i), anchor="sw", fill=color)
+      c.create_text(screen_width-3, y, text=str(i), anchor="se", fill=color)
     for i in range(step_left, step_right+1):
       x, y = map_point(self._grid_size * i, 0, self._coordinate_system())
       c.create_line((x, 0, x, screen_height), fill="gray", dash=2)
-      c.create_text(x, 0, text=str(i), anchor="nw", fill="gray")
-      c.create_text(x, screen_height, text=str(i), anchor="sw", fill="gray")
+      color = "red" if i == self._pointerx else "gray"
+      c.create_text(x, 0, text=str(i), anchor="nw", fill=color)
+      c.create_text(x, screen_height, text=str(i), anchor="sw", fill=color)
 
   def _draw_axes(self, c):
     c.create_line((0, self._centery, screen_width, self._centery), fill="blue", width=1.5)
@@ -175,6 +238,16 @@ class CanvasManager(object):
   def _draw_pointer(self, c):
     x, y = map_point(self._pointerx * self._grid_size, self._pointery * self._grid_size,
                      self._coordinate_system())
+    if self._editing_text is not None:
+      if len(self._editing_text.strip()) == 0:
+        c.create_line((x, y-10, x, y+10), fill="black", width=3)
+      else:
+        t = c.create_text(x, y, text=self._editing_text, fill="black")
+        bg = c.create_rectangle(c.bbox(t), fill="white", outline="blue")
+        c.tag_lower(bg, t)
+      return
+    c.create_line((0, y, screen_width, y), fill="red", width=1)
+    c.create_line((x, 0, x, screen_height), fill="red", width=1)
     c.create_oval(x-10, y-10, x+10, y+10, fill="red", outline="black")
 
   def _draw_command(self, c):
