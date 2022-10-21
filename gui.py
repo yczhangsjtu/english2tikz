@@ -301,6 +301,13 @@ class CanvasManager(object):
               self._delete_objects_related_to_id(id_, deleted_ids)
           self._history.append(self._context._picture)
           self._history_index = len(self._history) - 1
+        elif event.char == 'm':
+          x, y = self._get_pointer_pos()
+          self._marks.append({
+            "type": "coordinate",
+            "x": f"{x}cm",
+            "y": f"{y}cm",
+          })
       elif event.keysym == "Return":
         self._error_msg = None
         if self._visual_start is not None:
@@ -771,6 +778,8 @@ class CanvasManager(object):
         if v == "rect":
           if len(self._marks) != 2:
             raise Exception(f"Expect exactly two marks for rectangle")
+          self._history = self._history[:self._history_index+1]
+          self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
           self._context._picture.append({
             "type": "path",
             "draw": True,
@@ -782,6 +791,27 @@ class CanvasManager(object):
               self._marks[1],
             ]
           })
+          self._history.append(self._context._picture)
+          self._history_index = len(self._history) - 1
+        elif v == "path":
+          if len(self._marks) < 2:
+            raise Exception(f"Expect at least two marks")
+          self._history = self._history[:self._history_index+1]
+          self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
+          items = []
+          for i, mark in enumerate(self._marks):
+            items.append(mark)
+            if i < len(self._marks) - 1:
+              items.append({
+                "type": "line",
+              })
+          self._context._picture.append({
+            "type": "path",
+            "draw": True,
+            "items": items,
+          })
+          self._history.append(self._context._picture)
+          self._history_index = len(self._history) - 1
 
   def _connect(self, *args):
     if len(self._selected_ids) != 2:
@@ -818,8 +848,8 @@ class CanvasManager(object):
     x, y = self._get_pointer_pos()
     mark = {
       "type": "coordinate",
-      "x": x,
-      "y": y,
+      "x": f"{x}cm",
+      "y": f"{y}cm",
     }
     to_del = None
     for t, v in args:
