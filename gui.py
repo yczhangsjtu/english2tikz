@@ -41,6 +41,7 @@ class CanvasManager(object):
     self._visual_start = None
     self._bounding_boxes = {}
     self._selected_ids = []
+    self._marks = []
     root.bind("<Key>", self.handle_key)
     self.draw()
 
@@ -495,6 +496,7 @@ class CanvasManager(object):
       self._draw_axes(self._canvas)
     self._draw_picture(self._canvas, self._context)
     self._draw_visual(self._canvas)
+    self._draw_marks(self._canvas)
     self._draw_pointer(self._canvas)
     self._draw_command(self._canvas)
 
@@ -558,6 +560,43 @@ class CanvasManager(object):
       x1, y1 = self._get_pointer_screen_pos()
       c.create_rectangle((x0, y0, x1, y1), outline="red", width=4, dash=8)
 
+  def _get_mark_pos(self, i, buffer={}):
+    if i in buffer:
+      return buffer[i]
+    mark = self._marks[i]
+    if mark["type"] == "nodename":
+      bb = self._bounding_boxes[mark["name"]]
+      anchor = "center"
+      if "anchor" in mark:
+        anchor = mark["anchor"]
+      x, y = get_anchor_pos(bb, anchor)
+      if "anchor" in mark:
+        if "xshift" in mark:
+          x += dist_to_num(mark["xshift"])
+        if "yshift" in mark:
+          y += dist_to_num(mark["yshift"])
+      buffer[i] = (x, y)
+      return x, y
+    elif mark["type"] == "coordinate":
+      if "relative" in mark:
+        x0, y0 = self._get_mark_pos(i-1, buffer)
+        x = x0 + dist_to_num(mark["x"])
+        y = y0 + dist_to_num(mark["y"])
+      else:
+        x = dist_to_num(mark["x"])
+        y = dist_to_num(mark["y"])
+      buffer[i] = (x, y)
+      return x, y
+    else:
+      raise Exception(f"Unknown mark type {mark['type']}")
+
+  def _draw_marks(self, c):
+    buffer = {}
+    for i, mark in enumerate(self._marks):
+      x, y = self._get_mark_pos(i, buffer)
+      x, y = map_point(x, y, self._coordinate_system())
+      c.create_oval(x-10, y-10, x+10, y+10, fill="#77ff77", outline="green")
+      c.create_text(x, y, text=str(i), fill="black")
 
   def _draw_pointer(self, c):
     if self._editing_text is not None:
@@ -674,6 +713,8 @@ class CanvasManager(object):
         self._set_grid(*tokens[1:])
       elif cmd_name == "axes":
         self._set_axes(*tokens[1:])
+      elif cmd_name == "mark":
+        self._add_mark(*tokens[1:])
       elif cmd_name == "w":
         print("%%drawjson\n"+json.dumps(self._save()))
       elif cmd_name == "q":
@@ -725,7 +766,22 @@ class CanvasManager(object):
     self._history_index = len(self._history) - 1
 
   def _make(self, *args):
-    pass
+    for t, v in args:
+      if t == "command":
+        if v == "rect":
+          if len(self._marks) != 2:
+            raise Exception(f"Expect exactly two marks for rectangle")
+          self._context._picture.append({
+            "type": "path",
+            "draw": True,
+            "items": [
+              self._marks[0],
+              {
+                "type": "rectangle",
+              },
+              self._marks[1],
+            ]
+          })
 
   def _connect(self, *args):
     if len(self._selected_ids) != 2:
@@ -757,6 +813,70 @@ class CanvasManager(object):
     for t, v in args:
       if v == "off":
         self._show_axes = False
+
+  def _add_mark(self, *args):
+    x, y = self._get_pointer_pos()
+    mark = {
+      "type": "coordinate",
+      "x": x,
+      "y": y,
+    }
+    to_del = None
+    for t, v in args:
+      if t == "command":
+        if v in ["south", "north", "east", "west",
+                 "south.east", "north.east",
+                 "south.west", "north.west", "center"]:
+          if len(self._selected_ids) > 1:
+            raise Exception("Cannot mark more than one object anchors")
+          if len(self._selected_ids) == 0:
+            raise Exception("Please select one object")
+          id_ = self._selected_ids[0]
+          mark = {
+            "type": "nodename",
+            "name": id_,
+            "anchor": v,
+          }
+        elif v == "shift":
+          if mark["type"] != "nodename":
+            raise Exception("Please specify anchor before shift")
+          anchor = mark["anchor"]
+          bb = self._bounding_boxes[mark["name"]]
+          pointerx, pointery = self._get_pointer_pos()
+          anchorx, anchory = get_anchor_pos(bb, anchor)
+          xshift = pointerx - anchorx
+          yshift = pointery - anchory
+          if xshift != 0:
+            mark["xshift"] = f"{xshift}cm"
+          if yshift != 0:
+            mark["yshift"] = f"{yshift}cm"
+        elif v == "relative" or v == "rel":
+          if mark["type"] != "coordinate":
+            raise Exception("Do not specify anchor")
+          x0, y0 = self._get_mark_pos(len(self._marks)-1, {})
+          pointerx, pointery = self._get_pointer_pos()
+          xshift = pointerx - x0
+          yshift = pointery - y0
+          mark["x"] = f"{xshift}cm"
+          mark["y"] = f"{yshift}cm"
+          mark["relative"] = True
+        elif v == "clear":
+          self._marks = []
+          return
+        elif v == "del":
+          to_del = len(self._marks) - 1
+        elif re.match(r"\d+$", v):
+          if to_del is None:
+            raise Exception("Add del command before specifying the index")
+          to_del = int(v)
+          if to_del >= len(self._marks):
+            raise Exception("Index too large")
+        else:
+          raise Exception(f"Unknown argument {v}")
+    if to_del is not None:
+      del self._marks[to_del]
+    else:
+      self._marks.append(mark)
         
 
 if __name__ == "__main__":

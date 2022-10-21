@@ -193,19 +193,30 @@ class PathDrawer(Drawer):
         if "anchor" in item:
           anchor = item["anchor"]
         new_pos = get_anchor_pos(env["bounding box"][name], anchor)
-        if anchor == "center":
+        if "xshift" in item or "yshift" in item:
+          x, y = new_pos
+          if "xshift" in item:
+            x += dist_to_num(item["xshift"])
+          if "yshift" in item:
+            y += dist_to_num(item["yshift"])
+          new_pos = (x, y)
+        elif anchor == "center":
           new_pos_clip = env["bounding box"][name]
       elif item["type"] == "coordinate":
         if "relative" in item:
-          new_pos = (dist_to_num(item["x"]), dist_to_num(item["y"]))
-        else:
           if current_pos is None:
             raise Exception("Current position is None")
           x, y = current_pos
           new_pos = (x + dist_to_num(item["x"]), y + dist_to_num(item["y"]))
+        else:
+          new_pos = (dist_to_num(item["x"]), dist_to_num(item["y"]))
       elif item["type"] == "line":
         if to_draw is not None:
           raise Exception(f"Expected position, got line")
+        to_draw = item
+      elif item["type"] == "rectangle":
+        if to_draw is not None:
+          raise Exception(f"Expected position, got rectangle")
         to_draw = item
       else:
         raise Exception(f"Unsupported path item type {item['type']}")
@@ -263,6 +274,31 @@ class PathDrawer(Drawer):
                 x = x0 * t + x1 * (1 - t)
                 y = y0 * t + y1 * (1 - t)
                 BoxDrawer._draw(canvas, annotate, env, position=(x, y))
+        elif to_draw["type"] == "rectangle":
+          if current_pos is None:
+            raise Exception("No starting position for rectangle")
+          if draw:
+            x0, y0 = current_pos
+            x1, y1 = new_pos
+
+            x0p, y0p = map_point(x0, y0, cs)
+            x1p, y1p = map_point(x1, y1, cs)
+
+            if "line.width" in obj:
+              width = obj["line.width"]
+            else:
+              width = None
+            if "color" in obj:
+              color = obj["color"]
+            else:
+              color = "black"
+            if "fill" in obj:
+              fill = obj["fill"]
+            else:
+              fill = ""
+
+            canvas.create_rectangle((x0p, y0p, x1p, y1p), fill=fill, outline=color,
+                                    width=width)
 
         to_draw = None
 
