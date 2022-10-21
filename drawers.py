@@ -20,11 +20,22 @@ class BoxDrawer(Drawer):
   def _draw(canvas, obj, env, position=None):
     assert "id" in obj
     tmptext = None
+
+    if "scale" in obj:
+      scale = float(obj["scale"])
+    else:
+      scale = 1
+
+    font_size = 40
+    if scale != 1:
+      font_size = int(font_size * scale)
+
     draw = ("draw" in obj and obj["draw"]) or obj["type"] == "box"
     if "width" in obj and "height" in obj:
       width, height = dist_to_num(obj["width"]), dist_to_num(obj["height"])
     elif "text" in obj:
-      tmptext = canvas.create_text(0, 0, text=obj["text"])
+      tmptext = canvas.create_text(0, 0, text=obj["text"],
+                                   font=("Times New Roman", font_size, "normal"))
       x0, y0, x1, y1 = canvas.bbox(tmptext)
       if "inner.sep" in obj:
         inner_sep = dist_to_num(obj["inner.sep"])
@@ -48,6 +59,10 @@ class BoxDrawer(Drawer):
       else:
         height = 1
 
+    if scale != 1:
+      width *= scale
+      height *= scale
+
     if "at" not in obj:
       if position is not None:
         x, y = position
@@ -65,6 +80,7 @@ class BoxDrawer(Drawer):
       y = dist_to_num(obj["at"]["y"]) if "y" in obj["at"] else 0
     else:
       raise Exception(f"Unsupported at {obj['at']}")
+
     anchor = "center"
     if "anchor" in obj:
       anchor = obj["anchor"]
@@ -130,7 +146,8 @@ class BoxDrawer(Drawer):
       center_x, center_y = get_anchor_pos((x, y, width, height), "center")
       x, y = map_point(center_x, center_y, cs)
       if tmptext is None:
-        canvas.create_text(x, y, text=obj["text"], fill=text_color)
+        canvas.create_text(x, y, text=obj["text"], fill=text_color,
+                           font=("Times New Roman", font_size, "normal"))
       else:
         canvas.move(tmptext, x, y)
         canvas.itemconfig(tmptext, fill=text_color)

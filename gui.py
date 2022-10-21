@@ -286,8 +286,6 @@ class CanvasManager(object):
                 obj["yshift"] = f"{yshift}cm"
         elif event.char == "u":
           self._undo()
-          self._selected_ids = []
-          self._selected_paths = []
         elif event.char == "v":
           if self._visual_start is not None:
             self._select_targets(False)
@@ -594,6 +592,7 @@ class CanvasManager(object):
             drawer.draw(c, obj, env)
           except Exception as e:
             self._error_msg = f"Error in draw: {e}"
+            raise e
           break
     self._bounding_boxes = env["bounding box"]
     self._segments = env["segments"]
