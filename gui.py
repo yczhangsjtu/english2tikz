@@ -35,6 +35,7 @@ class CanvasManager(object):
     self._show_grid = True
     self._obj_to_edit_text = None
     self._editing_text = None
+    self._editing_text_pos = None
     self._history = [self._context._picture]
     self._history_index = 0
     self._visual_start = None
@@ -176,6 +177,7 @@ class CanvasManager(object):
             self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
             self._obj_to_edit_text = self._context._picture[-1]
             self._editing_text = self._obj_to_edit_text["text"]
+            self._editing_text_pos = x0 + w/2, y0 + h/2
             self._visual_start = None
           elif len(self._selected_ids) > 1:
             self._error_msg = "Cannot edit more than one objects"
@@ -183,10 +185,24 @@ class CanvasManager(object):
             self._obj_to_edit_text = self._find_object_by_id(self._selected_ids[0])
             if "text" in self._obj_to_edit_text:
               self._editing_text = self._obj_to_edit_text["text"]
+              self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "center")
             else:
               self._error_msg = "The selected object does not support text."
           else:
             self._editing_text = ""
+            self._editing_text_pos = self._get_pointer_pos()
+        elif event.char == "a":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 1:
+            self._error_msg = "Cannot append to more than one objects"
+          elif len(self._selected_ids) == 1:
+            id_ = self._selected_ids[0]
+            self._ensure_name_is_id(id_)
+            self._parse(f"there.is.text '' with.west.at.east.of.{id_}")
+            self._obj_to_edit_text = self._context._picture[-1]
+            self._editing_text = ""
+            self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "east")
         elif event.char == "u":
           self._undo()
         elif event.char == "v":
@@ -230,6 +246,11 @@ class CanvasManager(object):
       if "id" in obj and obj["id"] == id_:
         return obj
     return None
+
+  def _ensure_name_is_id(self, id_):
+    obj = self._find_object_by_id(id_)
+    if obj is not None:
+      obj["name"] = id_
 
   def _select_targets(self, clear=True):
     if clear:
@@ -358,9 +379,9 @@ class CanvasManager(object):
 
 
   def _draw_pointer(self, c):
-    x, y = map_point(self._pointerx * self._grid_size(), self._pointery * self._grid_size(),
-                     self._coordinate_system())
     if self._editing_text is not None:
+      x, y = self._editing_text_pos
+      x, y = map_point(x, y, self._coordinate_system())
       if len(self._editing_text.strip()) == 0:
         c.create_line((x, y-10, x, y+10), fill="black", width=3)
       else:
@@ -368,6 +389,8 @@ class CanvasManager(object):
         bg = c.create_rectangle(c.bbox(t), fill="white", outline="blue")
         c.tag_lower(bg, t)
       return
+    x, y = map_point(self._pointerx * self._grid_size(), self._pointery * self._grid_size(),
+                     self._coordinate_system())
     c.create_line((0, y, self._screen_width, y), fill="red", width=1)
     c.create_line((x, 0, x, self._screen_height), fill="red", width=1)
     c.create_oval(x-10, y-10, x+10, y+10, fill="red", outline="black")
@@ -449,6 +472,7 @@ class CanvasManager(object):
       self._context._picture = data["picture"]
     if "nextid" in data:
       self._context._state["nextid"] = data["nextid"]
+    self.draw()
 
   def _process_command(self, cmd):
     try:
