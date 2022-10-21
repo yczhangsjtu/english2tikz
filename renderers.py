@@ -13,7 +13,7 @@ class BoxRenderer(Renderer):
   whitelist = set([
     "color", "line.width", "rounded.corners", "fill", "xshift", "yshift",
     "scale", "rotate", "circle", "inner.sep", "shape", "dashed", "font",
-    "text.width", "sloped", "align",
+    "text.width", "sloped", "align", "text.align"
   ] + colors)
   directions = set([
     "above", "below", "left", "right",
@@ -68,6 +68,8 @@ class BoxRenderer(Renderer):
       ret["minimum height"] = obj["height"]
     if "inner sep" not in ret and ("text" not in obj or obj["text"] == ""):
       ret["inner sep"] = "0"
+    if "text.color" in obj:
+      ret["text"] = obj["text.color"]
     return ret
   
   def render(self, obj):

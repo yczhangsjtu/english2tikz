@@ -80,3 +80,65 @@ def map_point(x, y, cs):
 
 def reverse_map_point(x, y, cs):
   return (x - cs["center_x"]) / cs["scale"], (cs["center_y"] - y) / cs["scale"]
+
+
+def intersect(rect1, rect2):
+  x0, y0, x1, y1 = rect1
+  x2, y2, x3, y3 = rect2
+  return intersect_interval((x0, x1), (x2, x3)) and intersect_interval((y0, y1), (y2, y3))
+
+
+def intersect_interval(interval1, interval2):
+  x0, x1 = interval1
+  x2, x3 = interval2
+  x0, x1 = min(x0, x1), max(x0, x1)
+  x2, x3 = min(x2, x3), max(x2, x3)
+  return (x3 > x0 and x3 < x1) or (x1 > x2 and x1 < x3)
+
+
+def color_to_tk(color):
+  if "!" in color:
+    components = color.split("!")
+    key_values = {}
+    key_values[components[0]] = 1
+    for i in range(1, len(components), 2):
+      for key in key_values:
+        key_values[key] = key_values[key] * int(components[i]) / 100
+      if i + 1 < len(components):
+        key_values[components[i+1]] = (100-int(components[i])) / 100
+    cleaned_dict, s = {}, 0
+    for key, value in key_values.items():
+      if key != "white" and value > 0:
+        cleaned_dict[key] = value
+        s += value
+    if s < 1:
+      cleaned_dict["white"] = 1-s
+    elif s > 1:
+      raise Exception(f"Got s > 1 for color {color}")
+    r0, g0, b0 = 0, 0, 0
+    for key, weight in cleaned_dict.items():
+      r, g, b = color_name_to_rgb(key)
+      r0 += r * weight
+      g0 += g * weight
+      b0 += b * weight
+    r0 = min(max(int(r0), 0), 255)
+    g0 = min(max(int(g0), 0), 255)
+    b0 = min(max(int(b0), 0), 255)
+    return f"#{r0:02x}{g0:02x}{b0:02x}"
+  return color
+
+
+def color_name_to_rgb(name):
+  if name == "red":
+    return 255, 0, 0
+  if name == "green":
+    return 0, 255, 0
+  if name == "blue":
+    return 0, 0, 255
+  if name == "black":
+    return 0, 0, 0
+  if name == "white":
+    return 255, 255, 255
+  if name == "cyan":
+    return 0, 255, 255
+  raise Exception(f"Unrecognized color {name}")

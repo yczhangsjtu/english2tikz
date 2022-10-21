@@ -23,13 +23,26 @@ class BoxDrawer(Drawer):
       tmptext = canvas.create_text(0, 0, text=obj["text"])
       x0, y0, x1, y1 = canvas.bbox(tmptext)
       if "inner.sep" in obj:
-        inner_sep = obj["inner.sep"]
+        inner_sep = dist_to_num(obj["inner.sep"])
       else:
         inner_sep = 0.1
-      width = (x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2
-      height = (y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2
+      if "width" in obj:
+        width = dist_to_num(obj["width"])
+      else:
+        width = (x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2
+      if "height" in obj:
+        height = dist_to_num(obj["height"])
+      else:
+        height = (y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2
     else:
-      width, height = 1, 1
+      if "width" in obj:
+        width = dist_to_num(obj["width"])
+      else:
+        width = 1
+      if "height" in obj:
+        height = dist_to_num(obj["height"])
+      else:
+        height = 1
 
     if "at" not in obj:
       x, y = 0, 0
@@ -55,9 +68,13 @@ class BoxDrawer(Drawer):
       y += dist_to_num(obj["yshift"])
     env["bounding box"][obj["id"]] = (x, y, width, height)
     if "color" in obj:
-      color = obj["color"]
+      color = color_to_tk(obj["color"])
     else:
       color = "black"
+    if "text.color" in obj:
+      text_color = color_to_tk(obj["text.color"])
+    else:
+      text_color = color
     if "fill" in obj:
       fill = obj["fill"]
     else:
@@ -71,7 +88,9 @@ class BoxDrawer(Drawer):
       center_x, center_y = get_anchor_pos((x, y, width, height), "center")
       x, y = map_point(center_x, center_y, cs)
       if tmptext is None:
-        canvas.create_text(x, y, text=obj["text"], fill=color)
+        canvas.create_text(x, y, text=obj["text"], fill=text_color)
       else:
         canvas.move(tmptext, x, y)
-        canvas.itemconfig(tmptext, fill=color)
+        canvas.itemconfig(tmptext, fill=text_color)
+    if obj["id"] in env["selected ids"]:
+      canvas.create_rectangle((x0 - 2, y0 + 2, x1 + 2, y1 - 2), outline="red", dash=2)

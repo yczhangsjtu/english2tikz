@@ -1,6 +1,7 @@
 import tkinter as tk
 import string
 import copy
+import re
 from english2tikz.describe_it import DescribeIt
 from english2tikz.drawers import *
 from english2tikz.utils import *
@@ -29,6 +30,9 @@ class CanvasManager(object):
     self._editing_text = None
     self._history = [self._context._picture]
     self._history_index = 0
+    self._visual_start = None
+    self._bounding_boxes = {}
+    self._selected_ids = []
     root.bind("<Key>", self.handle_key)
     self.draw()
 
@@ -56,7 +60,7 @@ class CanvasManager(object):
 
   def _redo(self):
     if self._history_index >= len(self._history) - 1:
-      self._error_msg = "Already the newest"
+      self._error_msg = "Already at newest change"
       return
     self._history_index += 1
     self._context._picture = self._history[self._history_index]
@@ -100,14 +104,15 @@ class CanvasManager(object):
           """
           if event.keysym == "c":
             if self._obj_to_edit_text is None:
-              x = self._pointerx * self._grid_size()
-              y = self._pointery * self._grid_size()
-              if x != 0:
-                x = f"{x}cm"
-              if y != 0:
-                y = f"{y}cm"
-              self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
-                              with.text.align=left""")
+              if len(self._editing_text) > 0:
+                x = self._pointerx * self._grid_size()
+                y = self._pointery * self._grid_size()
+                if x != 0:
+                  x = f"{x}cm"
+                if y != 0:
+                  y = f"{y}cm"
+                self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
+                                with.text.align=left""")
             else:
               self._obj_to_edit_text["text"] = self._editing_text
             self._editing_text = None
@@ -152,14 +157,36 @@ class CanvasManager(object):
           self._centerx = screen_width / 2
           self._centery = screen_height / 2
         elif event.char == "i":
-          self._editing_text = ""
+          if len(self._selected_ids) > 1:
+            self._error_msg = "Cannot edit more than one objects"
+          elif len(self._selected_ids) == 1:
+            self._obj_to_edit_text = self._find_object_by_id(self._selected_ids[0])
+            if "text" in self._obj_to_edit_text:
+              self._editing_text = self._obj_to_edit_text["text"]
+            else:
+              self._error_msg = "The selected object does not support text."
+          else:
+            self._editing_text = ""
         elif event.char == "u":
           self._undo()
+        elif event.char == "v":
+          if self._visual_start is not None:
+            self._select_targets(False)
+            self._visual_start = None
+          else:
+            x, y = self._get_pointer_pos()
+            self._visual_start = (x, y)
       elif event.keysym == "Return":
         self._error_msg = None
+        if self._visual_start is not None:
+          self._select_targets()
+          self._visual_start = None
       elif event.state == 4 and event.keysym in string.ascii_lowercase:
         if event.keysym == "r":
           self._redo()
+        elif event.keysym == "c":
+          self._visual_start = None
+          self._selected_ids = []
         elif event.keysym == "g":
           x, y = self._get_pointer_pos()
           self._grid_size_index = min(self._grid_size_index + 1, len(self._grid_sizes) - 1)
@@ -177,6 +204,23 @@ class CanvasManager(object):
           self._centery += 100
           self._reset_pointer_into_screen()
     self.draw()
+
+  def _find_object_by_id(self, id_):
+    for obj in self._context._picture:
+      if "id" in obj and obj["id"] == id_:
+        return obj
+    return None
+
+  def _select_targets(self, clear=True):
+    if clear:
+      self._selected_ids = []
+    if self._visual_start is not None:
+      x0, y0 = self._visual_start
+      x1, y1 = self._get_pointer_pos()
+      for id_, bb in self._bounding_boxes.items():
+        x, y, width, height = bb
+        if intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
+          self._selected_ids.append(id_)
 
   def _get_pointer_pos(self):
     return self._pointerx * self._grid_size(), self._pointery * self._grid_size()
@@ -226,6 +270,7 @@ class CanvasManager(object):
     self._draw_grid(self._canvas)
     self._draw_axes(self._canvas)
     self._draw_picture(self._canvas, self._context)
+    self._draw_visual(self._canvas)
     self._draw_pointer(self._canvas)
     self._draw_command(self._canvas)
 
@@ -268,6 +313,7 @@ class CanvasManager(object):
     env = {
       "bounding box": {},
       "coordinate system": self._coordinate_system(),
+      "selected ids": self._selected_ids,
     }
     for obj in ctx._picture:
       drawed = False
@@ -276,6 +322,15 @@ class CanvasManager(object):
           drawed = True
           drawer.draw(c, obj, env)
           break
+    self._bounding_boxes = env["bounding box"]
+
+  def _draw_visual(self, c):
+    if self._visual_start is not None:
+      x, y = self._visual_start
+      x0, y0 = map_point(x, y, self._coordinate_system())
+      x1, y1 = self._get_pointer_screen_pos()
+      c.create_rectangle((x0, y0, x1, y1), outline="red", width=4, dash=8)
+
 
   def _draw_pointer(self, c):
     x, y = map_point(self._pointerx * self._grid_size(), self._pointery * self._grid_size(),
@@ -300,11 +355,111 @@ class CanvasManager(object):
       c.create_rectangle((3, screen_height-15, screen_width, screen_height), fill="white", outline="black")
       c.create_text(5, screen_height, text=self._error_msg, anchor="sw", fill="red")
 
+  def _tokenize(self, code):
+    code = code.strip()
+    tokens = []
+    while len(code) > 0:
+      if code.startswith("'''") or code.startswith('"""'):
+        escaped, text = False, None
+        for i in range(1, len(code)):
+          if escaped:
+            escaped = False
+            continue
+          if code[i] == '\\':
+            escaped = True
+            continue
+          if i + 3 <= len(code) and code[i:i+3] == code[0] * 3:
+            text = code[0:i+3]
+            code = code[i+3:].strip()
+            break
+        if text:
+          tokens.append(("text", text[3:-3]))
+          continue
+        else:
+          raise Exception(f"Unended quote: {code}")
+      if code.startswith("'") or code.startswith('"'):
+        escaped, text = False, None
+        for i in range(1, len(code)):
+          if escaped:
+            escaped = False
+            continue
+          if code[i] == '\\':
+            escaped = True
+            continue
+          if code[i] == code[0]:
+            text = code[0:i+1]
+            code = code[i+1:].strip()
+            break
+        if text:
+          tokens.append(("text", text[1:-1]))
+          continue
+        else:
+          raise Exception(f"Unended quote: {code}")
+      if code.startswith("python{{{"):
+        end = code.find("python}}}")
+        if end < 0:
+          raise Exception(f"Unended python code: {code}")
+        python_code = code[9:end]
+        code = code[end+9:].strip()
+        tokens.append(("python", code))
+        continue
+      match = re.search(r'[\n\s]+', code)
+      if match:
+        tokens.append(("command", code[0:match.span()[0]]))
+        code = code[match.span()[1]:].strip()
+        continue
+      tokens.append(("command", code))
+      break
+    return tokens
+
   def _process_command(self, cmd):
     try:
-      self._context.parse(cmd)
+      tokens = self._tokenize(cmd)
+      if len(tokens) == 0:
+        raise Exception("Empty command")
+      if tokens[0][0] != "command":
+        raise Exception("Command does not start with command name")
+      cmd_name = tokens[0][1]
+      if cmd_name == "set":
+        self._set(*tokens[1:])
     except Exception as e:
       self._error_msg = str(e)
+      raise e
+
+  def _set(self, *args):
+    if len(self._selected_ids) == 0:
+      raise Exception("No object selected")
+    key = None
+    for t, v in args:
+      if t == "command":
+        if key is not None:
+          self._set_selected_objects(key, True)
+        eq = v.find("=")
+        if eq >= 0:
+          self._set_selected_objects(v[:eq], v[eq+1:])
+          continue
+        key = v
+      elif t == "text":
+        if key is None:
+          raise Exception(f"Unexpected text: [{v}]")
+        self._set_selected_objects(key, v)
+        key = None
+      elif t == "python":
+        if key is None:
+          raise Exception(f"Unexpected text: [{v}]")
+        self._set_selected_objects(key, eval(v))
+        key = None
+      else:
+        raise Exception(f"Unrecognized token type: [{t}]")
+    if key is not None:
+      self._set_selected_objects(key, True)
+
+  def _set_selected_objects(self, key, value):
+    for id_ in self._selected_ids:
+      obj = self._find_object_by_id(id_)
+      if obj is None:
+        raise Exception(f"Cannot find object by id {id_}")
+      obj[key] = value
         
 
 if __name__ == "__main__":
