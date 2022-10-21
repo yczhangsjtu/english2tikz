@@ -46,6 +46,7 @@ class CanvasManager(object):
 
   def _register_fundamental_drawers(self):
     self.register_drawer(BoxDrawer())
+    self.register_drawer(PathDrawer())
 
   def register_drawer(self, drawer):
     assert isinstance(drawer, Drawer)
@@ -95,8 +96,7 @@ class CanvasManager(object):
         if event.keysym == "c":
           self._command_line = None
       else:
-        print(dir(event))
-        print(event.state, event.keysym)
+        pass
     else:
       if self._editing_text is not None:
         if event.char:
@@ -124,8 +124,7 @@ class CanvasManager(object):
               self._obj_to_edit_text["text"] = self._editing_text
             self._editing_text = None
         else:
-          print(dir(event))
-          print(event.state, event.keysym)
+          pass
       elif event.char:
         if event.char == ":":
           self._command_line = ""
@@ -170,6 +169,7 @@ class CanvasManager(object):
             x0, x1 = min(x0, x1), max(x0, x1)
             y0, y1 = min(y0, y1), max(y0, y1)
             w, h = x1 - x0, y1 - y0
+            self._editing_text_pos = x0 + w/2, y0 + h/2
             x0 = x0 if x0 == 0 else f"{x0}cm"
             y0 = y0 if y0 == 0 else f"{y0}cm"
             w = w if w == 0 else f"{w}cm"
@@ -177,7 +177,6 @@ class CanvasManager(object):
             self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
             self._obj_to_edit_text = self._context._picture[-1]
             self._editing_text = self._obj_to_edit_text["text"]
-            self._editing_text_pos = x0 + w/2, y0 + h/2
             self._visual_start = None
           elif len(self._selected_ids) > 1:
             self._error_msg = "Cannot edit more than one objects"
@@ -377,6 +376,15 @@ class CanvasManager(object):
     for obj in self._context._picture:
       if "id" in obj and obj["id"] == id_:
         return obj
+      if "items" in obj:
+        items = obj["items"]
+        for item in items:
+          if "id" in item and item["id"] == id_:
+            return item
+          if "annotates" in item:
+            for annotate in item["annotates"]:
+              if "id" in annotate and annotate["id"] == id_:
+                return annotate
     return None
 
   def _ensure_name_is_id(self, id_):
@@ -392,7 +400,7 @@ class CanvasManager(object):
       x1, y1 = self._get_pointer_pos()
       for id_, bb in self._bounding_boxes.items():
         x, y, width, height = bb
-        if intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
+        if id_ not in self._selected_ids and intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
           self._selected_ids.append(id_)
 
   def _get_pointer_pos(self):
@@ -618,6 +626,8 @@ class CanvasManager(object):
         self._set(*tokens[1:])
       elif cmd_name == "make":
         self._make(*tokens[1:])
+      elif cmd_name == "cn" or cmd_name == "connect":
+        self._connect(*tokens[1:])
       elif cmd_name == "w":
         print("%%drawjson\n"+json.dumps(self._save()))
       elif cmd_name == "q":
@@ -670,6 +680,25 @@ class CanvasManager(object):
 
   def _make(self, *args):
     pass
+
+  def _connect(self, *args):
+    if len(self._selected_ids) != 2:
+      raise Exception("Should select two object")
+    id1, id2 = self._selected_ids
+    self._ensure_name_is_id(id1)
+    self._ensure_name_is_id(id2)
+    arrow, annotates = "", []
+    for t, v in args:
+      if t == "command":
+        if v == "->":
+          arrow = "with.stealth"
+        elif v == "<-":
+          arrow = "with.reversed.stealth"
+        elif v == "<->":
+          arrow = "with.double.stealth"
+      elif t == "text" and len(v) > 0:
+        annotates.append(f"with.annotate '{v}'")
+    self._parse(f"draw {arrow} from.{id1} line.to.{id2} {' '.join(annotates)}")
         
 
 if __name__ == "__main__":

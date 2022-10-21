@@ -179,3 +179,17 @@ def num_to_anchor(x, y):
   return [["south.west", "south", "south.east"],
           ["west", "center", "east"],
           ["north.west", "north", "north.east"]][y+1][x+1]
+
+
+def clip_line(x0, y0, x1, y1, clip):
+  x, y, w, h = clip
+  assert x0 >= x and x0 <= x+w and y0 >= y and y0 <= y+w
+  if x1 >= x and x1 <= x+w and y1 >= y and y1 <= y+h:
+    return None
+  while (x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0) > 0.001:
+    xm, ym = (x0 + x1) / 2, (y0 + y1) / 2
+    if xm >= x and xm <= x+w and ym >= y and ym <= y+h:
+      x0, y0 = xm, ym
+    else:
+      x1, y1 = xm, ym
+  return x1, y1
