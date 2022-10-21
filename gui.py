@@ -450,8 +450,10 @@ class CanvasManager(object):
     if self._end:
       return
     self._canvas.delete("all")
-    self._draw_grid(self._canvas)
-    self._draw_axes(self._canvas)
+    if self._show_grid:
+      self._draw_grid(self._canvas)
+    if self._show_axes:
+      self._draw_axes(self._canvas)
     self._draw_picture(self._canvas, self._context)
     self._draw_visual(self._canvas)
     self._draw_pointer(self._canvas)
@@ -628,6 +630,10 @@ class CanvasManager(object):
         self._make(*tokens[1:])
       elif cmd_name == "cn" or cmd_name == "connect":
         self._connect(*tokens[1:])
+      elif cmd_name == "grid":
+        self._set_grid(*tokens[1:])
+      elif cmd_name == "axes":
+        self._set_axes(*tokens[1:])
       elif cmd_name == "w":
         print("%%drawjson\n"+json.dumps(self._save()))
       elif cmd_name == "q":
@@ -699,6 +705,18 @@ class CanvasManager(object):
       elif t == "text" and len(v) > 0:
         annotates.append(f"with.annotate '{v}'")
     self._parse(f"draw {arrow} from.{id1} line.to.{id2} {' '.join(annotates)}")
+
+  def _set_grid(self, *args):
+    self._show_grid = True
+    for t, v in args:
+      if v == "off":
+        self._show_grid = False
+
+  def _set_axes(self, *args):
+    self._show_axes = True
+    for t, v in args:
+      if v == "off":
+        self._show_axes = False
         
 
 if __name__ == "__main__":
