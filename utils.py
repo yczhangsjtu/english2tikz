@@ -142,3 +142,40 @@ def color_name_to_rgb(name):
   if name == "cyan":
     return 0, 255, 255
   raise Exception(f"Unrecognized color {name}")
+
+
+def shift_anchor(anchor, direction):
+  x, y = anchor_to_num(anchor)
+  dx, dy = direction_to_num(direction)
+  x = min(max(x + dx, -1), 1)
+  y = min(max(y + dy, -1), 1)
+  return num_to_anchor(x, y)
+
+
+def anchor_to_num(anchor):
+  return {
+    "center": (0, 0),
+    "north": (0, 1),
+    "south": (0, -1),
+    "east": (1, 0),
+    "west": (-1, 0),
+    "north.east": (1, 1),
+    "north.west": (-1, 1),
+    "south.east": (1, -1),
+    "south.west": (-1, -1),
+  }[anchor]
+
+
+def direction_to_num(direction):
+  return {
+    "up": (0, 1),
+    "down": (0, -1),
+    "left": (-1, 0),
+    "right": (1, 0),
+  }[direction]
+
+
+def num_to_anchor(x, y):
+  return [["south.west", "south", "south.east"],
+          ["west", "center", "east"],
+          ["north.west", "north", "north.east"]][y+1][x+1]

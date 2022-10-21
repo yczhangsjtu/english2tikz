@@ -203,6 +203,86 @@ class CanvasManager(object):
             self._obj_to_edit_text = self._context._picture[-1]
             self._editing_text = ""
             self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "east")
+        elif event.char == "I":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 1:
+            self._error_msg = "Cannot prepend to more than one objects"
+          elif len(self._selected_ids) == 1:
+            id_ = self._selected_ids[0]
+            self._ensure_name_is_id(id_)
+            self._parse(f"there.is.text '' with.east.at.west.of.{id_}")
+            self._obj_to_edit_text = self._context._picture[-1]
+            self._editing_text = ""
+            self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "west")
+        elif event.char == ">":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 0:
+            for id_ in self._selected_ids:
+              obj = self._find_object_by_id(id_)
+              if "xshift" in obj:
+                xshift = dist_to_num(obj["xshift"])
+              else:
+                xshift = 0
+              xshift = round(xshift / self._grid_size()) * self._grid_size()
+              xshift += self._grid_size()
+              if xshift == 0:
+                if "xshift" in obj:
+                  del obj["xshift"]
+              else:
+                obj["xshift"] = f"{xshift}cm"
+        elif event.char == "<":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 0:
+            for id_ in self._selected_ids:
+              obj = self._find_object_by_id(id_)
+              if "xshift" in obj:
+                xshift = dist_to_num(obj["xshift"])
+              else:
+                xshift = 0
+              xshift = round(xshift / self._grid_size()) * self._grid_size()
+              xshift -= self._grid_size()
+              if xshift == 0:
+                if "xshift" in obj:
+                  del obj["xshift"]
+              else:
+                obj["xshift"] = f"{xshift}cm"
+        elif event.char == "K":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 0:
+            for id_ in self._selected_ids:
+              obj = self._find_object_by_id(id_)
+              if "yshift" in obj:
+                yshift = dist_to_num(obj["yshift"])
+              else:
+                yshift = 0
+              yshift = round(yshift / self._grid_size()) * self._grid_size()
+              yshift += self._grid_size()
+              if yshift == 0:
+                if "yshift" in obj:
+                  del obj["yshift"]
+              else:
+                obj["yshift"] = f"{yshift}cm"
+        elif event.char == "J":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 0:
+            for id_ in self._selected_ids:
+              obj = self._find_object_by_id(id_)
+              if "yshift" in obj:
+                yshift = dist_to_num(obj["yshift"])
+              else:
+                yshift = 0
+              yshift = round(yshift / self._grid_size()) * self._grid_size()
+              yshift -= self._grid_size()
+              if yshift == 0:
+                if "yshift" in obj:
+                  del obj["yshift"]
+              else:
+                obj["yshift"] = f"{yshift}cm"
         elif event.char == "u":
           self._undo()
         elif event.char == "v":
@@ -239,6 +319,58 @@ class CanvasManager(object):
         elif event.keysym == "y":
           self._centery += 100
           self._reset_pointer_into_screen()
+        elif event.keysym == "h":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 0:
+            for id_ in self._selected_ids:
+              obj = self._find_object_by_id(id_)
+              if not "at" in obj or not isinstance(obj["at"], str):
+                self._error_msg = "Object is not anchored to another object"
+              if "at.anchor" in obj:
+                at_anchor = obj["at.anchor"]
+              else:
+                at_anchor = "center"
+              obj["at.anchor"] = shift_anchor(at_anchor, "left")
+        elif event.keysym == "j":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 0:
+            for id_ in self._selected_ids:
+              obj = self._find_object_by_id(id_)
+              if not "at" in obj or not isinstance(obj["at"], str):
+                self._error_msg = "Object is not anchored to another object"
+              if "at.anchor" in obj:
+                at_anchor = obj["at.anchor"]
+              else:
+                at_anchor = "center"
+              obj["at.anchor"] = shift_anchor(at_anchor, "down")
+        elif event.keysym == "k":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 0:
+            for id_ in self._selected_ids:
+              obj = self._find_object_by_id(id_)
+              if not "at" in obj or not isinstance(obj["at"], str):
+                self._error_msg = "Object is not anchored to another object"
+              if "at.anchor" in obj:
+                at_anchor = obj["at.anchor"]
+              else:
+                at_anchor = "center"
+              obj["at.anchor"] = shift_anchor(at_anchor, "up")
+        elif event.keysym == "l":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 0:
+            for id_ in self._selected_ids:
+              obj = self._find_object_by_id(id_)
+              if not "at" in obj or not isinstance(obj["at"], str):
+                self._error_msg = "Object is not anchored to another object"
+              if "at.anchor" in obj:
+                at_anchor = obj["at.anchor"]
+              else:
+                at_anchor = "center"
+              obj["at.anchor"] = shift_anchor(at_anchor, "right")
     self.draw()
 
   def _find_object_by_id(self, id_):
