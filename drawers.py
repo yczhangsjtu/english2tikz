@@ -67,23 +67,47 @@ class BoxDrawer(Drawer):
     if "yshift" in obj:
       y += dist_to_num(obj["yshift"])
     env["bounding box"][obj["id"]] = (x, y, width, height)
-    if "color" in obj:
-      color = color_to_tk(obj["color"])
+
+    if draw:
+      if "color" in obj:
+        color = color_to_tk(obj["color"])
+      else:
+        color = "black"
     else:
-      color = "black"
+      color = ""
+
     if "text.color" in obj:
       text_color = color_to_tk(obj["text.color"])
-    else:
+    elif len(color) > 0:
       text_color = color
-    if "fill" in obj:
-      fill = obj["fill"]
     else:
-      fill = None
+      text_color = "black"
+
+    if "fill" in obj:
+      fill = color_to_tk(obj["fill"])
+    else:
+      fill = ""
+
+    if "line.width" in obj:
+      line_width = obj["line.width"]
+    else:
+      line_width = None
+    if "rounded.corners" in obj:
+      if isinstance(obj["rounded.corners"], bool):
+        rounded_corners = 0.2
+      else:
+        rounded_corners = dist_to_num(obj["rounded.corners"])
+    else:
+      rounded_corners = None
     cs = env["coordinate system"]
     x0, y0 = map_point(x, y, cs)
     x1, y1 = map_point(x + width, y + height, cs)
-    if fill is not None or draw:
-      canvas.create_rectangle((x0, y0, x1, y1), fill=fill, outline=color)
+    r = None
+    if fill or draw:
+      if rounded_corners:
+        r = self.round_rectangle(canvas, x0, y0, x1, y1, radius=rounded_corners*cs["scale"], fill=fill, outline=color, width=line_width)
+      else:
+        r = canvas.create_rectangle((x0, y0, x1, y1), fill=fill, outline=color, width=line_width)
     if "text" in obj and obj["text"]:
       center_x, center_y = get_anchor_pos((x, y, width, height), "center")
       x, y = map_point(center_x, center_y, cs)
@@ -92,5 +116,36 @@ class BoxDrawer(Drawer):
       else:
         canvas.move(tmptext, x, y)
         canvas.itemconfig(tmptext, fill=text_color)
+        if r:
+          canvas.tag_lower(r, tmptext)
     if obj["id"] in env["selected ids"]:
-      canvas.create_rectangle((x0 - 2, y0 + 2, x1 + 2, y1 - 2), outline="red", dash=2)
+      if rounded_corners:
+        self.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5, radius=rounded_corners*cs["scale"], fill="", outline="red", dash=2)
+      else:
+        canvas.create_rectangle(x0 - 5, y0 + 5, x1 + 5, y1 - 5, outline="red", dash=2, fill="")
+
+  def round_rectangle(self, canvas, x1, y1, x2, y2, radius=25, **kwargs):
+    x1, x2 = min(x1, x2), max(x1, x2)
+    y1, y2 = min(y1, y2), max(y1, y2)
+    points = [x1+radius, y1,
+              x1+radius, y1,
+              x2-radius, y1,
+              x2-radius, y1,
+              x2, y1,
+              x2, y1+radius,
+              x2, y1+radius,
+              x2, y2-radius,
+              x2, y2-radius,
+              x2, y2,
+              x2-radius, y2,
+              x2-radius, y2,
+              x1+radius, y2,
+              x1+radius, y2,
+              x1, y2,
+              x1, y2-radius,
+              x1, y2-radius,
+              x1, y1+radius,
+              x1, y1+radius,
+              x1, y1]
+
+    return canvas.create_polygon(points, **kwargs, smooth=True)

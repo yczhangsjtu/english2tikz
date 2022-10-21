@@ -93,7 +93,7 @@ def intersect_interval(interval1, interval2):
   x2, x3 = interval2
   x0, x1 = min(x0, x1), max(x0, x1)
   x2, x3 = min(x2, x3), max(x2, x3)
-  return (x3 > x0 and x3 < x1) or (x1 > x2 and x1 < x3)
+  return (x3 >= x0 and x3 <= x1) or (x1 >= x2 and x1 <= x3)
 
 
 def color_to_tk(color):

@@ -2,6 +2,7 @@ import tkinter as tk
 import string
 import copy
 import re
+import json
 from english2tikz.describe_it import DescribeIt
 from english2tikz.drawers import *
 from english2tikz.utils import *
@@ -105,8 +106,7 @@ class CanvasManager(object):
           if event.keysym == "c":
             if self._obj_to_edit_text is None:
               if len(self._editing_text) > 0:
-                x = self._pointerx * self._grid_size()
-                y = self._pointery * self._grid_size()
+                x, y = self._get_pointer_pos()
                 if x != 0:
                   x = f"{x}cm"
                 if y != 0:
@@ -157,7 +157,21 @@ class CanvasManager(object):
           self._centerx = screen_width / 2
           self._centery = screen_height / 2
         elif event.char == "i":
-          if len(self._selected_ids) > 1:
+          if self._visual_start is not None:
+            x0, y0 = self._get_pointer_pos()
+            x1, y1 = self._visual_start
+            x0, x1 = min(x0, x1), max(x0, x1)
+            y0, y1 = min(y0, y1), max(y0, y1)
+            w, h = x1 - x0, y1 - y0
+            x0 = x0 if x0 == 0 else f"{x0}cm"
+            y0 = y0 if y0 == 0 else f"{y0}cm"
+            w = w if w == 0 else f"{w}cm"
+            h = h if h == 0 else f"{h}cm"
+            self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
+            self._obj_to_edit_text = self._context._picture[-1]
+            self._editing_text = self._obj_to_edit_text["text"]
+            self._visual_start = None
+          elif len(self._selected_ids) > 1:
             self._error_msg = "Cannot edit more than one objects"
           elif len(self._selected_ids) == 1:
             self._obj_to_edit_text = self._find_object_by_id(self._selected_ids[0])
@@ -320,7 +334,10 @@ class CanvasManager(object):
       for drawer in self._drawers:
         if drawer.match(obj):
           drawed = True
-          drawer.draw(c, obj, env)
+          try:
+            drawer.draw(c, obj, env)
+          except Exception as e:
+            self._error_msg = f"Error in draw: {e}"
           break
     self._bounding_boxes = env["bounding box"]
 
@@ -422,9 +439,14 @@ class CanvasManager(object):
       cmd_name = tokens[0][1]
       if cmd_name == "set":
         self._set(*tokens[1:])
+      elif cmd_name == "make":
+        self._make(*tokens[1:])
+      elif cmd_name == "w":
+        print(json.dumps(self._context._picture))
+      elif cmd_name == "q":
+        exit(0)
     except Exception as e:
       self._error_msg = str(e)
-      raise e
 
   def _set(self, *args):
     if len(self._selected_ids) == 0:
@@ -455,11 +477,21 @@ class CanvasManager(object):
       self._set_selected_objects(key, True)
 
   def _set_selected_objects(self, key, value):
+    self._history = self._history[:self._history_index+1]
+    self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
     for id_ in self._selected_ids:
       obj = self._find_object_by_id(id_)
       if obj is None:
         raise Exception(f"Cannot find object by id {id_}")
-      obj[key] = value
+      if value == "False":
+        del obj[key]
+      else:
+        obj[key] = value
+    self._history.append(self._context._picture)
+    self._history_index = len(self._history) - 1
+
+  def _make(self, *args):
+    pass
         
 
 if __name__ == "__main__":
