@@ -3,6 +3,7 @@ import string
 import copy
 import re
 import json
+import sys
 from english2tikz.describe_it import DescribeIt
 from english2tikz.drawers import *
 from english2tikz.utils import *
@@ -10,14 +11,19 @@ from english2tikz.utils import *
 screen_width, screen_height = 1200, 750
 
 class CanvasManager(object):
-  def __init__(self, root, canvas):
+  def __init__(self, root, canvas, screen_width, screen_height, picture=None):
     self._canvas = canvas
     self._root = root
     self._context = DescribeIt()
+    if picture is not None:
+      self._context._picture = picture
+    self._end = False
     self._drawers = []
     self._register_fundamental_drawers()
     self._centerx = screen_width / 2
     self._centery = screen_height / 2
+    self._screen_width = screen_width
+    self._screen_height = screen_height
     self._pointerx = 0
     self._pointery = 0
     self._scale = 100
@@ -112,7 +118,7 @@ class CanvasManager(object):
                 if y != 0:
                   y = f"{y}cm"
                 self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
-                                with.text.align=left""")
+                                with.align=left""")
             else:
               self._obj_to_edit_text["text"] = self._editing_text
             self._editing_text = None
@@ -154,8 +160,8 @@ class CanvasManager(object):
         elif event.char == "G":
           self._pointerx = 0
           self._pointery = 0
-          self._centerx = screen_width / 2
-          self._centery = screen_height / 2
+          self._centerx = self._screen_width / 2
+          self._centery = self._screen_height / 2
         elif event.char == "i":
           if self._visual_start is not None:
             x0, y0 = self._get_pointer_pos()
@@ -256,23 +262,23 @@ class CanvasManager(object):
     screenx, screeny = self._get_pointer_screen_pos()
     if screenx < 0:
       self._centerx -= screenx
-    elif screenx >= screen_width:
-      self._centerx += screen_width - screenx
+    elif screenx >= self._screen_width:
+      self._centerx += self._screen_width - screenx
     if screeny < 0:
       self._centery -= screeny
-    elif screeny >= screen_height:
-      self._centery += screen_height - screeny
+    elif screeny >= self._screen_height:
+      self._centery += self._screen_height - screeny
 
   def _reset_pointer_into_screen(self):
     screenx, screeny = self._get_pointer_screen_pos()
-    screenx = max(min(screenx, screen_width - self._scale + 10), self._scale - 10)
-    screeny = max(min(screeny, screen_height - self._scale + 10), self._scale - 10)
+    screenx = max(min(screenx, self._screen_width - self._scale + 10), self._scale - 10)
+    screeny = max(min(screeny, self._screen_height - self._scale + 10), self._scale - 10)
     x, y = reverse_map_point(screenx, screeny, self._coordinate_system())
     self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
 
   def _boundary_grids(self):
     x0, y0 = reverse_map_point(0, 0, self._coordinate_system())
-    x1, y1 = reverse_map_point(screen_width, screen_height, self._coordinate_system())
+    x1, y1 = reverse_map_point(self._screen_width, self._screen_height, self._coordinate_system())
     step_upper = int(y0 / self._grid_size())
     step_lower = int(y1 / self._grid_size())
     step_left  = int(x0 / self._grid_size())
@@ -280,6 +286,8 @@ class CanvasManager(object):
     return step_upper, step_lower, step_left, step_right
     
   def draw(self):
+    if self._end:
+      return
     self._canvas.delete("all")
     self._draw_grid(self._canvas)
     self._draw_axes(self._canvas)
@@ -293,31 +301,31 @@ class CanvasManager(object):
     step = round(1 / self._grid_size())
     for i in range(step_lower, step_upper+1):
       x, y = map_point(0, self._grid_size() * i, self._coordinate_system())
-      c.create_line((0, y, screen_width, y), fill="gray", dash=2)
+      c.create_line((0, y, self._screen_width, y), fill="gray", dash=2)
       draw_text = i == self._pointery or i % step == 0
       color = "red" if i == self._pointery else "gray"
       if draw_text:
         text = "%.2g" % (i * self._grid_size())
         c.create_text(5, y, text=text, anchor="sw", fill=color)
-        c.create_text(screen_width-3, y, text=text, anchor="se", fill=color)
+        c.create_text(self._screen_width-3, y, text=text, anchor="se", fill=color)
     for i in range(step_left, step_right+1):
       x, y = map_point(self._grid_size() * i, 0, self._coordinate_system())
-      c.create_line((x, 0, x, screen_height), fill="gray", dash=2)
+      c.create_line((x, 0, x, self._screen_height), fill="gray", dash=2)
       draw_text = i == self._pointerx or i % step == 0
       color = "red" if i == self._pointerx else "gray"
       if draw_text:
         text = "%.2g" % (i * self._grid_size())
         c.create_text(x, 0, text=text, anchor="nw", fill=color)
-        c.create_text(x, screen_height, text=text, anchor="sw", fill=color)
+        c.create_text(x, self._screen_height, text=text, anchor="sw", fill=color)
 
   def _draw_axes(self, c):
-    c.create_line((0, self._centery, screen_width, self._centery), fill="blue", width=1.5)
-    c.create_line((self._centerx, 0, self._centerx, screen_height), fill="blue", width=1.5)
+    c.create_line((0, self._centery, self._screen_width, self._centery), fill="blue", width=1.5)
+    c.create_line((self._centerx, 0, self._centerx, self._screen_height), fill="blue", width=1.5)
 
   def _coordinate_system(self):
     return {
-      "width": screen_width,
-      "height": screen_height,
+      "width": self._screen_width,
+      "height": self._screen_height,
       "center_x": self._centerx,
       "center_y": self._centery,
       "scale": self._scale,
@@ -360,17 +368,17 @@ class CanvasManager(object):
         bg = c.create_rectangle(c.bbox(t), fill="white", outline="blue")
         c.tag_lower(bg, t)
       return
-    c.create_line((0, y, screen_width, y), fill="red", width=1)
-    c.create_line((x, 0, x, screen_height), fill="red", width=1)
+    c.create_line((0, y, self._screen_width, y), fill="red", width=1)
+    c.create_line((x, 0, x, self._screen_height), fill="red", width=1)
     c.create_oval(x-10, y-10, x+10, y+10, fill="red", outline="black")
 
   def _draw_command(self, c):
     if self._command_line is not None:
-      c.create_rectangle((3, screen_height-15, screen_width, screen_height), fill="white", outline="black")
-      c.create_text(5, screen_height, text=":"+self._command_line, anchor="sw", fill="black")
+      c.create_rectangle((3, self._screen_height-15, self._screen_width, self._screen_height), fill="white", outline="black")
+      c.create_text(5, self._screen_height, text=":"+self._command_line, anchor="sw", fill="black")
     elif self._error_msg is not None:
-      c.create_rectangle((3, screen_height-15, screen_width, screen_height), fill="white", outline="black")
-      c.create_text(5, screen_height, text=self._error_msg, anchor="sw", fill="red")
+      c.create_rectangle((3, self._screen_height-15, self._screen_width, self._screen_height), fill="white", outline="black")
+      c.create_text(5, self._screen_height, text=self._error_msg, anchor="sw", fill="red")
 
   def _tokenize(self, code):
     code = code.strip()
@@ -429,6 +437,19 @@ class CanvasManager(object):
       break
     return tokens
 
+  def _save(self):
+    nextid = self._context._state["nextid"] if "nextid" in self._context._state else 0
+    return {
+      "picture": self._context._picture,
+      "nextid": nextid,
+    }
+
+  def load(self, data):
+    if "picture" in data:
+      self._context._picture = data["picture"]
+    if "nextid" in data:
+      self._context._state["nextid"] = data["nextid"]
+
   def _process_command(self, cmd):
     try:
       tokens = self._tokenize(cmd)
@@ -442,9 +463,10 @@ class CanvasManager(object):
       elif cmd_name == "make":
         self._make(*tokens[1:])
       elif cmd_name == "w":
-        print(json.dumps(self._context._picture))
+        print("%%drawjson\n"+json.dumps(self._save()))
       elif cmd_name == "q":
-        exit(0)
+        self._root.after(1, self._root.destroy())
+        self._end = True
     except Exception as e:
       self._error_msg = str(e)
 
@@ -499,7 +521,7 @@ if __name__ == "__main__":
   canvas = tk.Canvas(root, bg="white", width=screen_width, height=screen_height)
   canvas.pack()
 
-  CanvasManager(root, canvas)
+  CanvasManager(root, canvas, screen_width, screen_height)
 
   root.title("Vim Draw")
   root.minsize(screen_width, screen_height)

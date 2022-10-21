@@ -22,6 +22,14 @@ class DescribeIt(object):
     self._register_fundamental_preprocessors()
     self._last_handler = None
     self._scale = 1
+
+  def getid(self):
+    if "nextid" in self._state:
+      ret = self._state["nextid"]
+      self._state["nextid"] += 1
+      return f"id{ret}"
+    self._state["nextid"] = 1
+    return "id0"
   
   def process(self, command_or_text):
     if (command_or_text.startswith('"') and

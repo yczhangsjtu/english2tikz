@@ -1,11 +1,8 @@
-from .utils import getid
-
-
 class ObjectRenderer(object):
   def match(self, obj):
     raise Exception("'match' cannot be invoked directly")
   
-  def render(self, obj):
+  def render(self, context, obj):
     raise Exception("'render' cannot be invoked directly")
 
 
@@ -17,9 +14,9 @@ class BoxObjectRenderer(ObjectRenderer, SupportMultipleRenderer):
   def match(self, obj):
     return obj == "box"
   
-  def render(self, obj):
+  def render(self, context, obj):
     return {
-      "id": getid(),
+      "id": context.getid(),
       "type": "box",
       "text": "",
     }
@@ -29,9 +26,9 @@ class TreeObjectRenderer(ObjectRenderer):
   def match(self, obj):
     return isinstance(obj, dict) and "type" in obj and obj["type"] == "tree"
   
-  def render(self, obj):
+  def render(self, context, obj):
     ret = [{
-      "id": getid(),
+      "id": context.getid(),
       "type": "text",
       "text": "root",
       "tree.role": "root",
@@ -45,7 +42,7 @@ class TreeObjectRenderer(ObjectRenderer):
       curr_id = curr["id"]
       for i in range(branch):
         node = {
-          "id": getid(),
+          "id": context.getid(),
           "type": "text",
           "text": f"node-{index}-{i}",
           "tree.layer": curr["tree.layer"] + 1,
@@ -85,12 +82,12 @@ class GridObjectRenderer(ObjectRenderer):
   def match(self, obj):
     return isinstance(obj, dict) and "type" in obj and obj["type"] == "grid"
     
-  def render(self, obj):
+  def render(self, context, obj):
     h, w, v_align, h_align = obj["rows"], obj["cols"], obj["v_align"], obj["h_align"]
     nodes = [[
       {
         "type": "text",
-        "id": getid(),
+        "id": context.getid(),
         "text": f"grid-{i}-{j}",
       } for j in range(w)
     ] for i in range(h)]

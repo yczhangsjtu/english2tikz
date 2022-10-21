@@ -111,7 +111,7 @@ class ThereIsHandler(Handler):
       del context._state["arrange"]
     for renderer in self._object_renderers:
       if renderer.match(m):
-        obj = renderer.render(m)
+        obj = renderer.render(context, m)
         if isinstance(obj, list):
           for item in obj:
             context._picture.append(item)
@@ -176,7 +176,7 @@ class ThereAreHandler(Handler):
       for renderer in self._object_renderers:
         if renderer.match(m):
           rendered = True
-          obj = renderer.render(m)
+          obj = renderer.render(context, m)
           if isinstance(obj, list):
             for item in obj:
               context._picture.append(item)
@@ -347,7 +347,7 @@ class ChainedByArrowsHandler(Handler):
     line = items[1]
     assert line["type"] == "line"
     annotate = {
-      "id": getid(),
+      "id": context.getid(),
       "type": "text",
       "scale": "0.7",
       "above": True,
@@ -687,7 +687,7 @@ class ThereIsTextHandler(Handler):
   
   def __call__(self, context, command):
     obj = {
-      "id": getid(),
+      "id": context.getid(),
       "type": "text",
       "text": "",
     }
@@ -713,7 +713,7 @@ class ThereAreTextsHandler(Handler):
   
   def process_text(self, context, text):
     obj = {
-      "id": getid(),
+      "id": context.getid(),
       "type": "text",
       "text": text,
     }
@@ -733,7 +733,7 @@ class ThereIsTextBetweenHandler(Handler):
     assert m is not None
     node1, node2 = m.group(1), m.group(2)
     path = {
-      "id": getid(),
+      "id": context.getid(),
       "type": "path",
       "items": []
     }
@@ -750,7 +750,7 @@ class ThereIsTextBetweenHandler(Handler):
         "name": DirectionOfHandler.find_object_with_name(context, node1)["id"]
       })
     obj = {
-      "id": getid(),
+      "id": context.getid(),
       "type": "text",
       "text": "",
       "in_path": True,
@@ -1070,7 +1070,7 @@ class MoveToMiddleOfHandler(Handler):
       }
     context._state["the_path"]["items"].append(obj)
 
-    annotate_id = getid()
+    annotate_id = context.getid()
     annotate = {
       "type": "point",
       "midway": True,
@@ -1116,7 +1116,7 @@ class RectangleHorizontalToByHandler(Handler):
     m = self._match(command)
     assert m is not None
     node, direction, distance = m.group(1), m.group(2), m.group(3)
-    start_point_id = getid()
+    start_point_id = context.getid()
     context._state["the_path"]["items"].append({
       "type": "point",
       "id": start_point_id,
@@ -1154,7 +1154,7 @@ class RectangleHorizontalToByHandler(Handler):
         "relative": True,
       })
 
-    end_point_id = getid()
+    end_point_id = context.getid()
     context._state["the_path"]["items"].append({
       "type": "point",
       "id": end_point_id,
@@ -1186,7 +1186,7 @@ class RectangleVerticalToByHandler(Handler):
     m = self._match(command)
     assert m is not None
     node, direction, distance = m.group(1), m.group(2), m.group(3)
-    start_point_id = getid()
+    start_point_id = context.getid()
     context._state["the_path"]["items"].append({
       "type": "point",
       "id": start_point_id,
@@ -1224,7 +1224,7 @@ class RectangleVerticalToByHandler(Handler):
         "relative": True,
       })
 
-    end_point_id = getid()
+    end_point_id = context.getid()
     context._state["the_path"]["items"].append({
       "type": "point",
       "id": end_point_id,
@@ -1256,7 +1256,7 @@ class RectangleToNodeShiftedHandler(Handler):
     m = self._match(command)
     assert m is not None
     node, x, y = m.group(1), m.group(2), m.group(3)
-    start_point_id = getid()
+    start_point_id = context.getid()
     context._state["the_path"]["items"].append({
       "type": "point",
       "id": start_point_id,
@@ -1283,7 +1283,7 @@ class RectangleToNodeShiftedHandler(Handler):
       "relative": True,
     })
 
-    end_point_id = getid()
+    end_point_id = context.getid()
     context._state["the_path"]["items"].append({
       "type": "point",
       "id": end_point_id,
@@ -1503,7 +1503,7 @@ class LineVerticalToHandler(Handler):
     m = self._match(command)
     assert m is not None
     node = m.group(1)
-    point_id = getid()
+    point_id = context.getid()
     context._state["the_path"]["items"].append({
       "type": "point",
       "id": point_id,
@@ -1538,7 +1538,7 @@ class LineHorizontalToHandler(Handler):
     m = self._match(command)
     assert m is not None
     node = m.group(1)
-    point_id = getid()
+    point_id = context.getid()
     context._state["the_path"]["items"].append({
       "type": "point",
       "id": point_id,
@@ -1573,7 +1573,7 @@ class MoveVerticalToHandler(Handler):
     m = self._match(command)
     assert m is not None
     node = m.group(1)
-    point_id = getid()
+    point_id = context.getid()
     context._state["the_path"]["items"].append({
       "type": "point",
       "id": point_id,
@@ -1605,7 +1605,7 @@ class MoveHorizontalToHandler(Handler):
     m = self._match(command)
     assert m is not None
     node = m.group(1)
-    point_id = getid()
+    point_id = context.getid()
     context._state["the_path"]["items"].append({
       "type": "point",
       "id": point_id,
@@ -1640,7 +1640,7 @@ class WithAnnotateHandler(Handler):
   def process_text(self, context, text):
     line = context._state["the_line"]
     obj = {
-      "id": getid(),
+      "id": context.getid(),
       "type": "text",
       "in_path": True,
       "text": text,
@@ -1761,7 +1761,7 @@ class GridWithFixedDistancesHandler(Handler):
     nodes = [[
       {
         "type": "text",
-        "id": getid(),
+        "id": context.getid(),
         "text": f"grid-{i}-{j}",
       } for j in range(w)
     ] for i in range(h)]
@@ -2016,7 +2016,7 @@ class CopyLastObjectHandler(Handler):
       for item in to_copy:
         new_item = copy.deepcopy(item)
         if "id" in new_item:
-          new_item["id"] = getid()
+          new_item["id"] = context.getid()
         context._picture.append(new_item)
         context._state["refered_to"].append(new_item)
 
@@ -2031,14 +2031,14 @@ class CopyThemHandler(Handler):
       copied = [copy.deepcopy(item) for item in target]
       for item in copied:
         if "id" in item:
-          item["id"] = getid()
+          item["id"] = context.getid()
       for item in copied:
         context._picture.append(item)
       context._state["refered_to"] = copied
     else:
       copied = copy.deepcopy(target)
       if "id" in copied:
-        copied["id"] = getid()
+        copied["id"] = context.getid()
       context._picture.append(copied)
       context._state["refered_to"] = copied
     context._state["filter_mode"] = False
@@ -2358,7 +2358,7 @@ class DynamicGridHandler(Handler):
     v_align, h_align, id_ = m.group(1), m.group(2), m.group(3)
     h_align = h_align if h_align is not None else "center"
     v_align = v_align if v_align is not None else "center"
-    origin_id = getid()
+    origin_id = context.getid()
     context._state[f"dynamic.grid.{id_}"] = {
       "node.ids": [[origin_id]],
       "col.aligns": [h_align],
@@ -2403,7 +2403,7 @@ class AddRowHandler(Handler):
     grid["row.aligns"].append(align)
     node_ids, nodes = [], []
     for i in range(ncols):
-      node_id = getid()
+      node_id = context.getid()
       node = {
           "id": node_id,
           "type": "text",
@@ -2498,7 +2498,7 @@ class AddColHandler(Handler):
     grid["col.aligns"].append(align)
     node_ids, nodes = [], []
     for i in range(nrows):
-      node_id = getid()
+      node_id = context.getid()
       node = {
           "id": node_id,
           "type": "text",
@@ -2582,7 +2582,7 @@ class DynamicLayeredGraphHandler(Handler):
 
   def process_text(self, context, text):
     obj = {
-      "id": getid(),
+      "id": context.getid(),
       "type": "text",
       "text": text,
     }
@@ -2610,7 +2610,7 @@ class AddLayerHandler(Handler):
 
   def process_text(self, context, text):
     obj = {
-      "id": getid(),
+      "id": context.getid(),
       "type": "text",
       "text": text,
     }
@@ -2656,9 +2656,9 @@ class AddLayerHandler(Handler):
         if i < len(current_layer) - side_objects:
           a = last_layer[start_index_last_layer+i-side_objects]
           b = last_layer[start_index_last_layer+i-side_objects+1]
-          center_id = getid()
+          center_id = context.getid()
           path = {
-            "id": getid(),
+            "id": context.getid(),
             "type": "path",
             "items": [
               {

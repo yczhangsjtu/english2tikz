@@ -13,7 +13,7 @@ class BoxRenderer(Renderer):
   whitelist = set([
     "color", "line.width", "rounded.corners", "fill", "xshift", "yshift",
     "scale", "rotate", "circle", "inner.sep", "shape", "dashed", "font",
-    "text.width", "sloped", "align", "text.align"
+    "text.width", "sloped", "align"
   ] + colors)
   directions = set([
     "above", "below", "left", "right",
