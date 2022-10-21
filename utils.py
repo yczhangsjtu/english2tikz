@@ -96,6 +96,38 @@ def intersect_interval(interval1, interval2):
   return (x3 >= x0 and x3 <= x1) or (x1 >= x2 and x1 <= x3)
 
 
+def rect_line_intersect(rect, line):
+  x0, y0, x1, y1 = rect
+  x2, y2, x3, y3 = line
+  return point_in_rect(x2, y2, rect) or \
+         point_in_rect(x3, y3, rect) or \
+         line_line_intersect((x0, y0, x1, y0), line) or \
+         line_line_intersect((x0, y0, x0, y1), line) or \
+         line_line_intersect((x1, y1, x0, y1), line) or \
+         line_line_intersect((x1, y1, x0, y1), line)
+
+
+def point_in_rect(x, y, rect):
+  x0, y0, x1, y1 = rect
+  x0, x1 = min(x0, x1), max(x0, x1)
+  y0, y1 = min(y0, y1), max(y0, y1)
+  return x >= x0 and x <= x1 and y >= y0 and y <= y1
+
+
+def line_line_intersect(line1, line2):
+  # https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
+  x0, y0, x1, y1 = line1
+  x2, y2, x3, y3 = line2
+  t1 = (x0 - x2) * (y2 - y3) - (y0 - y2) * (x2 - x3)
+  dn = (x0 - x1) * (y2 - y3) - (y0 - y1) * (x2 - x3)
+  u1 = (x0 - x2) * (y0 - y1) - (y0 - y2) * (x0 - x1)
+  if dn == 0:
+    return False
+
+  t, u = t1 / dn, u1 / dn
+  return t >= 0 and t <= 1 and u >= 0 and u <= 1
+
+
 def color_to_tk(color):
   if "!" in color:
     components = color.split("!")

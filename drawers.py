@@ -235,17 +235,20 @@ class PathDrawer(Drawer):
             if new_pos_clip:
               x1, y1 = clip_line(x1, y1, x0, y0, new_pos_clip)
 
+            env["segments"].append(("line", (x0, y0, x1, y1), obj))
+
             x0p, y0p = map_point(x0, y0, cs)
             x1p, y1p = map_point(x1, y1, cs)
 
             if "line.width" in obj:
-              width = obj["line.width"]
+              width = float(obj["line.width"])
             else:
               width = None
             if "color" in obj:
               color = obj["color"]
             else:
               color = "black"
+            dashed = 2 if "dashed" in obj else None
 
             if arrow:
               arrow = tk.LAST
@@ -255,8 +258,13 @@ class PathDrawer(Drawer):
               arrow = tk.BOTH
             else:
               arrow = None
+
+            if obj in env["selected paths"]:
+              canvas.create_line((x0p, y0p, x1p, y1p), fill="red", dash=6,
+                                 width=width+4 if width is not None else 4)
             canvas.create_line((x0p, y0p, x1p, y1p), fill=color, width=width,
-                               arrow=arrow)
+                               arrow=arrow, dash=dashed)
+
             if "annotates" in to_draw:
               for annotate in to_draw["annotates"]:
                 if "start" in annotate:
@@ -281,6 +289,11 @@ class PathDrawer(Drawer):
             x0, y0 = current_pos
             x1, y1 = new_pos
 
+            x0, x1 = min(x0, x1), max(x0, x1)
+            y0, y1 = min(y0, y1), max(y0, y1)
+
+            env["segments"].append(("rectangle", (x0, y0, x1, y1), obj))
+
             x0p, y0p = map_point(x0, y0, cs)
             x1p, y1p = map_point(x1, y1, cs)
 
@@ -296,9 +309,12 @@ class PathDrawer(Drawer):
               fill = obj["fill"]
             else:
               fill = ""
+            dashed = 2 if "dashed" in obj else None
 
+            if obj in env["selected paths"]:
+              canvas.create_rectangle((x0p-5, y0p+5, x1p+5, y1p-5), fill="", outline="red", dash=4)
             canvas.create_rectangle((x0p, y0p, x1p, y1p), fill=fill, outline=color,
-                                    width=width)
+                                    width=width, dash=dashed)
 
         to_draw = None
 

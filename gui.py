@@ -41,6 +41,7 @@ class CanvasManager(object):
     self._visual_start = None
     self._bounding_boxes = {}
     self._selected_ids = []
+    self._selected_paths = []
     self._marks = []
     root.bind("<Key>", self.handle_key)
     self.draw()
@@ -285,6 +286,8 @@ class CanvasManager(object):
                 obj["yshift"] = f"{yshift}cm"
         elif event.char == "u":
           self._undo()
+          self._selected_ids = []
+          self._selected_paths = []
         elif event.char == "v":
           if self._visual_start is not None:
             self._select_targets(False)
@@ -299,6 +302,9 @@ class CanvasManager(object):
             deleted_ids = []
             for id_ in self._selected_ids:
               self._delete_objects_related_to_id(id_, deleted_ids)
+          if len(self._selected_paths) > 0:
+            for path in self._selected_paths:
+              self._delete_path(path)
           self._history.append(self._context._picture)
           self._history_index = len(self._history) - 1
         elif event.char == 'm':
@@ -319,6 +325,7 @@ class CanvasManager(object):
         elif event.keysym == "c":
           self._visual_start = None
           self._selected_ids = []
+          self._selected_paths = []
         elif event.keysym == "g":
           x, y = self._get_pointer_pos()
           self._grid_size_index = min(self._grid_size_index + 1, len(self._grid_sizes) - 1)
@@ -412,6 +419,7 @@ class CanvasManager(object):
   def _select_targets(self, clear=True):
     if clear:
       self._selected_ids = []
+      self._selected_paths = []
     if self._visual_start is not None:
       x0, y0 = self._visual_start
       x1, y1 = self._get_pointer_pos()
@@ -419,6 +427,17 @@ class CanvasManager(object):
         x, y, width, height = bb
         if id_ not in self._selected_ids and intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
           self._selected_ids.append(id_)
+      for type_, data, path in self._segments:
+        if type_ == "line":
+          x2, y2, x3, y3 = data
+          if path not in self._selected_paths and rect_line_intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
+            self._selected_paths.append(path)
+        elif type_ == "rectangle":
+          x2, y2, x3, y3 = data
+          if path not in self._selected_paths and intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
+            self._selected_paths.append(path)
+        else:
+          raise Exception(f"Unknown segment type: {type_}")
 
   def _delete_objects_related_to_id(self, id_, deleted_ids = []):
     to_removes = [obj for obj in self._context._picture if self._related_to(obj, id_)]
@@ -449,6 +468,22 @@ class CanvasManager(object):
           if item["name"] == id_:
             return True
     return False
+
+  def _delete_path(self, path):
+    affected_ids = []
+    for item in path["items"]:
+      if "annotates" in item:
+        for annotate in item["annotates"]:
+          if "id" in annotate and not "id" in affected_ids:
+            affected_ids.append(annotate["id"])
+    for i in range(len(self._context._picture)):
+      if self._context._picture[i] == path:
+        del self._context._picture[i]
+        break
+
+    deleted_ids = []
+    for id_ in affected_ids:
+      self._delete_objects_related_to_id(id_, deleted_ids)
 
   def _get_pointer_pos(self):
     return self._pointerx * self._grid_size(), self._pointery * self._grid_size()
@@ -545,8 +580,10 @@ class CanvasManager(object):
   def _draw_picture(self, c, ctx):
     env = {
       "bounding box": {},
+      "segments": [],
       "coordinate system": self._coordinate_system(),
       "selected ids": self._selected_ids,
+      "selected paths": self._selected_paths,
     }
     for obj in ctx._picture:
       drawed = False
@@ -559,6 +596,7 @@ class CanvasManager(object):
             self._error_msg = f"Error in draw: {e}"
           break
     self._bounding_boxes = env["bounding box"]
+    self._segments = env["segments"]
 
   def _draw_visual(self, c):
     if self._visual_start is not None:
@@ -740,7 +778,7 @@ class CanvasManager(object):
       self._error_msg = str(e)
 
   def _set(self, *args):
-    if len(self._selected_ids) == 0:
+    if len(self._selected_ids) == 0 and len(self._selected_paths) == 0:
       raise Exception("No object selected")
     key = None
     for t, v in args:
@@ -775,9 +813,16 @@ class CanvasManager(object):
       if obj is None:
         raise Exception(f"Cannot find object by id {id_}")
       if value == "False":
-        del obj[key]
+        if key in obj:
+          del obj[key]
       else:
         obj[key] = value
+    for path in self._selected_paths:
+      if value == "False":
+        if key in path:
+          del path[key]
+      else:
+        path[key] = value
     self._history.append(self._context._picture)
     self._history_index = len(self._history) - 1
 
@@ -825,6 +870,8 @@ class CanvasManager(object):
   def _connect(self, *args):
     if len(self._selected_ids) != 2:
       raise Exception("Should select two object")
+    if len(self._selected_paths) != 0:
+      raise Exception("Cannot connect paths")
     id1, id2 = self._selected_ids
     self._ensure_name_is_id(id1)
     self._ensure_name_is_id(id2)
