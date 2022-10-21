@@ -602,7 +602,16 @@ class CanvasManager(object):
     for i, mark in enumerate(self._marks):
       x, y = self._get_mark_pos(i, buffer)
       x, y = map_point(x, y, self._coordinate_system())
-      c.create_oval(x-10, y-10, x+10, y+10, fill="#77ff77", outline="green")
+      if mark["type"] == "coordinate":
+        if "relative" in mark:
+          c.create_oval(x-10, y-10, x+10, y+10, fill="#ff7777", outline="red")
+        else:
+          c.create_oval(x-10, y-10, x+10, y+10, fill="#77ff77", outline="green")
+      elif mark["type"] == "nodename":
+        if "xshift" in mark or "yshift" in mark:
+          c.create_oval(x-10, y-10, x+10, y+10, fill="#7777ff", outline="blue")
+        else:
+          c.create_oval(x-10, y-10, x+10, y+10, fill="#ffff77", outline="orange")
       c.create_text(x, y, text=str(i), fill="black")
 
   def _draw_pointer(self, c):
