@@ -102,6 +102,7 @@ class BoxDrawer(Drawer):
     cs = env["coordinate system"]
     x0, y0 = map_point(x, y, cs)
     x1, y1 = map_point(x + width, y + height, cs)
+    anchorx, anchory = get_anchor_pos((x, y, width, height), anchor)
     r = None
     if fill or draw:
       if rounded_corners:
@@ -123,6 +124,8 @@ class BoxDrawer(Drawer):
         self.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5, radius=rounded_corners*cs["scale"], fill="", outline="red", dash=2)
       else:
         canvas.create_rectangle(x0 - 5, y0 + 5, x1 + 5, y1 - 5, outline="red", dash=2, fill="")
+      x, y = map_point(anchorx, anchory, cs)
+      canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#77ff77", outline="green")
 
   def round_rectangle(self, canvas, x1, y1, x2, y2, radius=25, **kwargs):
     x1, x2 = min(x1, x2), max(x1, x2)
