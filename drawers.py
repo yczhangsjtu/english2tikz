@@ -1,5 +1,7 @@
 import tkinter as tk
 import math
+from PIL import Image
+from PIL import ImageTk
 from .utils import *
 from .latex import text_to_latex_image_path
 
@@ -61,11 +63,16 @@ class BoxDrawer(Drawer):
     elif "text" in obj:
       if need_latex(obj["text"]):
         path = text_to_latex_image_path(obj["text"], text_color)
-        if path not in env["image references"]:
-          image = tk.PhotoImage(file=path)
+        if (path, scale) not in env["image references"]:
+          img = Image.open(path)
+          img = img.convert("RGBA")
+          if scale != 1:
+            w, h = img.size
+            img = img.resize((int(w * scale), int(h * scale)))
+          image = ImageTk.PhotoImage(img)
           env["image references"][path] = image
         else:
-          image = env["image references"][path]
+          image = env["image references"][(path, scale)]
         tmptext = canvas.create_image(0, 0, image=image)
       else:
         tmptext = canvas.create_text(0, 0, text=obj["text"],
@@ -78,17 +85,11 @@ class BoxDrawer(Drawer):
       if "width" in obj:
         width = dist_to_num(obj["width"]) * scale
       else:
-        if need_latex(obj["text"]):
-          width = ((x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2) * scale
-        else:
-          width = (x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
+        width = (x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
       if "height" in obj:
         height = dist_to_num(obj["height"]) * scale
       else:
-        if need_latex(obj["text"]):
-          height = ((y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2) * scale
-        else:
-          height = (y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
+        height = (y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
     else:
       if "width" in obj:
         width = dist_to_num(obj["width"]) * scale
@@ -170,11 +171,16 @@ class BoxDrawer(Drawer):
         if need_latex(obj["text"]):
           if tmptext is None:
             path = text_to_latex_image_path(obj["text"], text_color)
-            if path not in env["image references"]:
-              image = tk.PhotoImage(file=path)
-              env["image references"][path] = image
+            if (path, scale) not in env["image references"]:
+              img = Image.open(path)
+              img = img.convert("RGBA")
+              if scale != 1:
+                w, h = img.size
+                img = img.resize((int(w * scale), int(h * scale)))
+              image = ImageTk.PhotoImage(img)
+              env["image references"][(path, scale)] = image
             else:
-              image = env["image references"][path]
+              image = env["image references"][(path, scale)]
             canvas.create_image(x, y, image=image)
           else:
             canvas.move(tmptext, x, y)
@@ -226,11 +232,16 @@ class BoxDrawer(Drawer):
         if need_latex(obj["text"]):
           if tmptext is None:
             path = text_to_latex_image_path(obj["text"], text_color)
-            if path not in env["image references"]:
-              image = tk.PhotoImage(file=path)
-              env["image references"][path] = image
+            if (path, scale) not in env["image references"]:
+              img = Image.open(path)
+              img = img.convert("RGBA")
+              if scale != 1:
+                w, h = img.size
+                img = img.resize((int(w * scale), int(h * scale)))
+              image = ImageTk.PhotoImage(img)
+              env["image references"][(path, scale)] = image
             else:
-              image = env["image references"][path]
+              image = env["image references"][(path, scale)]
             canvas.create_image(x, y, image=image, angle=(180+angle)%360)
           else:
             canvas.move(tmptext, x, y)
