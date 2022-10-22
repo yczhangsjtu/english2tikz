@@ -185,6 +185,10 @@ def color_name_to_rgb(name):
     return 255, 255, 255
   if name == "cyan":
     return 0, 255, 255
+  if name == "yellow":
+    return 255, 255, 0
+  if name == "purple":
+    return 255, 0, 255
   raise Exception(f"Unrecognized color {name}")
 
 

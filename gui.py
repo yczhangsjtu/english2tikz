@@ -227,6 +227,30 @@ class CanvasManager(object):
             self._obj_to_edit_text = self._context._picture[-1]
             self._editing_text = ""
             self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "west")
+        elif event.char == "o":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 1:
+            self._error_msg = "Cannot append to more than one objects"
+          elif len(self._selected_ids) == 1:
+            id_ = self._selected_ids[0]
+            self._ensure_name_is_id(id_)
+            self._parse(f"there.is.text '' with.north.at.south.of.{id_}")
+            self._obj_to_edit_text = self._context._picture[-1]
+            self._editing_text = ""
+            self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "south")
+        elif event.char == "O":
+          if self._visual_start is not None:
+            pass
+          elif len(self._selected_ids) > 1:
+            self._error_msg = "Cannot prepend to more than one objects"
+          elif len(self._selected_ids) == 1:
+            id_ = self._selected_ids[0]
+            self._ensure_name_is_id(id_)
+            self._parse(f"there.is.text '' with.south.at.north.of.{id_}")
+            self._obj_to_edit_text = self._context._picture[-1]
+            self._editing_text = ""
+            self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "north")
         elif event.char == ">":
           if self._visual_start is not None:
             pass

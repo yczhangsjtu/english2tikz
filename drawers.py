@@ -27,6 +27,12 @@ class BoxDrawer(Drawer):
     else:
       scale = 1
 
+    if "rotate" in obj:
+      if angle is None:
+        angle = int(obj["rotate"])
+      else:
+        angle = (int(obj["rotate"]) + angle) % 360
+
     font_size = 40
     if scale != 1:
       font_size = int(font_size * scale)
