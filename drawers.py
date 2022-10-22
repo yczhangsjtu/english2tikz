@@ -336,18 +336,38 @@ class PathDrawer(Drawer):
             else:
               points = [[x0, y0]]
               dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
+
               if "out" in to_draw:
                 out_degree = to_draw["out"]
-                dx = math.sin(out_degree / 180 * math.pi) * dist / 3
-                dy = math.cos(out_degree / 180 * math.pi) * dist / 3
+                dy = math.sin(out_degree / 180 * math.pi) * dist / 3
+                dx = math.cos(out_degree / 180 * math.pi) * dist / 3
+                if current_pos_clip:
+                  cx, cy, cw, ch = current_pos_clip
+                  diagnal = math.sqrt(cw*cw + ch*ch)
+                  start_point = clip_line(x0, y0,
+                      x0 + dx * diagnal / dist * 3,
+                      y0 + dy * diagnal / dist * 3, current_pos_clip)
+                  assert start_point is not None
+                  x0, y0 = start_point
+                  points[0] = [x0, y0]
                 points.append([x0 + dx, y0 + dy])
+
               if "in" in to_draw:
                 in_degree = to_draw["in"]
-                dx = math.sin(in_degree / 180 * math.pi) * dist / 3
-                dy = math.cos(in_degree / 180 * math.pi) * dist / 3
+                dy = math.sin(in_degree / 180 * math.pi) * dist / 3
+                dx = math.cos(in_degree / 180 * math.pi) * dist / 3
+                if new_pos_clip:
+                  cx, cy, cw, ch = current_pos_clip
+                  diagnal = math.sqrt(cw*cw + ch*ch)
+                  end_point = clip_line(x1, y1,
+                      x1 + dx * diagnal / dist * 3,
+                      y1 + dy * diagnal / dist * 3, new_pos_clip)
+                  assert end_point is not None
+                  x1, y1 = end_point
                 points.append([x1 + dx, y1 + dy])
               points.append([x1, y1])
 
+              dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
               steps = max(int(dist / 0.01) + 1, 20)
               curve = Bezier.generate_line_segments(*points, steps=steps)
 

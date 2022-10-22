@@ -453,6 +453,11 @@ class CanvasManager(object):
           x2, y2, x3, y3 = data
           if path not in self._selected_paths and intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
             self._selected_paths.append(path)
+        elif type_ == "curve":
+          for x, y in data:
+            if x >= min(x0,x1) and x <= max(x0,x1) and y >= min(y0,y1) and y <= max(y0,y1):
+              self._selected_paths.append(path)
+              break
         else:
           raise Exception(f"Unknown segment type: {type_}")
 
@@ -787,6 +792,8 @@ class CanvasManager(object):
         self._set_axes(*tokens[1:])
       elif cmd_name == "mark":
         self._add_mark(*tokens[1:])
+      elif cmd_name == "ann" or cmd_name == "annotate":
+        self._annotate(*tokens[1:])
       elif cmd_name == "w":
         print("%%drawjson\n"+json.dumps(self._save()))
       elif cmd_name == "q":
@@ -991,6 +998,41 @@ class CanvasManager(object):
       del self._marks[to_del]
     else:
       self._marks.append(mark)
+
+  def _annotate(self, *args):
+    if len(self._selected_paths) > 1:
+      raise Exception("Cannot annotate more than one paths")
+    if len(self._selected_paths) == 0:
+      raise Exception("Please select one path")
+    path = self._selected_paths[0]
+    lines = [item for item in path["items"] if item["type"] == "line"]
+    if len(lines) == 0:
+      raise Exception("Selected path does not have any lines")
+    index, text = 0, ""
+    for t, v in args:
+      if t == "command":
+        if re.match(r"\d+$", v):
+          index = int(v)
+          if index >= len(lines):
+            raise Exception("Line index exceeds the maximal number")
+      elif t == "text":
+        text = v
+
+    line = lines[index]
+    self._before_change()
+    if "annotates" not in line:
+      line["annotates"] = []
+    line["annotates"].append({
+      "id": self._context.getid(),
+      "type": "text",
+      "in_path": True,
+      "text": v,
+      "midway": True,
+      "above": True,
+      "sloped": True,
+      "scale": "0.7",
+    })
+    self._after_change()
         
 
 if __name__ == "__main__":

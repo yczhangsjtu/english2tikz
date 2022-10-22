@@ -237,8 +237,9 @@ def clip_line(x0, y0, x1, y1, clip):
 
 
 def clip_curve(curve, clip):
+  x, y, w, h = clip
   for i in range(len(curve)):
-    if not point_in_rect(*curve[i], clip, strict=True):
+    if not point_in_rect(*curve[i], (x, y, x+w, y+h), strict=True):
       return curve[i:]
   return None
 
