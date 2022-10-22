@@ -39,11 +39,28 @@ class BoxDrawer(Drawer):
       font_size = int(font_size * scale)
 
     draw = ("draw" in obj and obj["draw"]) or obj["type"] == "box"
+    if draw:
+      if "color" in obj:
+        color = color_to_tk(obj["color"])
+      else:
+        color = "black"
+    else:
+      color = ""
+
+    if "text.color" in obj:
+      text_color = color_to_tk(obj["text.color"])
+    elif len(color) > 0:
+      text_color = color
+    elif "color" in obj:
+      text_color = obj["color"]
+    else:
+      text_color = "black"
+
     if "width" in obj and "height" in obj:
       width, height = dist_to_num(obj["width"]) * scale, dist_to_num(obj["height"]) * scale
     elif "text" in obj:
       if need_latex(obj["text"]):
-        path = text_to_latex_image_path(obj["text"])
+        path = text_to_latex_image_path(obj["text"], text_color)
         if path not in env["image references"]:
           image = tk.PhotoImage(file=path)
           env["image references"][path] = image
@@ -61,11 +78,17 @@ class BoxDrawer(Drawer):
       if "width" in obj:
         width = dist_to_num(obj["width"]) * scale
       else:
-        width = (x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
+        if need_latex(obj["text"]):
+          width = ((x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2) * scale
+        else:
+          width = (x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
       if "height" in obj:
         height = dist_to_num(obj["height"]) * scale
       else:
-        height = (y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
+        if need_latex(obj["text"]):
+          height = ((y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2) * scale
+        else:
+          height = (y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
     else:
       if "width" in obj:
         width = dist_to_num(obj["width"]) * scale
@@ -112,22 +135,6 @@ class BoxDrawer(Drawer):
       y += dist_to_num(obj["yshift"])
     env["bounding box"][obj["id"]] = (x, y, width, height)
 
-    if draw:
-      if "color" in obj:
-        color = color_to_tk(obj["color"])
-      else:
-        color = "black"
-    else:
-      color = ""
-
-    if "text.color" in obj:
-      text_color = color_to_tk(obj["text.color"])
-    elif len(color) > 0:
-      text_color = color
-    elif "color" in obj:
-      text_color = obj["color"]
-    else:
-      text_color = "black"
 
     if "fill" in obj:
       fill = color_to_tk(obj["fill"])
@@ -162,7 +169,7 @@ class BoxDrawer(Drawer):
         x, y = map_point(center_x, center_y, cs)
         if need_latex(obj["text"]):
           if tmptext is None:
-            path = text_to_latex_image_path(obj["text"])
+            path = text_to_latex_image_path(obj["text"], text_color)
             if path not in env["image references"]:
               image = tk.PhotoImage(file=path)
               env["image references"][path] = image
@@ -218,7 +225,7 @@ class BoxDrawer(Drawer):
         x, y = map_point(rotated_x, rotated_y, cs)
         if need_latex(obj["text"]):
           if tmptext is None:
-            path = text_to_latex_image_path(obj["text"])
+            path = text_to_latex_image_path(obj["text"], text_color)
             if path not in env["image references"]:
               image = tk.PhotoImage(file=path)
               env["image references"][path] = image

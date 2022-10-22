@@ -2,8 +2,10 @@ import os
 from hashlib import sha256
 
 
-def text_to_latex_image_path(text):
+def text_to_latex_image_path(text, color="black"):
   code = sha256(bytes(text, "utf8")).hexdigest()
+  if color != "black":
+    code = sha256(bytes(code, "utf8")).hexdigest()
   if not os.path.exists("view"):
     os.mkdir("view")
   if not os.path.isdir("view"):
@@ -11,14 +13,17 @@ def text_to_latex_image_path(text):
   if os.path.exists(f"view/{code}.png"):
     return f"view/{code}.png"
   cwd = os.getcwd()
+  if color is None:
+    color = "black"
   with open("/tmp/tmp.tex", "w") as f:
     f.write(r"""
 \documentclass{standalone}
+\usepackage{xcolor}
 \begin{document}
 \Huge
-%s
+\textcolor{%s}{%s}
 \end{document}
-""" % text)
+""" % (color, text))
   ret = os.system("cd /tmp && pdflatex tmp.tex &> /dev/null")
   if ret != 0:
     raise Exception(f"Error compiling latex: {text}")
