@@ -54,10 +54,16 @@ class CanvasManager(object):
     assert isinstance(drawer, Drawer)
     self._drawers.append(drawer)
 
-  def _parse(self, code):
+  def _before_change(self):
     self._history = self._history[:self._history_index+1]
     self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
+
+  def _parse(self, code):
+    self._before_change()
     self._context.parse(code)
+    self._after_change()
+
+  def _after_change(self):
     self._history.append(self._context._picture)
     self._history_index = len(self._history) - 1
 
@@ -123,7 +129,9 @@ class CanvasManager(object):
                 self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
                                 with.align=left""")
             else:
+              self._before_change()
               self._obj_to_edit_text["text"] = self._editing_text
+              self._after_change()
             self._editing_text = None
         else:
           pass
@@ -184,13 +192,16 @@ class CanvasManager(object):
             self._error_msg = "Cannot edit more than one objects"
           elif len(self._selected_ids) == 1:
             self._obj_to_edit_text = self._find_object_by_id(self._selected_ids[0])
-            if "text" in self._obj_to_edit_text:
+            if self._obj_to_edit_text is None:
+              self._error_msg = f"Cannot find object with id {self._selected_ids[0]}"
+            elif "text" in self._obj_to_edit_text:
               self._editing_text = self._obj_to_edit_text["text"]
               self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "center")
             else:
               self._error_msg = "The selected object does not support text."
           else:
             self._editing_text = ""
+            self._obj_to_edit_text = None
             self._editing_text_pos = self._get_pointer_pos()
         elif event.char == "a":
           if self._visual_start is not None:
@@ -228,11 +239,13 @@ class CanvasManager(object):
                 xshift = 0
               xshift = round(xshift / self._grid_size()) * self._grid_size()
               xshift += self._grid_size()
+              self._before_change()
               if xshift == 0:
                 if "xshift" in obj:
                   del obj["xshift"]
               else:
                 obj["xshift"] = f"{xshift}cm"
+              self._after_change()
         elif event.char == "<":
           if self._visual_start is not None:
             pass
@@ -245,11 +258,13 @@ class CanvasManager(object):
                 xshift = 0
               xshift = round(xshift / self._grid_size()) * self._grid_size()
               xshift -= self._grid_size()
+              self._before_change()
               if xshift == 0:
                 if "xshift" in obj:
                   del obj["xshift"]
               else:
                 obj["xshift"] = f"{xshift}cm"
+              self._after_change()
         elif event.char == "K":
           if self._visual_start is not None:
             pass
@@ -262,11 +277,13 @@ class CanvasManager(object):
                 yshift = 0
               yshift = round(yshift / self._grid_size()) * self._grid_size()
               yshift += self._grid_size()
+              self._before_change()
               if yshift == 0:
                 if "yshift" in obj:
                   del obj["yshift"]
               else:
                 obj["yshift"] = f"{yshift}cm"
+              self._after_change()
         elif event.char == "J":
           if self._visual_start is not None:
             pass
@@ -279,11 +296,13 @@ class CanvasManager(object):
                 yshift = 0
               yshift = round(yshift / self._grid_size()) * self._grid_size()
               yshift -= self._grid_size()
+              self._before_change()
               if yshift == 0:
                 if "yshift" in obj:
                   del obj["yshift"]
               else:
                 obj["yshift"] = f"{yshift}cm"
+              self._after_change()
         elif event.char == "u":
           self._undo()
         elif event.char == "v":
@@ -294,8 +313,7 @@ class CanvasManager(object):
             x, y = self._get_pointer_pos()
             self._visual_start = (x, y)
         elif event.char == "D":
-          self._history = self._history[:self._history_index+1]
-          self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
+          self._before_change()
           if len(self._selected_ids) > 0:
             deleted_ids = []
             for id_ in self._selected_ids:
@@ -303,8 +321,9 @@ class CanvasManager(object):
           if len(self._selected_paths) > 0:
             for path in self._selected_paths:
               self._delete_path(path)
-          self._history.append(self._context._picture)
-          self._history_index = len(self._history) - 1
+          self._after_change()
+          self._selected_paths = []
+          self._selected_ids = []
         elif event.char == 'm':
           x, y = self._get_pointer_pos()
           self._marks.append({
@@ -805,8 +824,7 @@ class CanvasManager(object):
       self._set_selected_objects(key, True)
 
   def _set_selected_objects(self, key, value):
-    self._history = self._history[:self._history_index+1]
-    self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
+    self._before_change()
     for id_ in self._selected_ids:
       obj = self._find_object_by_id(id_)
       if obj is None:
@@ -822,8 +840,7 @@ class CanvasManager(object):
           del path[key]
       else:
         path[key] = value
-    self._history.append(self._context._picture)
-    self._history_index = len(self._history) - 1
+    self._after_change()
 
   def _make(self, *args):
     for t, v in args:
@@ -831,8 +848,7 @@ class CanvasManager(object):
         if v == "rect":
           if len(self._marks) != 2:
             raise Exception(f"Expect exactly two marks for rectangle")
-          self._history = self._history[:self._history_index+1]
-          self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
+          self._before_change()
           self._context._picture.append({
             "type": "path",
             "draw": True,
@@ -844,13 +860,11 @@ class CanvasManager(object):
               self._marks[1],
             ]
           })
-          self._history.append(self._context._picture)
-          self._history_index = len(self._history) - 1
+          self._after_change()
         elif v == "path":
           if len(self._marks) < 2:
             raise Exception(f"Expect at least two marks")
-          self._history = self._history[:self._history_index+1]
-          self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
+          self._before_change()
           items = []
           for i, mark in enumerate(self._marks):
             items.append(mark)
@@ -863,8 +877,7 @@ class CanvasManager(object):
             "draw": True,
             "items": items,
           })
-          self._history.append(self._context._picture)
-          self._history_index = len(self._history) - 1
+          self._after_change()
 
   def _connect(self, *args):
     if len(self._selected_ids) != 2:
@@ -875,6 +888,9 @@ class CanvasManager(object):
     self._ensure_name_is_id(id1)
     self._ensure_name_is_id(id2)
     arrow, annotates = "", []
+    action = "line"
+    anchor1, anchor2 = "", ""
+    start_out, close_in = "", ""
     for t, v in args:
       if t == "command":
         if v == "->":
@@ -883,9 +899,22 @@ class CanvasManager(object):
           arrow = "with.reversed.stealth"
         elif v == "<->":
           arrow = "with.double.stealth"
+        elif v == "h":
+          action = "line.horizontal"
+        elif v == "v":
+          action = "line.vertical"
+        elif v in anchor_list:
+          if anchor1 == "":
+            anchor1 = f".{v}"
+          elif anchor2 == "":
+            anchor2 = f".{v}"
+        elif v.startswith("out="):
+          start_out = f"start.out.{v[4:]}"
+        elif v.startswith("in="):
+          close_in = f"close.in.{v[3:]}"
       elif t == "text" and len(v) > 0:
         annotates.append(f"with.annotate '{v}'")
-    self._parse(f"draw {arrow} from.{id1} line.to.{id2} {' '.join(annotates)}")
+    self._parse(f"draw {arrow} from.{id1}{anchor1} {action}.to.{id2}{anchor2} {start_out} {close_in} {' '.join(annotates)}")
 
   def _set_grid(self, *args):
     self._show_grid = True

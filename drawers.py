@@ -1,4 +1,5 @@
 import tkinter as tk
+import math
 from .utils import *
 
 
@@ -219,6 +220,10 @@ class PathDrawer(Drawer):
           new_pos = (x, y)
         elif anchor == "center":
           new_pos_clip = env["bounding box"][name]
+      elif item["type"] == "point":
+        id_ = item["id"]
+        x, y = current_pos
+        env["bounding box"][id_] = (x, y, 0, 0)
       elif item["type"] == "coordinate":
         if "relative" in item:
           if current_pos is None:
@@ -227,6 +232,16 @@ class PathDrawer(Drawer):
           new_pos = (x + dist_to_num(item["x"]), y + dist_to_num(item["y"]))
         else:
           new_pos = (dist_to_num(item["x"]), dist_to_num(item["y"]))
+      elif item["type"] == "intersection":
+        name1, name2 = item["name1"], item["name2"]
+        anchor1, anchor2 = "center", "center"
+        if "anchor1" in item:
+          anchor1 = item["anchor1"]
+        if "anchor2" in item:
+          anchor2 = item["anchor2"]
+        x, _ = get_anchor_pos(env["bounding box"][name1], anchor1)
+        _, y = get_anchor_pos(env["bounding box"][name2], anchor2)
+        new_pos = (x, y)
       elif item["type"] == "line":
         if to_draw is not None:
           raise Exception(f"Expected position, got line")
@@ -246,59 +261,161 @@ class PathDrawer(Drawer):
             x0, y0 = current_pos
             x1, y1 = new_pos
 
-            if current_pos_clip:
-              x0, y0 = clip_line(x0, y0, x1, y1, current_pos_clip)
+            straight = "in" not in to_draw and "out" not in to_draw
 
-            if new_pos_clip:
-              x1, y1 = clip_line(x1, y1, x0, y0, new_pos_clip)
+            if straight:
+              if current_pos_clip:
+                cliped_pos = clip_line(x0, y0, x1, y1, current_pos_clip)
+                if cliped_pos is None:
+                  to_draw = None
+                  if new_pos is not None:
+                    current_pos = new_pos
+                    current_pos_clip = new_pos_clip
+                    new_pos = None
+                  continue
+                x0, y0 = cliped_pos
 
-            env["segments"].append(("line", (x0, y0, x1, y1), obj))
+              if new_pos_clip:
+                cliped_pos = clip_line(x1, y1, x0, y0, new_pos_clip)
+                if cliped_pos is None:
+                  to_draw = None
+                  if new_pos is not None:
+                    current_pos = new_pos
+                    current_pos_clip = new_pos_clip
+                    new_pos = None
+                  continue
+                x1, y1 = cliped_pos
 
-            x0p, y0p = map_point(x0, y0, cs)
-            x1p, y1p = map_point(x1, y1, cs)
+              env["segments"].append(("line", (x0, y0, x1, y1), obj))
 
-            if "line.width" in obj:
-              width = float(obj["line.width"])
+              x0p, y0p = map_point(x0, y0, cs)
+              x1p, y1p = map_point(x1, y1, cs)
+
+              if "line.width" in obj:
+                width = float(obj["line.width"])
+              else:
+                width = None
+              if "color" in obj:
+                color = obj["color"]
+              else:
+                color = "black"
+              dashed = 2 if "dashed" in obj else None
+
+              if arrow:
+                arrow = tk.LAST
+              elif rarrow:
+                arrow = tk.FIRST
+              elif darrow:
+                arrow = tk.BOTH
+              else:
+                arrow = None
+
+              if obj in env["selected paths"]:
+                canvas.create_line((x0p, y0p, x1p, y1p), fill="red", dash=6,
+                                   width=width+4 if width is not None else 4)
+              canvas.create_line((x0p, y0p, x1p, y1p), fill=color, width=width,
+                                 arrow=arrow, dash=dashed)
+
+              if "annotates" in to_draw:
+                for annotate in to_draw["annotates"]:
+                  if "start" in annotate:
+                    t = 1
+                  elif "near.start" in annotate:
+                    t = 0.9
+                  elif "midway" in annotate:
+                    t = 0.5
+                  elif "near.end" in annotate:
+                    t = 0.1
+                  elif "end" in annotate:
+                    t = 0
+                  else:
+                    t = 0.5
+                  x = x0 * t + x1 * (1 - t)
+                  y = y0 * t + y1 * (1 - t)
+                  BoxDrawer._draw(canvas, annotate, env, position=(x, y))
             else:
-              width = None
-            if "color" in obj:
-              color = obj["color"]
-            else:
-              color = "black"
-            dashed = 2 if "dashed" in obj else None
+              points = [[x0, y0]]
+              dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
+              if "out" in to_draw:
+                out_degree = to_draw["out"]
+                dx = math.sin(out_degree / 180 * math.pi) * dist / 3
+                dy = math.cos(out_degree / 180 * math.pi) * dist / 3
+                points.append([x0 + dx, y0 + dy])
+              if "in" in to_draw:
+                in_degree = to_draw["in"]
+                dx = math.sin(in_degree / 180 * math.pi) * dist / 3
+                dy = math.cos(in_degree / 180 * math.pi) * dist / 3
+                points.append([x1 + dx, y1 + dy])
+              points.append([x1, y1])
 
-            if arrow:
-              arrow = tk.LAST
-            elif rarrow:
-              arrow = tk.FIRST
-            elif darrow:
-              arrow = tk.BOTH
-            else:
-              arrow = None
+              steps = max(int(dist / 0.01) + 1, 20)
+              curve = Bezier.generate_line_segments(*points, steps=steps)
 
-            if obj in env["selected paths"]:
-              canvas.create_line((x0p, y0p, x1p, y1p), fill="red", dash=6,
-                                 width=width+4 if width is not None else 4)
-            canvas.create_line((x0p, y0p, x1p, y1p), fill=color, width=width,
-                               arrow=arrow, dash=dashed)
+              if current_pos_clip:
+                curve = clip_curve(curve, current_pos_clip)
+                if curve is None:
+                  to_draw = None
+                  if new_pos is not None:
+                    current_pos = new_pos
+                    current_pos_clip = new_pos_clip
+                    new_pos = None
+                  continue
 
-            if "annotates" in to_draw:
-              for annotate in to_draw["annotates"]:
-                if "start" in annotate:
-                  t = 1
-                elif "near.start" in annotate:
-                  t = 0.9
-                elif "midway" in annotate:
-                  t = 0.5
-                elif "near.end" in annotate:
-                  t = 0.1
-                elif "end" in annotate:
-                  t = 0
-                else:
-                  t = 0.5
-                x = x0 * t + x1 * (1 - t)
-                y = y0 * t + y1 * (1 - t)
-                BoxDrawer._draw(canvas, annotate, env, position=(x, y))
+              if new_pos_clip:
+                curve = list(reversed(clip_curve(list(reversed(curve)), new_pos_clip)))
+                if curve is None:
+                  to_draw = None
+                  if new_pos is not None:
+                    current_pos = new_pos
+                    current_pos_clip = new_pos_clip
+                    new_pos = None
+                  continue
+
+              env["segments"].append(("curve", curve, obj))
+              screen_curve = [map_point(x, y, cs) for x, y in curve]
+
+              if "line.width" in obj:
+                width = float(obj["line.width"])
+              else:
+                width = None
+              if "color" in obj:
+                color = obj["color"]
+              else:
+                color = "black"
+              dashed = 2 if "dashed" in obj else None
+
+              if arrow:
+                arrow = tk.LAST
+              elif rarrow:
+                arrow = tk.FIRST
+              elif darrow:
+                arrow = tk.BOTH
+              else:
+                arrow = None
+
+              if obj in env["selected paths"]:
+                canvas.create_line(*[e for x, y in screen_curve for e in (x, y)],
+                                   fill="red", dash=6,
+                                   width=width+4 if width is not None else 4)
+              canvas.create_line(*[e for x, y in screen_curve for e in (x, y)],
+                                 fill=color, width=width, arrow=arrow, dash=dashed)
+
+              if "annotates" in to_draw:
+                for annotate in to_draw["annotates"]:
+                  if "start" in annotate:
+                    t = 1
+                  elif "near.start" in annotate:
+                    t = 0.9
+                  elif "midway" in annotate:
+                    t = 0.5
+                  elif "near.end" in annotate:
+                    t = 0.1
+                  elif "end" in annotate:
+                    t = 0
+                  else:
+                    t = 0.5
+                  x, y = curve[int((len(curve)-1) * (1-t))]
+                  BoxDrawer._draw(canvas, annotate, env, position=(x, y))
         elif to_draw["type"] == "rectangle":
           if current_pos is None:
             raise Exception("No starting position for rectangle")
