@@ -1,6 +1,7 @@
 import tkinter as tk
 import math
 from .utils import *
+from .latex import text_to_latex_image_path
 
 
 class Drawer(object):
@@ -41,8 +42,17 @@ class BoxDrawer(Drawer):
     if "width" in obj and "height" in obj:
       width, height = dist_to_num(obj["width"]) * scale, dist_to_num(obj["height"]) * scale
     elif "text" in obj:
-      tmptext = canvas.create_text(0, 0, text=obj["text"],
-                                   font=("Times New Roman", font_size, "normal"))
+      if need_latex(obj["text"]):
+        path = text_to_latex_image_path(obj["text"])
+        if path not in env["image references"]:
+          image = tk.PhotoImage(file=path)
+          env["image references"][path] = image
+        else:
+          image = env["image references"][path]
+        tmptext = canvas.create_image(0, 0, image=image)
+      else:
+        tmptext = canvas.create_text(0, 0, text=obj["text"],
+                                     font=("Times New Roman", font_size, "normal"))
       x0, y0, x1, y1 = canvas.bbox(tmptext)
       if "inner.sep" in obj:
         inner_sep = dist_to_num(obj["inner.sep"])
@@ -150,14 +160,29 @@ class BoxDrawer(Drawer):
       if "text" in obj and obj["text"]:
         center_x, center_y = get_anchor_pos((x, y, width, height), "center")
         x, y = map_point(center_x, center_y, cs)
-        if tmptext is None:
-          canvas.create_text(x, y, text=obj["text"], fill=text_color,
-                             font=("Times New Roman", font_size, "normal"))
+        if need_latex(obj["text"]):
+          if tmptext is None:
+            path = text_to_latex_image_path(obj["text"])
+            if path not in env["image references"]:
+              image = tk.PhotoImage(file=path)
+              env["image references"][path] = image
+            else:
+              image = env["image references"][path]
+            canvas.create_image(x, y, image=image)
+          else:
+            canvas.move(tmptext, x, y)
+            canvas.itemconfig(tmptext)
+            if r:
+              canvas.tag_lower(r, tmptext)
         else:
-          canvas.move(tmptext, x, y)
-          canvas.itemconfig(tmptext, fill=text_color, angle=angle)
-          if r:
-            canvas.tag_lower(r, tmptext)
+          if tmptext is None:
+            canvas.create_text(x, y, text=obj["text"], fill=text_color,
+                               font=("Times New Roman", font_size, "normal"))
+          else:
+            canvas.move(tmptext, x, y)
+            canvas.itemconfig(tmptext, fill=text_color)
+            if r:
+              canvas.tag_lower(r, tmptext)
       if obj["id"] in env["selected ids"]:
         if rounded_corners:
           BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5, radius=rounded_corners*cs["scale"], fill="", outline="red", dash=2)
@@ -191,15 +216,30 @@ class BoxDrawer(Drawer):
         rotated_x, rotated_y = rotate(center_x, center_y, anchor_x, anchor_y, 360-angle)
 
         x, y = map_point(rotated_x, rotated_y, cs)
-        if tmptext is None:
-          canvas.create_text(x, y, text=obj["text"], fill=text_color,
-                             font=("Times New Roman", font_size, "normal"),
-                             angle=(180+angle)%360)
+        if need_latex(obj["text"]):
+          if tmptext is None:
+            path = text_to_latex_image_path(obj["text"])
+            if path not in env["image references"]:
+              image = tk.PhotoImage(file=path)
+              env["image references"][path] = image
+            else:
+              image = env["image references"][path]
+            canvas.create_image(x, y, image=image, angle=(180+angle)%360)
+          else:
+            canvas.move(tmptext, x, y)
+            canvas.itemconfig(tmptext, angle=(180+angle)%360)
+            if r:
+              canvas.tag_lower(r, tmptext)
         else:
-          canvas.move(tmptext, x, y)
-          canvas.itemconfig(tmptext, fill=text_color, angle=(180+angle)%360)
-          if r:
-            canvas.tag_lower(r, tmptext)
+          if tmptext is None:
+            canvas.create_text(x, y, text=obj["text"], fill=text_color,
+                               font=("Times New Roman", font_size, "normal"),
+                               angle=(180+angle)%360)
+          else:
+            canvas.move(tmptext, x, y)
+            canvas.itemconfig(tmptext, fill=text_color, angle=(180+angle)%360)
+            if r:
+              canvas.tag_lower(r, tmptext)
 
       if obj["id"] in env["selected ids"]:
         if rounded_corners:

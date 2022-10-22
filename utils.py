@@ -269,6 +269,10 @@ def get_angle(x0, y0, x1, y1):
   return angle
 
 
+def need_latex(text):
+  return "$" in text or text.find("\\textbf{") >= 0
+
+
 """
 Modified from
 https://git.sr.ht/~torresjrjr/Bezier.py/tree/bc87b14eaa226f8fb68d2925fb4f37c3344418c1/item/Bezier.py

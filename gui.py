@@ -43,6 +43,7 @@ class CanvasManager(object):
     self._selected_ids = []
     self._selected_paths = []
     self._marks = []
+    self._image_references = {}
     root.bind("<Key>", self.handle_key)
     self.draw()
 
@@ -255,6 +256,7 @@ class CanvasManager(object):
           if self._visual_start is not None:
             pass
           elif len(self._selected_ids) > 0:
+            self._before_change()
             for id_ in self._selected_ids:
               obj = self._find_object_by_id(id_)
               if "xshift" in obj:
@@ -263,17 +265,17 @@ class CanvasManager(object):
                 xshift = 0
               xshift = round(xshift / self._grid_size()) * self._grid_size()
               xshift += self._grid_size()
-              self._before_change()
               if xshift == 0:
                 if "xshift" in obj:
                   del obj["xshift"]
               else:
                 obj["xshift"] = f"{xshift}cm"
-              self._after_change()
+            self._after_change()
         elif event.char == "<":
           if self._visual_start is not None:
             pass
           elif len(self._selected_ids) > 0:
+            self._before_change()
             for id_ in self._selected_ids:
               obj = self._find_object_by_id(id_)
               if "xshift" in obj:
@@ -282,17 +284,17 @@ class CanvasManager(object):
                 xshift = 0
               xshift = round(xshift / self._grid_size()) * self._grid_size()
               xshift -= self._grid_size()
-              self._before_change()
               if xshift == 0:
                 if "xshift" in obj:
                   del obj["xshift"]
               else:
                 obj["xshift"] = f"{xshift}cm"
-              self._after_change()
+            self._after_change()
         elif event.char == "K":
           if self._visual_start is not None:
             pass
           elif len(self._selected_ids) > 0:
+            self._before_change()
             for id_ in self._selected_ids:
               obj = self._find_object_by_id(id_)
               if "yshift" in obj:
@@ -301,17 +303,17 @@ class CanvasManager(object):
                 yshift = 0
               yshift = round(yshift / self._grid_size()) * self._grid_size()
               yshift += self._grid_size()
-              self._before_change()
               if yshift == 0:
                 if "yshift" in obj:
                   del obj["yshift"]
               else:
                 obj["yshift"] = f"{yshift}cm"
-              self._after_change()
+            self._after_change()
         elif event.char == "J":
           if self._visual_start is not None:
             pass
           elif len(self._selected_ids) > 0:
+            self._before_change()
             for id_ in self._selected_ids:
               obj = self._find_object_by_id(id_)
               if "yshift" in obj:
@@ -320,13 +322,12 @@ class CanvasManager(object):
                 yshift = 0
               yshift = round(yshift / self._grid_size()) * self._grid_size()
               yshift -= self._grid_size()
-              self._before_change()
               if yshift == 0:
                 if "yshift" in obj:
                   del obj["yshift"]
               else:
                 obj["yshift"] = f"{yshift}cm"
-              self._after_change()
+            self._after_change()
         elif event.char == "u":
           self._undo()
         elif event.char == "v":
@@ -630,6 +631,7 @@ class CanvasManager(object):
       "coordinate system": self._coordinate_system(),
       "selected ids": self._selected_ids,
       "selected paths": self._selected_paths,
+      "image references": self._image_references,
     }
     for obj in ctx._picture:
       drawed = False
@@ -644,6 +646,7 @@ class CanvasManager(object):
           break
     self._bounding_boxes = env["bounding box"]
     self._segments = env["segments"]
+    self._image_references = env["image references"]
 
   def _draw_visual(self, c):
     if self._visual_start is not None:
