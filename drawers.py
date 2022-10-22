@@ -18,7 +18,7 @@ class BoxDrawer(Drawer):
   def draw(self, canvas, obj, env):
     BoxDrawer._draw(canvas, obj, env)
 
-  def _draw(canvas, obj, env, position=None):
+  def _draw(canvas, obj, env, position=None, angle=None):
     assert "id" in obj
     tmptext = None
 
@@ -33,7 +33,7 @@ class BoxDrawer(Drawer):
 
     draw = ("draw" in obj and obj["draw"]) or obj["type"] == "box"
     if "width" in obj and "height" in obj:
-      width, height = dist_to_num(obj["width"]), dist_to_num(obj["height"])
+      width, height = dist_to_num(obj["width"]) * scale, dist_to_num(obj["height"]) * scale
     elif "text" in obj:
       tmptext = canvas.create_text(0, 0, text=obj["text"],
                                    font=("Times New Roman", font_size, "normal"))
@@ -43,26 +43,22 @@ class BoxDrawer(Drawer):
       else:
         inner_sep = 0.1
       if "width" in obj:
-        width = dist_to_num(obj["width"])
+        width = dist_to_num(obj["width"]) * scale
       else:
-        width = (x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2
+        width = (x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
       if "height" in obj:
-        height = dist_to_num(obj["height"])
+        height = dist_to_num(obj["height"]) * scale
       else:
-        height = (y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2
+        height = (y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
     else:
       if "width" in obj:
-        width = dist_to_num(obj["width"])
+        width = dist_to_num(obj["width"]) * scale
       else:
-        width = 1
+        width = scale
       if "height" in obj:
-        height = dist_to_num(obj["height"])
+        height = dist_to_num(obj["height"]) * scale
       else:
-        height = 1
-
-    if scale != 1:
-      width *= scale
-      height *= scale
+        height = scale
 
     if "at" not in obj:
       if position is not None:
@@ -134,58 +130,116 @@ class BoxDrawer(Drawer):
     else:
       rounded_corners = None
     cs = env["coordinate system"]
-    x0, y0 = map_point(x, y, cs)
-    x1, y1 = map_point(x + width, y + height, cs)
-    anchorx, anchory = get_anchor_pos((x, y, width, height), anchor)
-    r = None
-    if fill or draw:
-      if rounded_corners:
-        r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1, radius=rounded_corners*cs["scale"], fill=fill, outline=color, width=line_width)
-      else:
-        r = canvas.create_rectangle((x0, y0, x1, y1), fill=fill, outline=color, width=line_width)
-    if "text" in obj and obj["text"]:
-      center_x, center_y = get_anchor_pos((x, y, width, height), "center")
-      x, y = map_point(center_x, center_y, cs)
-      if tmptext is None:
-        canvas.create_text(x, y, text=obj["text"], fill=text_color,
-                           font=("Times New Roman", font_size, "normal"))
-      else:
-        canvas.move(tmptext, x, y)
-        canvas.itemconfig(tmptext, fill=text_color)
-        if r:
-          canvas.tag_lower(r, tmptext)
-    if obj["id"] in env["selected ids"]:
-      if rounded_corners:
-        BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5, radius=rounded_corners*cs["scale"], fill="", outline="red", dash=2)
-      else:
-        canvas.create_rectangle(x0 - 5, y0 + 5, x1 + 5, y1 - 5, outline="red", dash=2, fill="")
-      x, y = map_point(anchorx, anchory, cs)
-      canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#77ff77", outline="green")
+    
+    if angle is None:
+      x0, y0 = map_point(x, y, cs)
+      x1, y1 = map_point(x + width, y + height, cs)
+      anchorx, anchory = get_anchor_pos((x, y, width, height), anchor)
+      r = None
+      if fill or draw:
+        if rounded_corners:
+          r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1, radius=rounded_corners*cs["scale"], fill=fill, outline=color, width=line_width)
+        else:
+          r = canvas.create_rectangle((x0, y0, x1, y1), fill=fill, outline=color, width=line_width)
+      if "text" in obj and obj["text"]:
+        center_x, center_y = get_anchor_pos((x, y, width, height), "center")
+        x, y = map_point(center_x, center_y, cs)
+        if tmptext is None:
+          canvas.create_text(x, y, text=obj["text"], fill=text_color,
+                             font=("Times New Roman", font_size, "normal"))
+        else:
+          canvas.move(tmptext, x, y)
+          canvas.itemconfig(tmptext, fill=text_color, angle=angle)
+          if r:
+            canvas.tag_lower(r, tmptext)
+      if obj["id"] in env["selected ids"]:
+        if rounded_corners:
+          BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5, radius=rounded_corners*cs["scale"], fill="", outline="red", dash=2)
+        else:
+          canvas.create_rectangle(x0 - 5, y0 + 5, x1 + 5, y1 - 5, outline="red", dash=2, fill="")
+        x, y = map_point(anchorx, anchory, cs)
+        canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#77ff77", outline="green")
+    else:
+      x0, y0 = map_point(x, y, cs)
+      x1, y1 = map_point(x + width, y + height, cs)
+      anchorx, anchory = get_anchor_pos((x, y, width, height), anchor)
+      anchor_screen_x, anchor_screen_y = map_point(anchorx, anchory, cs)
+      r = None
+      if fill or draw:
+        if rounded_corners:
+          r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
+                                        radius=rounded_corners*cs["scale"],
+                                        fill=fill, outline=color, width=line_width, angle=angle,
+                                        rotate_center=(anchor_screen_x, anchor_screen_y))
+        else:
+          rx0, ry0 = rotate(x0, y0, anchor_screen_x, anchor_screen_y, angle)
+          rx1, ry1 = rotate(x0, y1, anchor_screen_x, anchor_screen_y, angle)
+          rx2, ry2 = rotate(x1, y1, anchor_screen_x, anchor_screen_y, angle)
+          rx3, ry3 = rotate(x1, y0, anchor_screen_x, anchor_screen_y, angle)
+          r = canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
+                                    fill=fill, outline=color, width=line_width)
 
-  def round_rectangle(canvas, x1, y1, x2, y2, radius=25, **kwargs):
+      if "text" in obj and obj["text"]:
+        center_x, center_y = get_anchor_pos((x, y, width, height), "center")
+        anchor_x, anchor_y = get_anchor_pos((x, y, width, height), anchor)
+        rotated_x, rotated_y = rotate(center_x, center_y, anchor_x, anchor_y, 360-angle)
+
+        x, y = map_point(rotated_x, rotated_y, cs)
+        if tmptext is None:
+          canvas.create_text(x, y, text=obj["text"], fill=text_color,
+                             font=("Times New Roman", font_size, "normal"),
+                             angle=(180+angle)%360)
+        else:
+          canvas.move(tmptext, x, y)
+          canvas.itemconfig(tmptext, fill=text_color, angle=(180+angle)%360)
+          if r:
+            canvas.tag_lower(r, tmptext)
+
+      if obj["id"] in env["selected ids"]:
+        if rounded_corners:
+          BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
+                                    radius=rounded_corners*cs["scale"], angle=angle,
+                                    rotate_center=(anchor_screen_x, anchor_screen_y),
+                                    fill="", outline="red", dash=2)
+        else:
+          rx0, ry0 = rotate(x0 - 5, y0 + 5, anchor_screen_x, anchor_screen_y, angle)
+          rx1, ry1 = rotate(x0 - 5, y1 - 5, anchor_screen_x, anchor_screen_y, angle)
+          rx2, ry2 = rotate(x1 + 5, y1 - 5, anchor_screen_x, anchor_screen_y, angle)
+          rx3, ry3 = rotate(x1 + 5, y0 + 5, anchor_screen_x, anchor_screen_y, angle)
+          canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
+                                outline="red", dash=2, fill="")
+
+        x, y = map_point(anchorx, anchory, cs)
+        canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#77ff77", outline="green")
+
+  def round_rectangle(canvas, x1, y1, x2, y2, radius=25, angle=None, rotate_center=None, **kwargs):
     x1, x2 = min(x1, x2), max(x1, x2)
     y1, y2 = min(y1, y2), max(y1, y2)
-    points = [x1+radius, y1,
-              x1+radius, y1,
-              x2-radius, y1,
-              x2-radius, y1,
-              x2, y1,
-              x2, y1+radius,
-              x2, y1+radius,
-              x2, y2-radius,
-              x2, y2-radius,
-              x2, y2,
-              x2-radius, y2,
-              x2-radius, y2,
-              x1+radius, y2,
-              x1+radius, y2,
-              x1, y2,
-              x1, y2-radius,
-              x1, y2-radius,
-              x1, y1+radius,
-              x1, y1+radius,
-              x1, y1]
+    points = [(x1+radius, y1),
+              (x1+radius, y1),
+              (x2-radius, y1),
+              (x2-radius, y1),
+              (x2, y1),
+              (x2, y1+radius),
+              (x2, y1+radius),
+              (x2, y2-radius),
+              (x2, y2-radius),
+              (x2, y2),
+              (x2-radius, y2),
+              (x2-radius, y2),
+              (x1+radius, y2),
+              (x1+radius, y2),
+              (x1, y2),
+              (x1, y2-radius),
+              (x1, y2-radius),
+              (x1, y1+radius),
+              (x1, y1+radius),
+              (x1, y1)]
 
+    if angle is not None and rotate_center is not None:
+      x0, y0 = rotate_center
+      points = [rotate(x, y, x0, y0, angle) for x, y in points]
+      points = [e for x, y in points for e in (x, y)]
     return canvas.create_polygon(points, **kwargs, smooth=True)
 
 
@@ -332,7 +386,12 @@ class PathDrawer(Drawer):
                     t = 0.5
                   x = x0 * t + x1 * (1 - t)
                   y = y0 * t + y1 * (1 - t)
-                  BoxDrawer._draw(canvas, annotate, env, position=(x, y))
+                  angle = None
+                  if "sloped" in annotate:
+                    angle = (get_angle(x0, y0, x1, y1) + 180) % 360
+                    if angle > 270 or angle < 90:
+                      angle = (angle + 180) % 360
+                  BoxDrawer._draw(canvas, annotate, env, position=(x, y), angle=angle)
             else:
               points = [[x0, y0]]
               dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
@@ -435,7 +494,18 @@ class PathDrawer(Drawer):
                   else:
                     t = 0.5
                   x, y = curve[int((len(curve)-1) * (1-t))]
-                  BoxDrawer._draw(canvas, annotate, env, position=(x, y))
+                  angle = None
+                  if "sloped" in annotate:
+                    if t == 0:
+                      x0, y0 = curve[len(curve)-2]
+                      x1, y1 = x, y
+                    else:
+                      x0, y0 = x, y
+                      x1, y1 = curve[int((len(curve)-1) * (1-t))+1]
+                    angle = (get_angle(x0, y0, x1, y1) + 180) % 360
+                    if angle > 270 or angle < 90:
+                      angle = (angle + 180) % 360
+                  BoxDrawer._draw(canvas, annotate, env, position=(x, y), angle=angle)
         elif to_draw["type"] == "rectangle":
           if current_pos is None:
             raise Exception("No starting position for rectangle")

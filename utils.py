@@ -1,3 +1,6 @@
+import math
+
+
 colors = [
   "red", "blue", "white", "black", "yellow", "orange", "green"
 ]
@@ -242,6 +245,24 @@ def clip_curve(curve, clip):
     if not point_in_rect(*curve[i], (x, y, x+w, y+h), strict=True):
       return curve[i:]
   return None
+
+
+def rotate(x, y, x0, y0, angle):
+  rad = angle / 180 * math.pi
+  a, b, c, d = math.cos(rad), math.sin(rad), -math.sin(rad), math.cos(rad)
+  dx, dy = x0 - x, y0 - y
+  dx, dy = a * dx + b * dy, c * dx + d * dy
+  return x0 + dx, y0 + dy
+
+
+def get_angle(x0, y0, x1, y1):
+  dist = math.sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0))
+  angle = int(math.asin((y1-y0)/dist) / math.pi * 180)
+  if x1 < x0:
+    angle = 180 - angle
+  if angle < 0:
+    angle += 360
+  return angle
 
 
 """
