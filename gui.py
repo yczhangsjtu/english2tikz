@@ -124,9 +124,9 @@ class CanvasManager(object):
               if len(self._editing_text) > 0:
                 x, y = self._get_pointer_pos()
                 if x != 0:
-                  x = f"{x}cm"
+                  x = f"{x:02g}cm"
                 if y != 0:
-                  y = f"{y}cm"
+                  y = f"{y:02g}cm"
                 self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
                                 with.align=left""")
             else:
@@ -181,10 +181,10 @@ class CanvasManager(object):
             y0, y1 = min(y0, y1), max(y0, y1)
             w, h = x1 - x0, y1 - y0
             self._editing_text_pos = x0 + w/2, y0 + h/2
-            x0 = x0 if x0 == 0 else f"{x0}cm"
-            y0 = y0 if y0 == 0 else f"{y0}cm"
-            w = w if w == 0 else f"{w}cm"
-            h = h if h == 0 else f"{h}cm"
+            x0 = x0 if x0 == 0 else f"{x0:02g}cm"
+            y0 = y0 if y0 == 0 else f"{y0:02g}cm"
+            w = w if w == 0 else f"{w:02g}cm"
+            h = h if h == 0 else f"{h:02g}cm"
             self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
             self._obj_to_edit_text = self._context._picture[-1]
             self._editing_text = self._obj_to_edit_text["text"]
@@ -269,7 +269,7 @@ class CanvasManager(object):
                 if "xshift" in obj:
                   del obj["xshift"]
               else:
-                obj["xshift"] = f"{xshift}cm"
+                obj["xshift"] = f"{xshift:02g}cm"
             self._after_change()
         elif event.char == "<":
           if self._visual_start is not None:
@@ -288,7 +288,7 @@ class CanvasManager(object):
                 if "xshift" in obj:
                   del obj["xshift"]
               else:
-                obj["xshift"] = f"{xshift}cm"
+                obj["xshift"] = f"{xshift:02g}cm"
             self._after_change()
         elif event.char == "K":
           if self._visual_start is not None:
@@ -307,7 +307,7 @@ class CanvasManager(object):
                 if "yshift" in obj:
                   del obj["yshift"]
               else:
-                obj["yshift"] = f"{yshift}cm"
+                obj["yshift"] = f"{yshift:02g}cm"
             self._after_change()
         elif event.char == "J":
           if self._visual_start is not None:
@@ -326,7 +326,7 @@ class CanvasManager(object):
                 if "yshift" in obj:
                   del obj["yshift"]
               else:
-                obj["yshift"] = f"{yshift}cm"
+                obj["yshift"] = f"{yshift:02g}cm"
             self._after_change()
         elif event.char == "u":
           self._undo()
@@ -353,8 +353,8 @@ class CanvasManager(object):
           x, y = self._get_pointer_pos()
           self._marks.append({
             "type": "coordinate",
-            "x": f"{x}cm",
-            "y": f"{y}cm",
+            "x": f"{x:02g}cm",
+            "y": f"{y:02g}cm",
           })
       elif event.keysym == "Return":
         self._error_msg = None
@@ -821,6 +821,8 @@ class CanvasManager(object):
         self._add_mark(*tokens[1:])
       elif cmd_name == "ann" or cmd_name == "annotate":
         self._annotate(*tokens[1:])
+      elif cmd_name == "ch" or cmd_name == "chain":
+        self._chain(*tokens[1:])
       elif cmd_name == "w":
         print("%%drawjson\n"+json.dumps(self._save()))
       elif cmd_name == "q":
@@ -966,8 +968,8 @@ class CanvasManager(object):
     x, y = self._get_pointer_pos()
     mark = {
       "type": "coordinate",
-      "x": f"{x}cm",
-      "y": f"{y}cm",
+      "x": f"{x:02g}cm",
+      "y": f"{y:02g}cm",
     }
     to_del = None
     for t, v in args:
@@ -995,9 +997,9 @@ class CanvasManager(object):
           xshift = pointerx - anchorx
           yshift = pointery - anchory
           if xshift != 0:
-            mark["xshift"] = f"{xshift}cm"
+            mark["xshift"] = f"{xshift:02g}cm"
           if yshift != 0:
-            mark["yshift"] = f"{yshift}cm"
+            mark["yshift"] = f"{yshift:02g}cm"
         elif v == "relative" or v == "rel":
           if mark["type"] != "coordinate":
             raise Exception("Do not specify anchor")
@@ -1005,8 +1007,8 @@ class CanvasManager(object):
           pointerx, pointery = self._get_pointer_pos()
           xshift = pointerx - x0
           yshift = pointery - y0
-          mark["x"] = f"{xshift}cm"
-          mark["y"] = f"{yshift}cm"
+          mark["x"] = f"{xshift:02g}cm"
+          mark["y"] = f"{yshift:02g}cm"
           mark["relative"] = True
         elif v == "clear":
           self._marks = []
@@ -1059,6 +1061,42 @@ class CanvasManager(object):
       "sloped": True,
       "scale": "0.7",
     })
+    self._after_change()
+
+  def _chain(self, *args):
+    if len(self._selected_ids) < 2:
+      raise Exception("Please select at least two objects")
+
+    direction = "horizontal"
+
+    for t, v in args:
+      if t == "command":
+        if v == "h":
+          direction = "horizontal"
+        elif v == "v":
+          direction = "vertical"
+        elif v == "\\":
+          direction = "down right"
+        elif v == "/":
+          direction = "down left"
+
+    self._before_change()
+    for i in range(1, len(self._selected_ids)):
+      id_ = self._selected_ids[i]
+      obj = self._find_object_by_id(id_)
+      obj["at"] = self._selected_ids[i-1]
+      if direction == "horizontal":
+        obj["at.anchor"] = "east"
+        obj["anchor"] = "west"
+      elif direction == "vertical":
+        obj["at.anchor"] = "south"
+        obj["anchor"] = "north"
+      elif direction == "down right":
+        obj["at.anchor"] = "south.east"
+        obj["anchor"] = "north.west"
+      elif direction == "down left":
+        obj["at.anchor"] = "south.west"
+        obj["anchor"] = "north.east"
     self._after_change()
         
 
