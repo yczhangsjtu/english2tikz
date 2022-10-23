@@ -1262,7 +1262,7 @@ class CanvasManager(object):
     filters = []
     for t, v in args:
       if t == "command":
-        index = t.find("=")
+        index = v.find("=")
         if index >= 0:
           key, value = v[:index], v[index+1:]
           if len(key) == 0:
