@@ -54,7 +54,7 @@ class BoxDrawer(Drawer):
     elif len(color) > 0:
       text_color = color
     elif "color" in obj:
-      text_color = obj["color"]
+      text_color = color_to_tk(obj["color"])
     else:
       text_color = "black"
 
@@ -414,7 +414,7 @@ class PathDrawer(Drawer):
               else:
                 width = None
               if "color" in obj:
-                color = obj["color"]
+                color = color_to_tk(obj["color"])
               else:
                 color = "black"
               dashed = 2 if "dashed" in obj else None
@@ -522,7 +522,7 @@ class PathDrawer(Drawer):
               else:
                 width = None
               if "color" in obj:
-                color = obj["color"]
+                color = color_to_tk(obj["color"])
               else:
                 color = "black"
               dashed = 2 if "dashed" in obj else None
@@ -590,7 +590,7 @@ class PathDrawer(Drawer):
             else:
               width = None
             if "color" in obj:
-              color = obj["color"]
+              color = color_to_tk(obj["color"])
             else:
               color = "black"
             if "fill" in obj:

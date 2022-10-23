@@ -18,6 +18,9 @@ def text_to_latex_image_path(text, color="black"):
   with open("/tmp/tmp.tex", "w") as f:
     f.write(r"""
 \documentclass{standalone}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
 \usepackage{xcolor}
 \begin{document}
 \Huge

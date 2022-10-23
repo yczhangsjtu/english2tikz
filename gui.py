@@ -688,19 +688,23 @@ class CanvasManager(object):
   def _draw_marks(self, c):
     buffer = {}
     for i, mark in enumerate(self._marks):
-      x, y = self._get_mark_pos(i, buffer)
-      x, y = map_point(x, y, self._coordinate_system())
-      if mark["type"] == "coordinate":
-        if "relative" in mark:
-          c.create_oval(x-10, y-10, x+10, y+10, fill="#ff7777", outline="red")
-        else:
-          c.create_oval(x-10, y-10, x+10, y+10, fill="#77ff77", outline="green")
-      elif mark["type"] == "nodename":
-        if "xshift" in mark or "yshift" in mark:
-          c.create_oval(x-10, y-10, x+10, y+10, fill="#7777ff", outline="blue")
-        else:
-          c.create_oval(x-10, y-10, x+10, y+10, fill="#ffff77", outline="orange")
-      c.create_text(x, y, text=str(i), fill="black")
+      try:
+        x, y = self._get_mark_pos(i, buffer)
+        x, y = map_point(x, y, self._coordinate_system())
+        if mark["type"] == "coordinate":
+          if "relative" in mark:
+            c.create_oval(x-10, y-10, x+10, y+10, fill="#ff7777", outline="red")
+          else:
+            c.create_oval(x-10, y-10, x+10, y+10, fill="#77ff77", outline="green")
+        elif mark["type"] == "nodename":
+          if "xshift" in mark or "yshift" in mark:
+            c.create_oval(x-10, y-10, x+10, y+10, fill="#7777ff", outline="blue")
+          else:
+            c.create_oval(x-10, y-10, x+10, y+10, fill="#ffff77", outline="orange")
+        c.create_text(x, y, text=str(i), fill="black")
+      except:
+        self._marks = self._marks[:i]
+        return
 
   def _draw_pointer(self, c):
     if self._editing_text is not None:
@@ -916,41 +920,84 @@ class CanvasManager(object):
           self._after_change()
 
   def _connect(self, *args):
-    if len(self._selected_ids) != 2:
-      raise Exception("Should select two object")
     if len(self._selected_paths) != 0:
       raise Exception("Cannot connect paths")
-    id1, id2 = self._selected_ids
-    self._ensure_name_is_id(id1)
-    self._ensure_name_is_id(id2)
-    arrow, annotates = "", []
-    action = "line"
-    anchor1, anchor2 = "", ""
-    start_out, close_in = "", ""
-    for t, v in args:
-      if t == "command":
-        if v == "->":
-          arrow = "with.stealth"
-        elif v == "<-":
-          arrow = "with.reversed.stealth"
-        elif v == "<->":
-          arrow = "with.double.stealth"
-        elif v == "h":
-          action = "line.horizontal"
-        elif v == "v":
-          action = "line.vertical"
-        elif v in anchor_list:
-          if anchor1 == "":
-            anchor1 = f".{v}"
-          elif anchor2 == "":
-            anchor2 = f".{v}"
-        elif v.startswith("out="):
-          start_out = f"start.out.{v[4:]}"
-        elif v.startswith("in="):
-          close_in = f"close.in.{v[3:]}"
-      elif t == "text" and len(v) > 0:
-        annotates.append(f"with.annotate '{v}'")
-    self._parse(f"draw {arrow} from.{id1}{anchor1} {action}.to.{id2}{anchor2} {start_out} {close_in} {' '.join(annotates)}")
+    if len(self._marks) == 0:
+      if len(self._selected_ids) != 2:
+        raise Exception("Should select exactly two objects, or set at least one mark")
+      id1, id2 = self._selected_ids
+      self._ensure_name_is_id(id1)
+      self._ensure_name_is_id(id2)
+      arrow, annotates = "", []
+      action = "line"
+      anchor1, anchor2 = "", ""
+      start_out, close_in = "", ""
+      for t, v in args:
+        if t == "command":
+          if v == "->":
+            arrow = "with.stealth"
+          elif v == "<-":
+            arrow = "with.reversed.stealth"
+          elif v == "<->":
+            arrow = "with.double.stealth"
+          elif v == "h":
+            action = "line.horizontal"
+          elif v == "v":
+            action = "line.vertical"
+          elif v in anchor_list:
+            if anchor1 == "":
+              anchor1 = f".{v}"
+            elif anchor2 == "":
+              anchor2 = f".{v}"
+          elif v.startswith("out="):
+            start_out = f"start.out.{v[4:]}"
+          elif v.startswith("in="):
+            close_in = f"close.in.{v[3:]}"
+        elif t == "text" and len(v) > 0:
+          annotates.append(f"with.annotate '{v}'")
+      self._parse(f"draw {arrow} from.{id1}{anchor1} {action}.to.{id2}{anchor2} {start_out} {close_in} {' '.join(annotates)}")
+    elif len(self._marks) == 1:
+      if len(self._selected_ids) == 0:
+        raise Exception("Should select at least one object")
+      mark = self._marks[0]
+      if mark["type"] == "coordinate":
+        start_point = f"x.{mark['x']}.y.{mark['y']}"
+      elif mark["type"] == "nodename":
+        start_point = f"move.to.{mark['name']}"
+        if "anchor" in mark:
+          start_point += f".{mark['anchor']}"
+        if "xshift" in mark or "yshift" in mark:
+          start_point += f" x.{mark['xshift']}.y.{mark['yshift']}.relative"
+      else:
+        raise Exception(f"Unknown mark type: {mark['type']}")
+
+      action, anchor = "line", ""
+      start_out, close_in = "", ""
+      annotates = []
+      for t, v in args:
+        if t == "command":
+          if v == "->":
+            arrow = "with.stealth"
+          elif v == "<-":
+            arrow = "with.reversed.stealth"
+          elif v == "<->":
+            arrow = "with.double.stealth"
+          elif v == "h":
+            action = "line.horizontal"
+          elif v == "v":
+            action = "line.vertical"
+          elif v in anchor_list:
+            anchor = f".{v}"
+          elif v.startswith("out="):
+            start_out = f"start.out.{v[4:]}"
+          elif v.startswith("in="):
+            close_in = f"close.in.{v[3:]}"
+        elif t == "text" and len(v) > 0:
+          annotates.append(f"with.annotate '{v}'")
+      for id_ in self._selected_ids:
+        self._ensure_name_is_id(id_)
+        self._ensure_name_is_id(id_)
+        self._parse(f"draw {arrow} {start_point} {action}.to.{id_}{anchor} {start_out} {close_in} {' '.join(annotates)}")
 
   def _set_grid(self, *args):
     self._show_grid = True
@@ -982,6 +1029,7 @@ class CanvasManager(object):
           if len(self._selected_ids) == 0:
             raise Exception("Please select one object")
           id_ = self._selected_ids[0]
+          self._ensure_name_is_id(id_)
           mark = {
             "type": "nodename",
             "name": id_,
