@@ -63,16 +63,16 @@ class BoxDrawer(Drawer):
     elif "text" in obj:
       if need_latex(obj["text"]):
         path = text_to_latex_image_path(obj["text"], text_color)
-        if (path, scale) not in env["image references"]:
+        if (path, scale, obj["id"]) not in env["image references"]:
           img = Image.open(path)
           img = img.convert("RGBA")
           if scale != 1:
             w, h = img.size
             img = img.resize((int(w * scale), int(h * scale)))
           image = ImageTk.PhotoImage(img)
-          env["image references"][path] = image
+          env["image references"][(path, scale, obj["id"])] = image
         else:
-          image = env["image references"][(path, scale)]
+          image = env["image references"][(path, scale, obj["id"])]
         tmptext = canvas.create_image(0, 0, image=image)
       else:
         tmptext = canvas.create_text(0, 0, text=obj["text"],
@@ -171,16 +171,16 @@ class BoxDrawer(Drawer):
         if need_latex(obj["text"]):
           if tmptext is None:
             path = text_to_latex_image_path(obj["text"], text_color)
-            if (path, scale) not in env["image references"]:
+            if (path, scale, obj["id"]) not in env["image references"]:
               img = Image.open(path)
               img = img.convert("RGBA")
               if scale != 1:
                 w, h = img.size
                 img = img.resize((int(w * scale), int(h * scale)))
               image = ImageTk.PhotoImage(img)
-              env["image references"][(path, scale)] = image
+              env["image references"][(path, scale, obj["id"])] = image
             else:
-              image = env["image references"][(path, scale)]
+              image = env["image references"][(path, scale, obj["id"])]
             canvas.create_image(x, y, image=image)
           else:
             canvas.move(tmptext, x, y)
@@ -230,24 +230,22 @@ class BoxDrawer(Drawer):
 
         x, y = map_point(rotated_x, rotated_y, cs)
         if need_latex(obj["text"]):
-          if tmptext is None:
-            path = text_to_latex_image_path(obj["text"], text_color)
-            if (path, scale) not in env["image references"]:
-              img = Image.open(path)
-              img = img.convert("RGBA")
-              if scale != 1:
-                w, h = img.size
-                img = img.resize((int(w * scale), int(h * scale)))
-              image = ImageTk.PhotoImage(img)
-              env["image references"][(path, scale)] = image
-            else:
-              image = env["image references"][(path, scale)]
-            canvas.create_image(x, y, image=image, angle=(180+angle)%360)
+          if tmptext is not None:
+            canvas.delete(tmptext)
+          path = text_to_latex_image_path(obj["text"], text_color)
+          if (path, scale, angle, obj["id"]) not in env["image references"]:
+            img = Image.open(path)
+            img = img.convert("RGBA")
+            if scale != 1:
+              w, h = img.size
+              img = img.resize((int(w * scale), int(h * scale)))
+            if angle != 0:
+              img = img.rotate((180+angle)%360, expand=True)
+            image = ImageTk.PhotoImage(img)
+            env["image references"][(path, scale, angle, obj["id"])] = image
           else:
-            canvas.move(tmptext, x, y)
-            canvas.itemconfig(tmptext, angle=(180+angle)%360)
-            if r:
-              canvas.tag_lower(r, tmptext)
+            image = env["image references"][(path, scale, angle, obj["id"])]
+          canvas.create_image(x, y, image=image)
         else:
           if tmptext is None:
             canvas.create_text(x, y, text=obj["text"], fill=text_color,

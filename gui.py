@@ -123,10 +123,8 @@ class CanvasManager(object):
             if self._obj_to_edit_text is None:
               if len(self._editing_text) > 0:
                 x, y = self._get_pointer_pos()
-                if x != 0:
-                  x = f"{x:.2g}cm"
-                if y != 0:
-                  y = f"{y:.2g}cm"
+                x = num_to_dist(x)
+                y = num_to_dist(y)
                 self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
                                 with.align=left""")
             else:
@@ -181,10 +179,10 @@ class CanvasManager(object):
             y0, y1 = min(y0, y1), max(y0, y1)
             w, h = x1 - x0, y1 - y0
             self._editing_text_pos = x0 + w/2, y0 + h/2
-            x0 = x0 if x0 == 0 else f"{x0:.2g}cm"
-            y0 = y0 if y0 == 0 else f"{y0:.2g}cm"
-            w = w if w == 0 else f"{w:.2g}cm"
-            h = h if h == 0 else f"{h:.2g}cm"
+            x0 = num_to_dist(x0)
+            y0 = num_to_dist(y0)
+            w = num_to_dist(w)
+            h = num_to_dist(h)
             self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
             self._obj_to_edit_text = self._context._picture[-1]
             self._editing_text = self._obj_to_edit_text["text"]
@@ -258,18 +256,7 @@ class CanvasManager(object):
           elif len(self._selected_ids) > 0:
             self._before_change()
             for id_ in self._selected_ids:
-              obj = self._find_object_by_id(id_)
-              if "xshift" in obj:
-                xshift = dist_to_num(obj["xshift"])
-              else:
-                xshift = 0
-              xshift = round(xshift / self._grid_size()) * self._grid_size()
-              xshift += self._grid_size()
-              if xshift == 0:
-                if "xshift" in obj:
-                  del obj["xshift"]
-              else:
-                obj["xshift"] = f"{xshift:.2g}cm"
+              self._shift_object(id_, self._grid_size(), 0)
             self._after_change()
         elif event.char == "<":
           if self._visual_start is not None:
@@ -277,18 +264,7 @@ class CanvasManager(object):
           elif len(self._selected_ids) > 0:
             self._before_change()
             for id_ in self._selected_ids:
-              obj = self._find_object_by_id(id_)
-              if "xshift" in obj:
-                xshift = dist_to_num(obj["xshift"])
-              else:
-                xshift = 0
-              xshift = round(xshift / self._grid_size()) * self._grid_size()
-              xshift -= self._grid_size()
-              if xshift == 0:
-                if "xshift" in obj:
-                  del obj["xshift"]
-              else:
-                obj["xshift"] = f"{xshift:.2g}cm"
+              self._shift_object(id_, -self._grid_size(), 0)
             self._after_change()
         elif event.char == "K":
           if self._visual_start is not None:
@@ -296,18 +272,7 @@ class CanvasManager(object):
           elif len(self._selected_ids) > 0:
             self._before_change()
             for id_ in self._selected_ids:
-              obj = self._find_object_by_id(id_)
-              if "yshift" in obj:
-                yshift = dist_to_num(obj["yshift"])
-              else:
-                yshift = 0
-              yshift = round(yshift / self._grid_size()) * self._grid_size()
-              yshift += self._grid_size()
-              if yshift == 0:
-                if "yshift" in obj:
-                  del obj["yshift"]
-              else:
-                obj["yshift"] = f"{yshift:.2g}cm"
+              self._shift_object(id_, 0, self._grid_size())
             self._after_change()
         elif event.char == "J":
           if self._visual_start is not None:
@@ -315,18 +280,7 @@ class CanvasManager(object):
           elif len(self._selected_ids) > 0:
             self._before_change()
             for id_ in self._selected_ids:
-              obj = self._find_object_by_id(id_)
-              if "yshift" in obj:
-                yshift = dist_to_num(obj["yshift"])
-              else:
-                yshift = 0
-              yshift = round(yshift / self._grid_size()) * self._grid_size()
-              yshift -= self._grid_size()
-              if yshift == 0:
-                if "yshift" in obj:
-                  del obj["yshift"]
-              else:
-                obj["yshift"] = f"{yshift:.2g}cm"
+              self._shift_object(id_, 0, -self._grid_size())
             self._after_change()
         elif event.char == "u":
           self._undo()
@@ -337,6 +291,10 @@ class CanvasManager(object):
           else:
             x, y = self._get_pointer_pos()
             self._visual_start = (x, y)
+        elif event.char == "-":
+          if self._visual_start is not None:
+            self._deselect_targets()
+            self._visual_start = None
         elif event.char == "D":
           self._before_change()
           if len(self._selected_ids) > 0:
@@ -353,8 +311,8 @@ class CanvasManager(object):
           x, y = self._get_pointer_pos()
           self._marks.append({
             "type": "coordinate",
-            "x": f"{x:.2g}cm",
-            "y": f"{y:.2g}cm",
+            "x": f"{x:g}cm",
+            "y": f"{y:g}cm",
           })
       elif event.keysym == "Return":
         self._error_msg = None
@@ -458,6 +416,46 @@ class CanvasManager(object):
     if obj is not None:
       obj["name"] = id_
 
+  def _shift_object(self, id_, dx, dy):
+    obj = self._find_object_by_id(id_)
+    if "at" in obj:
+      at = obj["at"]
+      if isinstance(at, dict) and at["type"] == "coordinate":
+        x, y = dist_to_num(at["x"]) + dx, dist_to_num(at["y"]) + dy
+        if dx != 0:
+          x = round(x / self._grid_size()) * self._grid_size()
+        if dy != 0:
+          y = round(y / self._grid_size()) * self._grid_size()
+        at["x"] = num_to_dist(x)
+        at["y"] = num_to_dist(y)
+        return
+
+    if dx != 0:
+      if "xshift" in obj:
+        xshift = dist_to_num(obj["xshift"]) + dx
+      else:
+        xshift = dx
+      xshift = round(xshift / self._grid_size()) * self._grid_size()
+      xshift = num_to_dist(xshift)
+      if xshift == "0":
+        if "xshift" in obj:
+          del obj["xshift"]
+      else:
+        obj["xshift"] = xshift
+
+    if dy != 0:
+      if "yshift" in obj:
+        yshift = dist_to_num(obj["yshift"]) + dy
+      else:
+        yshift = dy
+      yshift = round(yshift / self._grid_size()) * self._grid_size()
+      yshift = num_to_dist(yshift)
+      if yshift == "0":
+        if "yshift" in obj:
+          del obj["yshift"]
+      else:
+        obj["yshift"] = yshift
+
   def _select_targets(self, clear=True):
     if clear:
       self._selected_ids = []
@@ -470,18 +468,47 @@ class CanvasManager(object):
         if id_ not in self._selected_ids and intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
           self._selected_ids.append(id_)
       for type_, data, path in self._segments:
+        if path in self._selected_paths:
+          continue
         if type_ == "line":
           x2, y2, x3, y3 = data
-          if path not in self._selected_paths and rect_line_intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
+          if rect_line_intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
             self._selected_paths.append(path)
         elif type_ == "rectangle":
           x2, y2, x3, y3 = data
-          if path not in self._selected_paths and intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
+          if intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
             self._selected_paths.append(path)
         elif type_ == "curve":
           for x, y in data:
             if x >= min(x0,x1) and x <= max(x0,x1) and y >= min(y0,y1) and y <= max(y0,y1):
               self._selected_paths.append(path)
+              break
+        else:
+          raise Exception(f"Unknown segment type: {type_}")
+
+  def _deselect_targets(self):
+    if self._visual_start is not None:
+      x0, y0 = self._visual_start
+      x1, y1 = self._get_pointer_pos()
+      for id_, bb in self._bounding_boxes.items():
+        x, y, width, height = bb
+        if id_ in self._selected_ids and intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
+          self._selected_ids = [_id_ for _id_ in self._selected_ids if _id_ != id_]
+      for type_, data, path in self._segments:
+        if path not in self._selected_paths:
+          continue
+        if type_ == "line":
+          x2, y2, x3, y3 = data
+          if path in self._selected_paths and rect_line_intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
+            self._selected_paths = [p for p in self._selected_paths if p != path]
+        elif type_ == "rectangle":
+          x2, y2, x3, y3 = data
+          if path in self._selected_paths and intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
+            self._selected_paths = [p for p in self._selected_paths if p != path]
+        elif type_ == "curve":
+          for x, y in data:
+            if x >= min(x0,x1) and x <= max(x0,x1) and y >= min(y0,y1) and y <= max(y0,y1):
+              self._selected_paths = [p for p in self._selected_paths if p != path]
               break
         else:
           raise Exception(f"Unknown segment type: {type_}")
@@ -598,7 +625,7 @@ class CanvasManager(object):
       draw_text = i == self._pointery or i % step == 0
       color = "red" if i == self._pointery else "gray"
       if draw_text:
-        text = "%.2g" % (i * self._grid_size())
+        text = "%g" % (i * self._grid_size())
         c.create_text(5, y, text=text, anchor="sw", fill=color)
         c.create_text(self._screen_width-3, y, text=text, anchor="se", fill=color)
     for i in range(step_left, step_right+1):
@@ -607,7 +634,7 @@ class CanvasManager(object):
       draw_text = i == self._pointerx or i % step == 0
       color = "red" if i == self._pointerx else "gray"
       if draw_text:
-        text = "%.2g" % (i * self._grid_size())
+        text = "%g" % (i * self._grid_size())
         c.create_text(x, 0, text=text, anchor="nw", fill=color)
         c.create_text(x, self._screen_height, text=text, anchor="sw", fill=color)
 
@@ -813,15 +840,15 @@ class CanvasManager(object):
       cmd_name = tokens[0][1]
       if cmd_name == "set":
         self._set(*tokens[1:])
-      elif cmd_name == "make":
+      elif cmd_name == "make" or cmd_name == "mk":
         self._make(*tokens[1:])
       elif cmd_name == "cn" or cmd_name == "connect":
         self._connect(*tokens[1:])
-      elif cmd_name == "grid":
+      elif cmd_name == "grid" or cmd_name == "g":
         self._set_grid(*tokens[1:])
-      elif cmd_name == "axes":
+      elif cmd_name == "axes" or cmd_name == "a":
         self._set_axes(*tokens[1:])
-      elif cmd_name == "mark":
+      elif cmd_name == "mark" or cmd_name == "m":
         self._add_mark(*tokens[1:])
       elif cmd_name == "ann" or cmd_name == "annotate":
         self._annotate(*tokens[1:])
@@ -883,41 +910,62 @@ class CanvasManager(object):
     self._after_change()
 
   def _make(self, *args):
+    obj = "path"
+    arrow = None
     for t, v in args:
       if t == "command":
         if v == "rect":
-          if len(self._marks) != 2:
-            raise Exception(f"Expect exactly two marks for rectangle")
-          self._before_change()
-          self._context._picture.append({
-            "type": "path",
-            "draw": True,
-            "items": [
-              self._marks[0],
-              {
-                "type": "rectangle",
-              },
-              self._marks[1],
-            ]
-          })
-          self._after_change()
+          obj = v
         elif v == "path":
-          if len(self._marks) < 2:
-            raise Exception(f"Expect at least two marks")
-          self._before_change()
-          items = []
-          for i, mark in enumerate(self._marks):
-            items.append(mark)
-            if i < len(self._marks) - 1:
-              items.append({
-                "type": "line",
-              })
-          self._context._picture.append({
-            "type": "path",
-            "draw": True,
-            "items": items,
+          obj = v
+        elif v == "->":
+          arrow = "stealth"
+        elif v == "<-":
+          arrow = "reversed.stealth"
+        elif v == "<->":
+          arrow = "double.stealth"
+
+    if obj == "path":
+      if len(self._marks) < 2:
+        raise Exception(f"Expect at least two marks")
+      self._before_change()
+      items = []
+      for i, mark in enumerate(self._marks):
+        items.append(mark)
+        if i < len(self._marks) - 1:
+          items.append({
+            "type": "line",
           })
-          self._after_change()
+      path = {
+        "type": "path",
+        "draw": True,
+        "items": items,
+      }
+      if arrow is not None:
+        path[arrow] = True
+      self._context._picture.append(path)
+      self._after_change()
+
+    elif obj == "rect":
+      if len(self._marks) != 2:
+        raise Exception(f"Expect exactly two marks for rectangle")
+      self._before_change()
+      path = {
+        "type": "path",
+        "draw": True,
+        "items": [
+          self._marks[0],
+          {
+            "type": "rectangle",
+          },
+          self._marks[1],
+        ]
+      }
+      self._context._picture.append(path)
+      self._after_change()
+
+    else:
+      raise Exception("Unknown object type")
 
   def _connect(self, *args):
     if len(self._selected_paths) != 0:
@@ -949,6 +997,11 @@ class CanvasManager(object):
               if anchors[j] == "":
                 anchors[j] = f".{v}"
                 break
+          elif v in short_anchor_dict:
+            for j in range(len(anchors)):
+              if anchors[j] == "":
+                anchors[j] = f".{short_anchor_dict[v]}"
+                break
           elif v.startswith("out="):
             start_out = f"start.out.{v[4:]}"
           elif v.startswith("in="):
@@ -977,7 +1030,9 @@ class CanvasManager(object):
         if "anchor" in mark:
           start_point += f".{mark['anchor']}"
         if "xshift" in mark or "yshift" in mark:
-          start_point += f" x.{mark['xshift']}.y.{mark['yshift']}.relative"
+          xshift = mark["xshift"] if "xshift" in mark else "0"
+          yshift = mark["yshift"] if "yshift" in mark else "0"
+          start_point += f" x.{xshift}.y.{yshift}.relative"
       else:
         raise Exception(f"Unknown mark type: {mark['type']}")
 
@@ -998,6 +1053,8 @@ class CanvasManager(object):
             action = "line.vertical"
           elif v in anchor_list:
             anchor = f".{v}"
+          elif v in short_anchor_dict:
+            anchor = f".{short_anchor_dict[v]}"
           elif v.startswith("out="):
             start_out = f"start.out.{v[4:]}"
           elif v.startswith("in="):
@@ -1025,15 +1082,13 @@ class CanvasManager(object):
     x, y = self._get_pointer_pos()
     mark = {
       "type": "coordinate",
-      "x": f"{x:.2g}cm",
-      "y": f"{y:.2g}cm",
+      "x": f"{x:g}cm",
+      "y": f"{y:g}cm",
     }
     to_del = None
     for t, v in args:
       if t == "command":
-        if v in ["south", "north", "east", "west",
-                 "south.east", "north.east",
-                 "south.west", "north.west", "center"]:
+        if v in anchor_list or v in short_anchor_dict:
           if len(self._selected_ids) > 1:
             raise Exception("Cannot mark more than one object anchors")
           if len(self._selected_ids) == 0:
@@ -1043,7 +1098,7 @@ class CanvasManager(object):
           mark = {
             "type": "nodename",
             "name": id_,
-            "anchor": v,
+            "anchor": v if v in anchor_list else short_anchor_dict[v],
           }
         elif v == "shift":
           if mark["type"] != "nodename":
@@ -1055,9 +1110,9 @@ class CanvasManager(object):
           xshift = pointerx - anchorx
           yshift = pointery - anchory
           if xshift != 0:
-            mark["xshift"] = f"{xshift:.2g}cm"
+            mark["xshift"] = f"{xshift:g}cm"
           if yshift != 0:
-            mark["yshift"] = f"{yshift:.2g}cm"
+            mark["yshift"] = f"{yshift:g}cm"
         elif v == "relative" or v == "rel":
           if mark["type"] != "coordinate":
             raise Exception("Do not specify anchor")
@@ -1065,8 +1120,8 @@ class CanvasManager(object):
           pointerx, pointery = self._get_pointer_pos()
           xshift = pointerx - x0
           yshift = pointery - y0
-          mark["x"] = f"{xshift:.2g}cm"
-          mark["y"] = f"{yshift:.2g}cm"
+          mark["x"] = f"{xshift:g}cm"
+          mark["y"] = f"{yshift:g}cm"
           mark["relative"] = True
         elif v == "clear":
           self._marks = []

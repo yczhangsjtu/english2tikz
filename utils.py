@@ -13,6 +13,19 @@ anchor_list = [
 ]
 
 
+short_anchor_dict = {
+  "nw": "north.west",
+  "n": "north",
+  "ne": "north.east",
+  "w": "west",
+  "c": "center",
+  "e": "east",
+  "sw": "south.west",
+  "s": "south",
+  "se": "south.east",
+}
+
+
 counter = 0
 
 
@@ -53,6 +66,14 @@ def dist_to_num(dist):
       return float(dist[:-2])
     return float(dist)
   return float(dist)
+
+
+def num_to_dist(num):
+  if num == 0:
+    return "0"
+  if num < 0.001 and num > -0.001:
+    return "0"
+  return f"{num:g}cm"
 
 
 def shift_by_anchor(x, y, anchor, width, height):
