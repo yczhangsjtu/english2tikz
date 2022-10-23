@@ -923,14 +923,12 @@ class CanvasManager(object):
     if len(self._selected_paths) != 0:
       raise Exception("Cannot connect paths")
     if len(self._marks) == 0:
-      if len(self._selected_ids) != 2:
-        raise Exception("Should select exactly two objects, or set at least one mark")
-      id1, id2 = self._selected_ids
-      self._ensure_name_is_id(id1)
-      self._ensure_name_is_id(id2)
-      arrow, annotates = "", []
+      if len(self._selected_ids) < 2:
+        raise Exception("Should select at least two objects, or set at least one mark")
+      arrow, annotates = "", ["" for i in range(len(self._selected_ids) - 1)]
       action = "line"
-      anchor1, anchor2 = "", ""
+      pairs = [(0, i) for i in range(1, len(self._selected_ids))]
+      anchors = ["" for i in range(len(self._selected_ids))]
       start_out, close_in = "", ""
       for t, v in args:
         if t == "command":
@@ -944,18 +942,30 @@ class CanvasManager(object):
             action = "line.horizontal"
           elif v == "v":
             action = "line.vertical"
+          elif v == "chain":
+            pairs = [(i-1, i) for i in range(1, len(self._selected_ids))]
           elif v in anchor_list:
-            if anchor1 == "":
-              anchor1 = f".{v}"
-            elif anchor2 == "":
-              anchor2 = f".{v}"
+            for j in range(len(anchors)):
+              if anchors[j] == "":
+                anchors[j] = f".{v}"
+                break
           elif v.startswith("out="):
             start_out = f"start.out.{v[4:]}"
           elif v.startswith("in="):
             close_in = f"close.in.{v[3:]}"
         elif t == "text" and len(v) > 0:
-          annotates.append(f"with.annotate '{v}'")
-      self._parse(f"draw {arrow} from.{id1}{anchor1} {action}.to.{id2}{anchor2} {start_out} {close_in} {' '.join(annotates)}")
+          for j in range(len(annotates)):
+            if annotates[j] == "":
+              annotates[j] = f"with.annotate '{v}'"
+              break
+      for id_ in self._selected_ids:
+        self._ensure_name_is_id(id_)
+      for k, pair in enumerate(pairs):
+        i, j = pair
+        id1, id2 = self._selected_ids[i], self._selected_ids[j]
+        anchor1, anchor2 = anchors[i], anchors[j]
+        annotate = annotates[k]
+        self._parse(f"draw {arrow} from.{id1}{anchor1} {action}.to.{id2}{anchor2} {start_out} {close_in} {annotate}")
     elif len(self._marks) == 1:
       if len(self._selected_ids) == 0:
         raise Exception("Should select at least one object")
