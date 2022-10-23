@@ -298,6 +298,12 @@ class CanvasManager(object):
             for id_ in self._selected_ids:
               self._shift_object(id_, self._grid_size(), 0)
             self._after_change()
+          elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
+            self._before_change()
+            self._shift_path_position(self._selected_paths[0],
+                                      self._selected_path_position,
+                                      self._grid_size(), 0)
+            self._after_change()
         elif event.char == "<":
           if self._visual_start is not None:
             pass
@@ -305,6 +311,12 @@ class CanvasManager(object):
             self._before_change()
             for id_ in self._selected_ids:
               self._shift_object(id_, -self._grid_size(), 0)
+            self._after_change()
+          elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
+            self._before_change()
+            self._shift_path_position(self._selected_paths[0],
+                                      self._selected_path_position,
+                                      -self._grid_size(), 0)
             self._after_change()
         elif event.char == "K":
           if self._visual_start is not None:
@@ -314,6 +326,12 @@ class CanvasManager(object):
             for id_ in self._selected_ids:
               self._shift_object(id_, 0, self._grid_size())
             self._after_change()
+          elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
+            self._before_change()
+            self._shift_path_position(self._selected_paths[0],
+                                      self._selected_path_position,
+                                      0, self._grid_size())
+            self._after_change()
         elif event.char == "J":
           if self._visual_start is not None:
             pass
@@ -321,6 +339,12 @@ class CanvasManager(object):
             self._before_change()
             for id_ in self._selected_ids:
               self._shift_object(id_, 0, -self._grid_size())
+            self._after_change()
+          elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
+            self._before_change()
+            self._shift_path_position(self._selected_paths[0],
+                                      self._selected_path_position,
+                                      0, -self._grid_size())
             self._after_change()
         elif event.char == "u":
           self._undo()
@@ -497,6 +521,45 @@ class CanvasManager(object):
           del obj["yshift"]
       else:
         obj["yshift"] = yshift
+
+  def _shift_path_position(self, path, index, dx, dy):
+    item = path["items"][index]
+    if item["type"] == "coordinate":
+      x, y = dist_to_num(item["x"]) + dx, dist_to_num(item["y"]) + dy
+      if dx != 0:
+        x = round(x / self._grid_size()) * self._grid_size()
+      if dy != 0:
+        y = round(y / self._grid_size()) * self._grid_size()
+      item["x"] = num_to_dist(x)
+      item["y"] = num_to_dist(y)
+      return
+    
+    if item["type"] == "nodename":
+      if dx != 0:
+        if "xshift" in item:
+          xshift = dist_to_num(item["xshift"]) + dx
+        else:
+          xshift = dx
+        xshift = round(xshift / self._grid_size()) * self._grid_size()
+        xshift = num_to_dist(xshift)
+        if xshift == "0":
+          if "xshift" in item:
+            del item["xshift"]
+        else:
+          item["xshift"] = xshift
+
+      if dy != 0:
+        if "yshift" in item:
+          yshift = dist_to_num(item["yshift"]) + dy
+        else:
+          yshift = dy
+        yshift = round(yshift / self._grid_size()) * self._grid_size()
+        yshift = num_to_dist(yshift)
+        if yshift == "0":
+          if "yshift" in item:
+            del item["yshift"]
+        else:
+          item["yshift"] = yshift
 
   def _select_targets(self, clear=True):
     if clear:
