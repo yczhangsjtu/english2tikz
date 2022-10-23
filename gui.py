@@ -3,7 +3,7 @@ import string
 import copy
 import re
 import json
-import sys
+import os
 from english2tikz.describe_it import DescribeIt
 from english2tikz.drawers import *
 from english2tikz.utils import *
@@ -44,6 +44,7 @@ class CanvasManager(object):
     self._selected_paths = []
     self._marks = []
     self._image_references = {}
+    self._jump_to_select_index = 0
     root.bind("<Key>", self.handle_key)
     self.draw()
 
@@ -132,6 +133,16 @@ class CanvasManager(object):
               self._obj_to_edit_text["text"] = self._editing_text
               self._after_change()
             self._editing_text = None
+          elif event.keysym == "o":
+            with open("/tmp/editing", "w") as f:
+              f.write(self._editing_text)
+            os.system(f"open -a 'Sublime Text' /tmp/editing")
+          elif event.keysym == "r":
+            try:
+              with open("/tmp/editing") as f:
+                self._editing_text = f.read()
+            except Exception as e:
+              self._error_msg = f"Failed to open editing text: {e}"
         else:
           pass
       elif event.char:
@@ -146,6 +157,24 @@ class CanvasManager(object):
           self._move_pointer(-1, 0)
         elif event.char == "l":
           self._move_pointer(1, 0)
+        elif event.char == "w":
+          self._move_pointer(round(1/self._grid_size()), 0)
+        elif event.char == "b":
+          self._move_pointer(-round(1/self._grid_size()), 0)
+        elif event.char == "e":
+          self._move_pointer(0, -round(1/self._grid_size()))
+        elif event.char == "E":
+          self._move_pointer(0, round(1/self._grid_size()))
+        elif event.char == "n":
+          if len(self._selected_ids) > 0:
+            self._jump_to_select_index += 1
+            self._jump_to_select_index %= len(self._selected_ids)
+            self._jump_to_select()
+        elif event.char == "N":
+          if len(self._selected_ids) > 0:
+            self._jump_to_select_index += len(self._selected_ids) - 1
+            self._jump_to_select_index %= len(self._selected_ids)
+            self._jump_to_select()
         elif event.char == "L":
           upper, lower, left, right = self._boundary_grids()
           self._pointery = lower
@@ -558,6 +587,16 @@ class CanvasManager(object):
     deleted_ids = []
     for id_ in affected_ids:
       self._delete_objects_related_to_id(id_, deleted_ids)
+
+  def _jump_to_select(self):
+    id_ = self._selected_ids[self._jump_to_select_index]
+    if id_ not in self._bounding_boxes:
+      return
+    bb = self._bounding_boxes[id_]
+    x, y = get_anchor_pos(bb, "center")
+    self._pointerx = round(x / self._grid_size())
+    self._pointery = round(y / self._grid_size())
+    self._reset_pointer_into_screen()
 
   def _get_pointer_pos(self):
     return self._pointerx * self._grid_size(), self._pointery * self._grid_size()
