@@ -149,6 +149,9 @@ class CanvasManager(object):
         if event.char == ":":
           self._command_line = ""
           self._error_msg = None
+        elif event.char == "/":
+          self._command_line = "search "
+          self._error_msg = None
         elif event.char == "j":
           self._move_pointer(0, -1)
         elif event.char == "k":
@@ -893,6 +896,8 @@ class CanvasManager(object):
         self._annotate(*tokens[1:])
       elif cmd_name == "ch" or cmd_name == "chain":
         self._chain(*tokens[1:])
+      elif cmd_name == "search" or cmd_name == "s":
+        self._search(*tokens[1:])
       elif cmd_name == "w":
         print("%%drawjson\n"+json.dumps(self._save()))
       elif cmd_name == "q":
@@ -1250,6 +1255,48 @@ class CanvasManager(object):
         obj["at.anchor"] = "south.west"
         obj["anchor"] = "north.east"
     self._after_change()
+
+  def _search(self, *args):
+    self._selected_ids = []
+    self._selected_paths = []
+    filters = []
+    for t, v in args:
+      if t == "command":
+        index = t.find("=")
+        if index >= 0:
+          key, value = v[:index], v[index+1:]
+          if len(key) == 0:
+            raise Exception("Does not support empty search key")
+          if len(value) == 0:
+            """
+            In this case, the value is not filtered. This is a key filter,
+            i.e., find objects with the given key
+            """
+            value = None
+          filters.append((key, value))
+        else:
+          """
+          In this case, the key is not filtered
+          """
+          filters.append((None, v))
+      elif t == "text":
+        filters.append(("text", v))
+    if len(filters) == 0:
+      raise Exception("No filter given")
+
+    for obj in self._context._picture:
+      if satisfy_filters(obj, filters):
+        if "id" in obj:
+          self._selected_ids.append(obj["id"])
+        elif "type" in obj and obj["type"] == "path":
+          self._selected_paths.append(obj)
+      if "items" in obj:
+        for item in obj["items"]:
+          if "annotates" in item:
+            for annotate in item["annotates"]:
+              if satisfy_filters(annotate, filters):
+                if "id" in annotate:
+                  self._selected_ids.append(annotate["id"])
         
 
 if __name__ == "__main__":

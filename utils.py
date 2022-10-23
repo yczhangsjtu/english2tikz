@@ -294,6 +294,21 @@ def need_latex(text):
   return "$" in text or text.find("\\textbf{") >= 0
 
 
+def satisfy_filters(obj, filters):
+  for key, value in filters:
+    satisfied = False
+    for k, v in obj.items():
+      if value is not None:
+        if not isinstance(v, str) or v.find(value) < 0:
+          continue
+      if key is not None and k.find(key) < 0:
+        continue
+      satisfied = True
+      break
+    if not satisfied:
+      return False
+  return True
+
 """
 Modified from
 https://git.sr.ht/~torresjrjr/Bezier.py/tree/bc87b14eaa226f8fb68d2925fb4f37c3344418c1/item/Bezier.py
