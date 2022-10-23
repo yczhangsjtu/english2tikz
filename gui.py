@@ -45,6 +45,8 @@ class CanvasManager(object):
     self._marks = []
     self._image_references = {}
     self._jump_to_select_index = 0
+    self._selected_path_position_index = 0
+    self._selected_path_position = None
     root.bind("<Key>", self.handle_key)
     self.draw()
 
@@ -173,11 +175,17 @@ class CanvasManager(object):
             self._jump_to_select_index += 1
             self._jump_to_select_index %= len(self._selected_ids)
             self._jump_to_select()
+          elif len(self._selected_paths) == 1:
+            self._selected_path_position_index += 1
+            self._select_path_position()
         elif event.char == "N":
           if len(self._selected_ids) > 0:
             self._jump_to_select_index += len(self._selected_ids) - 1
             self._jump_to_select_index %= len(self._selected_ids)
             self._jump_to_select()
+          elif len(self._selected_paths) == 1:
+            self._selected_path_position_index -= 1
+            self._select_path_position()
         elif event.char == "L":
           upper, lower, left, right = self._boundary_grids()
           self._pointery = lower
@@ -339,6 +347,7 @@ class CanvasManager(object):
           self._after_change()
           self._selected_paths = []
           self._selected_ids = []
+          self._selected_path_position = None
         elif event.char == 'm':
           x, y = self._get_pointer_pos()
           self._marks.append({
@@ -358,6 +367,7 @@ class CanvasManager(object):
           self._visual_start = None
           self._selected_ids = []
           self._selected_paths = []
+          self._selected_path_position = None
         elif event.keysym == "g":
           x, y = self._get_pointer_pos()
           self._grid_size_index = min(self._grid_size_index + 1, len(self._grid_sizes) - 1)
@@ -492,6 +502,7 @@ class CanvasManager(object):
     if clear:
       self._selected_ids = []
       self._selected_paths = []
+      self._selected_path_position = None
     if self._visual_start is not None:
       x0, y0 = self._visual_start
       x1, y1 = self._get_pointer_pos()
@@ -506,14 +517,17 @@ class CanvasManager(object):
           x2, y2, x3, y3 = data
           if rect_line_intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
             self._selected_paths.append(path)
+            self._selected_path_position = None
         elif type_ == "rectangle":
           x2, y2, x3, y3 = data
           if intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
             self._selected_paths.append(path)
+            self._selected_path_position = None
         elif type_ == "curve":
           for x, y in data:
             if x >= min(x0,x1) and x <= max(x0,x1) and y >= min(y0,y1) and y <= max(y0,y1):
               self._selected_paths.append(path)
+              self._selected_path_position = None
               break
         else:
           raise Exception(f"Unknown segment type: {type_}")
@@ -533,14 +547,17 @@ class CanvasManager(object):
           x2, y2, x3, y3 = data
           if path in self._selected_paths and rect_line_intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
             self._selected_paths = [p for p in self._selected_paths if p != path]
+            self._selected_path_position = None
         elif type_ == "rectangle":
           x2, y2, x3, y3 = data
           if path in self._selected_paths and intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
             self._selected_paths = [p for p in self._selected_paths if p != path]
+            self._selected_path_position = None
         elif type_ == "curve":
           for x, y in data:
             if x >= min(x0,x1) and x <= max(x0,x1) and y >= min(y0,y1) and y <= max(y0,y1):
               self._selected_paths = [p for p in self._selected_paths if p != path]
+              self._selected_path_position = None
               break
         else:
           raise Exception(f"Unknown segment type: {type_}")
@@ -600,6 +617,17 @@ class CanvasManager(object):
     self._pointerx = round(x / self._grid_size())
     self._pointery = round(y / self._grid_size())
     self._reset_pointer_into_screen()
+
+  def _select_path_position(self):
+    if len(self._selected_paths) == 1:
+      path = self._selected_paths[0]
+      position_items = [(i, item) for (i, item) in enumerate(path["items"])
+                        if item["type"] == "nodename" or
+                           item["type"] == "coordinate" or
+                           item["type"] == "intersection"]
+      if len(position_items) > 0:
+        self._selected_path_position_index %= len(position_items)
+        self._selected_path_position = position_items[self._selected_path_position_index][0]
 
   def _get_pointer_pos(self):
     return self._pointerx * self._grid_size(), self._pointery * self._grid_size()
@@ -700,6 +728,7 @@ class CanvasManager(object):
       "coordinate system": self._coordinate_system(),
       "selected ids": self._selected_ids,
       "selected paths": self._selected_paths,
+      "selected path position": self._selected_path_position,
       "image references": self._image_references,
     }
     for obj in ctx._picture:
@@ -1259,6 +1288,7 @@ class CanvasManager(object):
   def _search(self, *args):
     self._selected_ids = []
     self._selected_paths = []
+    self._selected_path_position = None
     filters = []
     for t, v in args:
       if t == "command":
@@ -1290,6 +1320,7 @@ class CanvasManager(object):
           self._selected_ids.append(obj["id"])
         elif "type" in obj and obj["type"] == "path":
           self._selected_paths.append(obj)
+          self._selected_path_position = None
       if "items" in obj:
         for item in obj["items"]:
           if "annotates" in item:

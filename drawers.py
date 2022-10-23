@@ -316,9 +316,11 @@ class PathDrawer(Drawer):
     darrow = "double.stealth" in obj or "double.arrow" in obj
     current_pos = None
     current_pos_clip = None
+    position_number = 0
     to_draw = None
     cs = env["coordinate system"]
-    for item in obj["items"]:
+    is_selected = obj in env["selected paths"]
+    for index, item in enumerate(obj["items"]):
       new_pos = None
       new_pos_clip = None
       if item["type"] == "nodename":
@@ -426,7 +428,7 @@ class PathDrawer(Drawer):
               else:
                 arrow = None
 
-              if obj in env["selected paths"]:
+              if is_selected:
                 canvas.create_line((x0p, y0p, x1p, y1p), fill="red", dash=6,
                                    width=width+4 if width is not None else 4)
               canvas.create_line((x0p, y0p, x1p, y1p), fill=color, width=width,
@@ -534,7 +536,7 @@ class PathDrawer(Drawer):
               else:
                 arrow = None
 
-              if obj in env["selected paths"]:
+              if is_selected:
                 canvas.create_line(*[e for x, y in screen_curve for e in (x, y)],
                                    fill="red", dash=6,
                                    width=width+4 if width is not None else 4)
@@ -597,7 +599,7 @@ class PathDrawer(Drawer):
               fill = ""
             dashed = 2 if "dashed" in obj else None
 
-            if obj in env["selected paths"]:
+            if is_selected:
               canvas.create_rectangle((x0p-5, y0p+5, x1p+5, y1p-5), fill="", outline="red", dash=4)
             canvas.create_rectangle((x0p, y0p, x1p, y1p), fill=fill, outline=color,
                                     width=width, dash=dashed)
@@ -605,8 +607,21 @@ class PathDrawer(Drawer):
         to_draw = None
 
       if new_pos is not None:
+        if is_selected:
+          x, y = new_pos
+          x, y = map_point(x, y, cs)
+          if "line.width" in obj:
+            width = 5 + float(obj["line.width"])
+          else:
+            width = 5
+          if index == env["selected path position"]:
+            canvas.create_oval(x-width-2, y-width-2, x+width+2, y+width+2, outline="black", fill="yellow")
+            canvas.create_text(x, y, text=str(position_number), fill="blue")
+          else:
+            canvas.create_oval(x-width, y-width, x+width, y+width, outline="red", dash=2)
         current_pos = new_pos
         current_pos_clip = new_pos_clip
+        position_number += 1
         new_pos = None
 
     if to_draw is not None:
