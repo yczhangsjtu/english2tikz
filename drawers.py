@@ -43,18 +43,18 @@ class BoxDrawer(Drawer):
     draw = ("draw" in obj and obj["draw"]) or obj["type"] == "box"
     if draw:
       if "color" in obj:
-        color = color_to_tk(obj["color"])
+        color = obj["color"]
       else:
         color = "black"
     else:
       color = ""
 
     if "text.color" in obj:
-      text_color = color_to_tk(obj["text.color"])
+      text_color = obj["text.color"]
     elif len(color) > 0:
       text_color = color
     elif "color" in obj:
-      text_color = color_to_tk(obj["color"])
+      text_color = obj["color"]
     else:
       text_color = "black"
 
@@ -138,7 +138,7 @@ class BoxDrawer(Drawer):
 
 
     if "fill" in obj:
-      fill = color_to_tk(obj["fill"])
+      fill = obj["fill"]
     else:
       fill = ""
 
@@ -162,9 +162,16 @@ class BoxDrawer(Drawer):
       r = None
       if fill or draw:
         if rounded_corners:
-          r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1, radius=rounded_corners*cs["scale"], fill=fill, outline=color, width=line_width)
+          r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
+                                        radius=rounded_corners*cs["scale"],
+                                        fill=color_to_tk(fill),
+                                        outline=color_to_tk(color),
+                                        width=line_width)
         else:
-          r = canvas.create_rectangle((x0, y0, x1, y1), fill=fill, outline=color, width=line_width)
+          r = canvas.create_rectangle((x0, y0, x1, y1),
+                                      fill=color_to_tk(fill),
+                                      outline=color_to_tk(color),
+                                      width=line_width)
       if "text" in obj and obj["text"]:
         center_x, center_y = get_anchor_pos((x, y, width, height), "center")
         x, y = map_point(center_x, center_y, cs)
@@ -189,11 +196,11 @@ class BoxDrawer(Drawer):
               canvas.tag_lower(r, tmptext)
         else:
           if tmptext is None:
-            canvas.create_text(x, y, text=obj["text"], fill=text_color,
+            canvas.create_text(x, y, text=obj["text"], fill=color_to_tk(text_color),
                                font=("Times New Roman", font_size, "normal"))
           else:
             canvas.move(tmptext, x, y)
-            canvas.itemconfig(tmptext, fill=text_color)
+            canvas.itemconfig(tmptext, fill=color_to_tk(text_color))
             if r:
               canvas.tag_lower(r, tmptext)
       if obj["id"] in env["selected ids"]:
@@ -213,7 +220,9 @@ class BoxDrawer(Drawer):
         if rounded_corners:
           r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
                                         radius=rounded_corners*cs["scale"],
-                                        fill=fill, outline=color, width=line_width, angle=angle,
+                                        fill=color_to_tk(fill),
+                                        outline=color_to_tk(color),
+                                        width=line_width, angle=angle,
                                         rotate_center=(anchor_screen_x, anchor_screen_y))
         else:
           rx0, ry0 = rotate(x0, y0, anchor_screen_x, anchor_screen_y, angle)
@@ -221,7 +230,8 @@ class BoxDrawer(Drawer):
           rx2, ry2 = rotate(x1, y1, anchor_screen_x, anchor_screen_y, angle)
           rx3, ry3 = rotate(x1, y0, anchor_screen_x, anchor_screen_y, angle)
           r = canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
-                                    fill=fill, outline=color, width=line_width)
+                                    fill=color_to_tk(fill),
+                                    outline=color_to_tk(color), width=line_width)
 
       if "text" in obj and obj["text"]:
         center_x, center_y = get_anchor_pos((x, y, width, height), "center")
@@ -248,12 +258,12 @@ class BoxDrawer(Drawer):
           canvas.create_image(x, y, image=image)
         else:
           if tmptext is None:
-            canvas.create_text(x, y, text=obj["text"], fill=text_color,
+            canvas.create_text(x, y, text=obj["text"], fill=color_to_tk(text_color),
                                font=("Times New Roman", font_size, "normal"),
                                angle=(180+angle)%360)
           else:
             canvas.move(tmptext, x, y)
-            canvas.itemconfig(tmptext, fill=text_color, angle=(180+angle)%360)
+            canvas.itemconfig(tmptext, fill=color_to_tk(text_color), angle=(180+angle)%360)
             if r:
               canvas.tag_lower(r, tmptext)
 
@@ -343,7 +353,7 @@ class PathDrawer(Drawer):
         x, y = current_pos
         env["bounding box"][id_] = (x, y, 0, 0)
       elif item["type"] == "coordinate":
-        if "relative" in item:
+        if "relative" in item and item["relative"]:
           if current_pos is None:
             raise Exception("Current position is None")
           x, y = current_pos
@@ -414,7 +424,7 @@ class PathDrawer(Drawer):
               else:
                 width = None
               if "color" in obj:
-                color = color_to_tk(obj["color"])
+                color = obj["color"]
               else:
                 color = "black"
               dashed = 2 if "dashed" in obj else None
@@ -431,8 +441,8 @@ class PathDrawer(Drawer):
               if is_selected:
                 canvas.create_line((x0p, y0p, x1p, y1p), fill="red", dash=6,
                                    width=width+4 if width is not None else 4)
-              canvas.create_line((x0p, y0p, x1p, y1p), fill=color, width=width,
-                                 arrow=arrow, dash=dashed)
+              canvas.create_line((x0p, y0p, x1p, y1p), fill=color_to_tk(color),
+                                 width=width, arrow=arrow, dash=dashed)
 
               if "annotates" in to_draw:
                 for annotate in to_draw["annotates"]:
@@ -522,7 +532,7 @@ class PathDrawer(Drawer):
               else:
                 width = None
               if "color" in obj:
-                color = color_to_tk(obj["color"])
+                color = obj["color"]
               else:
                 color = "black"
               dashed = 2 if "dashed" in obj else None
@@ -541,7 +551,8 @@ class PathDrawer(Drawer):
                                    fill="red", dash=6,
                                    width=width+4 if width is not None else 4)
               canvas.create_line(*[e for x, y in screen_curve for e in (x, y)],
-                                 fill=color, width=width, arrow=arrow, dash=dashed)
+                                 fill=color_to_tk(color), width=width,
+                                 arrow=arrow, dash=dashed)
 
               if "annotates" in to_draw:
                 for annotate in to_draw["annotates"]:
@@ -590,7 +601,7 @@ class PathDrawer(Drawer):
             else:
               width = None
             if "color" in obj:
-              color = color_to_tk(obj["color"])
+              color = obj["color"]
             else:
               color = "black"
             if "fill" in obj:
@@ -601,8 +612,8 @@ class PathDrawer(Drawer):
 
             if is_selected:
               canvas.create_rectangle((x0p-5, y0p+5, x1p+5, y1p-5), fill="", outline="red", dash=4)
-            canvas.create_rectangle((x0p, y0p, x1p, y1p), fill=fill, outline=color,
-                                    width=width, dash=dashed)
+            canvas.create_rectangle((x0p, y0p, x1p, y1p), fill=color_to_tk(fill),
+                                    outline=color_to_tk(color), width=width, dash=dashed)
 
         to_draw = None
 

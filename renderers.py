@@ -44,7 +44,7 @@ class BoxRenderer(Renderer):
         break
     for annotate_pos in LineRenderer.annotate_positions:
       if annotate_pos in obj:
-        ret[annotate_pos] = obj[annotate_pos]
+        ret[annotate_pos.replace(".", " ")] = obj[annotate_pos]
         break
     if "anchor" in obj:
       ret["anchor"] = obj["anchor"].replace(".", " ")

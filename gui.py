@@ -840,7 +840,6 @@ class CanvasManager(object):
             drawer.draw(c, obj, env)
           except Exception as e:
             self._error_msg = f"Error in draw: {e}"
-            raise e
           break
     self._bounding_boxes = env["bounding box"]
     self._segments = env["segments"]
@@ -871,7 +870,7 @@ class CanvasManager(object):
       buffer[i] = (x, y)
       return x, y
     elif mark["type"] == "coordinate":
-      if "relative" in mark:
+      if "relative" in mark and mark["relative"]:
         x0, y0 = self._get_mark_pos(i-1, buffer)
         x = x0 + dist_to_num(mark["x"])
         y = y0 + dist_to_num(mark["y"])
@@ -890,7 +889,7 @@ class CanvasManager(object):
         x, y = self._get_mark_pos(i, buffer)
         x, y = map_point(x, y, self._coordinate_system())
         if mark["type"] == "coordinate":
-          if "relative" in mark:
+          if "relative" in mark and mark["relative"]:
             c.create_oval(x-10, y-10, x+10, y+10, fill="#ff7777", outline="red")
           else:
             c.create_oval(x-10, y-10, x+10, y+10, fill="#77ff77", outline="green")
@@ -1120,22 +1119,48 @@ class CanvasManager(object):
       self._after_change()
 
     elif obj == "rect":
-      if len(self._marks) != 2:
-        raise Exception(f"Expect exactly two marks for rectangle")
-      self._before_change()
-      path = {
-        "type": "path",
-        "draw": True,
-        "items": [
-          self._marks[0],
-          {
-            "type": "rectangle",
-          },
-          self._marks[1],
-        ]
-      }
-      self._context._picture.append(path)
-      self._after_change()
+      if self._visual_start is not None:
+        self._before_change()
+        x0, y0 = self._visual_start
+        x1, y1 = self._get_pointer_pos()
+        path = {
+          "type": "path",
+          "draw": True,
+          "items": [
+            {
+              "type": "coordinate",
+              "x": num_to_dist(x0),
+              "y": num_to_dist(y0),
+            },
+            {
+              "type": "rectangle",
+            },
+            {
+              "type": "coordinate",
+              "x": num_to_dist(x1),
+              "y": num_to_dist(y1),
+            },
+          ]
+        }
+        self._context._picture.append(path)
+        self._after_change()
+      elif len(self._marks) == 2:
+        self._before_change()
+        path = {
+          "type": "path",
+          "draw": True,
+          "items": [
+            self._marks[0],
+            {
+              "type": "rectangle",
+            },
+            self._marks[1],
+          ]
+        }
+        self._context._picture.append(path)
+        self._after_change()
+      else:
+        raise Exception("Please set exactly two marks or draw a rect in visual mode")
 
     else:
       raise Exception("Unknown object type")

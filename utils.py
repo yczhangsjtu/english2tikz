@@ -162,6 +162,10 @@ def line_line_intersect(line1, line2):
 
 
 def color_to_tk(color):
+  if color is None:
+    return None
+  if color == "":
+    return ""
   if "!" in color:
     components = color.split("!")
     key_values = {}
