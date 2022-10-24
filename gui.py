@@ -47,6 +47,7 @@ class CanvasManager(object):
     self._jump_to_select_index = 0
     self._selected_path_position_index = 0
     self._selected_path_position = None
+    self._clipboard = []
     root.bind("<Key>", self.handle_key)
     self.draw()
 
@@ -376,9 +377,13 @@ class CanvasManager(object):
           x, y = self._get_pointer_pos()
           self._marks.append({
             "type": "coordinate",
-            "x": f"{x:g}cm",
-            "y": f"{y:g}cm",
+            "x": num_to_dist(x),
+            "y": num_to_dist(y),
           })
+        elif event.char == 'y':
+          self._clipboard = [id_ for id_ in self._selected_ids]
+        elif event.char == 'p':
+          self._paste()
       elif event.keysym == "Return":
         self._error_msg = None
         if self._visual_start is not None:
@@ -670,6 +675,38 @@ class CanvasManager(object):
     deleted_ids = []
     for id_ in affected_ids:
       self._delete_objects_related_to_id(id_, deleted_ids)
+
+  def _paste(self):
+    if len(self._clipboard) > 0:
+      old_to_new_id_dict = {}
+      to_replace = []
+      new_objects = []
+      for id_ in self._clipboard:
+        obj = self._find_object_by_id(id_)
+        if obj is None:
+          continue
+        newobj = copy.deepcopy(obj)
+        newid = self._context.getid()
+        old_to_new_id_dict[newobj["id"]] = newid
+        newobj["id"] = newid
+        x, y = self._get_pointer_pos()
+        if "at" in newobj and isinstance(newobj["at"], str) and newobj["at"] in self._clipboard:
+          to_replace.append(newobj)
+        else:
+          newobj["at"] = {
+            "type": "coordinate",
+            "x": dist_to_num(x),
+            "y": dist_to_num(y),
+          }
+          if "at.anchor" in newobj:
+            del newobj["at.anchor"]
+        new_objects.append(newobj)
+      for obj in to_replace:
+        obj["at"] = old_to_new_id_dict[obj["at"]]
+      self._before_change()
+      for obj in new_objects:
+        self._context._picture.append(obj)
+      self._after_change()
 
   def _jump_to_select(self):
     id_ = self._selected_ids[self._jump_to_select_index]
