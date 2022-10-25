@@ -5,7 +5,7 @@ from hashlib import sha256
 def text_to_latex_image_path(text, color="black"):
   code = sha256(bytes(text, "utf8")).hexdigest()
   if color != "black":
-    code = sha256(bytes(code, "utf8")).hexdigest()
+    code = sha256(bytes(code + color, "utf8")).hexdigest()
   if not os.path.exists("view"):
     os.mkdir("view")
   if not os.path.isdir("view"):

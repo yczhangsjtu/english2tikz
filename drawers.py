@@ -24,6 +24,10 @@ class BoxDrawer(Drawer):
   def _draw(canvas, obj, env, position=None, angle=None):
     assert "id" in obj
     tmptext = None
+    """
+    The LaTeX equations are smaller than expected.
+    """
+    latex_scale_ratio = 1.5
 
     if "scale" in obj:
       scale = float(obj["scale"])
@@ -41,13 +45,7 @@ class BoxDrawer(Drawer):
       font_size = int(font_size * scale)
 
     draw = ("draw" in obj and obj["draw"]) or obj["type"] == "box"
-    if draw:
-      if "color" in obj:
-        color = obj["color"]
-      else:
-        color = "black"
-    else:
-      color = ""
+    color = get_default(obj, "color", "black") if draw else ""
 
     if "text.color" in obj:
       text_color = obj["text.color"]
@@ -66,9 +64,9 @@ class BoxDrawer(Drawer):
         if (path, scale, obj["id"]) not in env["image references"]:
           img = Image.open(path)
           img = img.convert("RGBA")
-          if scale != 1:
-            w, h = img.size
-            img = img.resize((int(w * scale), int(h * scale)))
+          w, h = img.size
+          img = img.resize((int(w * scale * latex_scale_ratio),
+                            int(h * scale * latex_scale_ratio)))
           image = ImageTk.PhotoImage(img)
           env["image references"][(path, scale, obj["id"])] = image
         else:
@@ -181,9 +179,9 @@ class BoxDrawer(Drawer):
             if (path, scale, obj["id"]) not in env["image references"]:
               img = Image.open(path)
               img = img.convert("RGBA")
-              if scale != 1:
-                w, h = img.size
-                img = img.resize((int(w * scale), int(h * scale)))
+              w, h = img.size
+              img = img.resize((int(w * scale * latex_scale_ratio),
+                                int(h * scale * latex_scale_ratio)))
               image = ImageTk.PhotoImage(img)
               env["image references"][(path, scale, obj["id"])] = image
             else:
@@ -246,9 +244,9 @@ class BoxDrawer(Drawer):
           if (path, scale, angle, obj["id"]) not in env["image references"]:
             img = Image.open(path)
             img = img.convert("RGBA")
-            if scale != 1:
-              w, h = img.size
-              img = img.resize((int(w * scale), int(h * scale)))
+            w, h = img.size
+            img = img.resize((int(w * scale * latex_scale_ratio),
+                              int(h * scale * latex_scale_ratio)))
             if angle != 0:
               img = img.rotate((180+angle)%360, expand=True)
             image = ImageTk.PhotoImage(img)

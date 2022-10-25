@@ -48,6 +48,7 @@ class CanvasManager(object):
     self._selected_path_position_index = 0
     self._selected_path_position = None
     self._clipboard = []
+    self.filename = None
     root.bind("<Key>", self.handle_key)
     self.draw()
 
@@ -410,12 +411,12 @@ class CanvasManager(object):
 
   def _find_object_by_id(self, id_):
     for obj in self._context._picture:
-      if "id" in obj and obj["id"] == id_:
+      if get_default(obj, "id") == id_:
         return obj
       if "items" in obj:
         items = obj["items"]
         for item in items:
-          if "id" in item and item["id"] == id_:
+          if get_default(item, "id") == id_:
             return item
           if "annotates" in item:
             for annotate in item["annotates"]:
@@ -1004,10 +1005,9 @@ class CanvasManager(object):
     return tokens
 
   def _save(self):
-    nextid = self._context._state["nextid"] if "nextid" in self._context._state else 0
     return {
       "picture": self._context._picture,
-      "nextid": nextid,
+      "nextid": get_default(self._context._state, "nextid", 0),
     }
 
   def load(self, data):
@@ -1028,8 +1028,14 @@ class CanvasManager(object):
       cmd_name = tokens[0][1]
       if cmd_name == "set":
         self._set(*tokens[1:])
+      elif cmd_name == "fill" or cmd_name == "f":
+        self._set_fill(*tokens[1:])
       elif cmd_name == "make" or cmd_name == "mk":
         self._make(*tokens[1:])
+      elif cmd_name == "rect":
+        self._make(("command", "rect"), *tokens[1:])
+      elif cmd_name == "path":
+        self._make(("command", "path"), *tokens[1:])
       elif cmd_name == "cn" or cmd_name == "connect":
         self._connect(*tokens[1:])
       elif cmd_name == "grid" or cmd_name == "g":
@@ -1044,13 +1050,22 @@ class CanvasManager(object):
         self._chain(*tokens[1:])
       elif cmd_name == "search" or cmd_name == "s":
         self._search(*tokens[1:])
+      elif cmd_name == "read":
+        self._read(*tokens[1:])
       elif cmd_name == "w":
-        print("%%drawjson\n"+json.dumps(self._save()))
+        if self.filename is None:
+          print("%%drawjson\n"+json.dumps(self._save()))
+        else:
+          data = json.dumps(self._save())
+          with open(self.filename, "w") as f:
+            f.write(data)
       elif cmd_name == "q":
         self._root.after(1, self._root.destroy())
         self._end = True
+      else:
+        raise Exception(f"Unkown command: {cmd_name}")
     except Exception as e:
-      self._error_msg = str(e)
+      self._error_msg = f"Error in executing command: {e}"
 
   def _set(self, *args):
     if len(self._selected_ids) == 0 and len(self._selected_paths) == 0:
@@ -1087,17 +1102,22 @@ class CanvasManager(object):
       if obj is None:
         raise Exception(f"Cannot find object by id {id_}")
       if value == "False":
-        if key in obj:
-          del obj[key]
+        del_if_has(obj, key)
       else:
         obj[key] = value
     for path in self._selected_paths:
       if value == "False":
-        if key in path:
-          del path[key]
+        del_if_has(path, key)
       else:
         path[key] = value
     self._after_change()
+
+  def _set_fill(self, *args):
+    color = None
+    for t, v in args:
+      if t == "command":
+        color = v
+    self._set_selected_objects("fill", color)
 
   def _make(self, *args):
     obj = "path"
@@ -1254,6 +1274,7 @@ class CanvasManager(object):
 
       action, anchor = "line", ""
       start_out, close_in = "", ""
+      arrow = ""
       annotates = []
       for t, v in args:
         if t == "command":
@@ -1471,6 +1492,21 @@ class CanvasManager(object):
               if satisfy_filters(annotate, filters):
                 if "id" in annotate:
                   self._selected_ids.append(annotate["id"])
+
+  def _read(self, *args):
+    filename = None
+    for t, v in args:
+      if t == "command":
+        filename = v
+    with open(filename) as f:
+      data = json.loads(f.read())
+
+    self._before_change()
+    if "picture" in data:
+      self._context._picture = data["picture"]
+    if "nextid" in data:
+      self._context._state["nextid"] = data["nextid"]
+    self._after_change()
         
 
 if __name__ == "__main__":
