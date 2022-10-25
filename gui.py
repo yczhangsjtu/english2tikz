@@ -201,6 +201,9 @@ class CanvasManager(object):
     if event.char == "-":
       self._deselect_targets()
       self._visual_start = None
+    elif event.char == "^":
+      self._intersect_select_targets()
+      self._visual_start = None
 
   def _handle_printable_char_in_normal_mode(self, event):
     if event.char == ":":
@@ -517,27 +520,29 @@ class CanvasManager(object):
         raise Exception(f"Unknown segment type: {type_}")
       selector(sel, data, path)
 
-  def _select_path(self, path, deselect=False):
-    if deselect:
+  def _select_path(self, path, deselect=False, new_selected_paths=None):
+    if new_selected_paths is not None:
+      new_selected_paths.append(path)
+    elif deselect:
       self._selected_paths = remove_if_in(self._selected_paths, path)
     else:
       self._selected_paths.append(path)
     self._selected_path_position = None
 
-  def _select_line(self, bb, data, path, deselect=False):
+  def _select_line(self, bb, data, path, deselect=False, new_selected_paths=None):
     if rect_line_intersect(bb, data):
-      self._select_path(path, deselect)
+      self._select_path(path, deselect, new_selected_paths)
 
-  def _select_rect(self, bb, data, path, deselect=False):
+  def _select_rect(self, bb, data, path, deselect=False, new_selected_paths=None):
     if intersect(bb, data):
-      self._select_path(path, deselect)
+      self._select_path(path, deselect, new_selected_paths)
 
-  def _select_curve(self, bb, data, path, deselect=False):
+  def _select_curve(self, bb, data, path, deselect=False, new_selected_paths=None):
     eps = 0.1
     x0, y0, x1, y1 = bb
     for x, y in data:
       if is_bound_by(x, x0 - eps, x1 + eps) and is_bound_by(y, y0 - eps, y1 + eps):
-        self._select_path(path, deselect)
+        self._select_path(path, deselect, new_selected_paths)
         return
 
   def _deselect_targets(self):
@@ -565,6 +570,37 @@ class CanvasManager(object):
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
       selector(sel, data, path, deselect=True)
+
+  def _intersect_select_targets(self):
+    if self._visual_start is None:
+      return
+    x0, y0 = self._visual_start
+    x1, y1 = self._get_pointer_pos()
+    x0, x1 = order(x0, x1)
+    y0, y1 = order(y0, y1)
+    sel = (x0, y0, x1, y1)
+
+    new_selected_ids = []
+
+    for id_, bb in self._bounding_boxes.items():
+      x, y, width, height = bb
+      if id_ in self._selected_ids and intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
+        new_selected_ids.append(id_)
+    self._selected_ids = new_selected_ids
+
+    new_selected_paths = []
+    for type_, data, path in self._segments:
+      if path not in self._selected_paths:
+        continue
+      selector = get_default({
+        "line": self._select_line,
+        "rectangle": self._select_line,
+        "curve": self._select_line,
+      }, type_)
+      if selector is None:
+        raise Exception(f"Unknown segment type: {type_}")
+      selector(sel, data, path, deselect=True, new_selected_paths=new_selected_paths)
+    self._selected_paths = new_selected_paths
 
   def _delete_objects_related_to_id(self, id_, deleted_ids = []):
     to_removes = [obj for obj in self._context._picture if self._related_to(obj, id_)]
