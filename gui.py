@@ -456,71 +456,33 @@ class CanvasManager(object):
                                 dx, dy)
       self._after_change()
 
+  def _shift_dist(self, obj, key, delta, empty_val=None):
+    if delta == 0:
+      return
+    val = dist_to_num(get_default(obj, key, 0)) + delta
+    val = round(val / self._grid_size()) * self._grid_size()
+    val = num_to_dist(val)
+    set_or_del(obj, key, val, empty_val)
+
   def _shift_object(self, id_, dx, dy):
     obj = self._find_object_by_id(id_)
-    if "at" in obj:
-      at = obj["at"]
-      if get_type_if_dict(at) == "coordinate":
-        x = dist_to_num(get_default(at, "x", 0)) + dx
-        y = dist_to_num(get_default(at, "y", 0)) + dy
-        if dx != 0:
-          x = round(x / self._grid_size()) * self._grid_size()
-        if dy != 0:
-          y = round(y / self._grid_size()) * self._grid_size()
-        at["x"] = num_to_dist(x)
-        at["y"] = num_to_dist(y)
-        return
-
-    if dx != 0:
-      xshift = dist_to_num(get_default(obj, "xshift", 0)) + dx
-      xshift = round(xshift / self._grid_size()) * self._grid_size()
-      xshift = num_to_dist(xshift)
-      set_or_del(obj, "xshift", "0")
-
-    if dy != 0:
-      yshift = dist_to_num(get_default(obj, "yshift", 0)) + dy
-      yshift = round(yshift / self._grid_size()) * self._grid_size()
-      yshift = num_to_dist(yshift)
-      set_or_del(obj, "yshift", "0")
+    at = get_default(obj, "at")
+    if is_type(at, "coordinate"):
+      self._shift_dist(at, "x", dx)
+      self._shift_dist(at, "y", dy)
+      return
+    self._shift_dist(obj, "xshift", dx, "0")
+    self._shift_dist(obj, "yshift", dy, "0")
 
   def _shift_path_position(self, path, index, dx, dy):
     item = path["items"][index]
-    if item["type"] == "coordinate":
-      x, y = dist_to_num(item["x"]) + dx, dist_to_num(item["y"]) + dy
-      if dx != 0:
-        x = round(x / self._grid_size()) * self._grid_size()
-      if dy != 0:
-        y = round(y / self._grid_size()) * self._grid_size()
-      item["x"] = num_to_dist(x)
-      item["y"] = num_to_dist(y)
+    if is_type(item, "coordinate"):
+      self._shift_dist(item, "x", dx)
+      self._shift_dist(item, "y", dy)
       return
-    
-    if item["type"] == "nodename":
-      if dx != 0:
-        if "xshift" in item:
-          xshift = dist_to_num(item["xshift"]) + dx
-        else:
-          xshift = dx
-        xshift = round(xshift / self._grid_size()) * self._grid_size()
-        xshift = num_to_dist(xshift)
-        if xshift == "0":
-          if "xshift" in item:
-            del item["xshift"]
-        else:
-          item["xshift"] = xshift
-
-      if dy != 0:
-        if "yshift" in item:
-          yshift = dist_to_num(item["yshift"]) + dy
-        else:
-          yshift = dy
-        yshift = round(yshift / self._grid_size()) * self._grid_size()
-        yshift = num_to_dist(yshift)
-        if yshift == "0":
-          if "yshift" in item:
-            del item["yshift"]
-        else:
-          item["yshift"] = yshift
+    if is_type(item, "nodename"):
+      self._shift_dist(item, "xshift", dx)
+      self._shift_dist(item, "yshift", dy)
 
   def _select_targets(self, clear=True):
     if clear:

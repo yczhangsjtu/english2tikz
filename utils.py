@@ -374,6 +374,10 @@ def get_type_if_dict(dic):
   return dic["type"]
 
 
+def is_type(dic, type_):
+  return get_type_if_dict(dic) == type_
+
+
 def set_or_del(dic, key, value, empty):
   if value == empty:
     del_if_has(dic, key)
