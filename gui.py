@@ -191,11 +191,7 @@ class CanvasManager(object):
       self._selected_path_position = None
     elif event.char == 'm':
       x, y = self._get_pointer_pos()
-      self._marks.append({
-        "type": "coordinate",
-        "x": num_to_dist(x),
-        "y": num_to_dist(y),
-      })
+      self._marks.append(create_coordinate(x, y))
     elif event.char == 'y':
       self._clipboard = [id_ for id_ in self._selected_ids]
     elif event.char == 'p':
@@ -660,16 +656,11 @@ class CanvasManager(object):
         old_to_new_id_dict[newobj["id"]] = newid
         newobj["id"] = newid
         x, y = self._get_pointer_pos()
-        if "at" in newobj and isinstance(newobj["at"], str) and newobj["at"] in self._clipboard:
+        if get_default_of_type(newobj, "at", str, None) in self._clipboard:
           to_replace.append(newobj)
         else:
-          newobj["at"] = {
-            "type": "coordinate",
-            "x": dist_to_num(x),
-            "y": dist_to_num(y),
-          }
-          if "at.anchor" in newobj:
-            del newobj["at.anchor"]
+          newobj["at"] = create_coordinate(x, y)
+          del_if_has(newobj, "at.anchor")
         new_objects.append(newobj)
       for obj in to_replace:
         obj["at"] = old_to_new_id_dict[obj["at"]]

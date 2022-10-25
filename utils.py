@@ -321,10 +321,22 @@ def satisfy_filters(obj, filters):
   return True
 
 
-def get_default(dic, key, default):
+def get_default(dic, key, default=None):
   if key in dic:
     return dic[key]
   return default
+
+
+def get_default_of_type(dic, key, type_, default=None):
+  ret = get_default(dic, key, default)
+  if isinstance(ret, type_):
+    return ret
+  return default
+
+
+def del_if_has(dic, key):
+  if key in dic:
+    del dic[key]
 
 
 def bound_by(x, a, b):
@@ -337,6 +349,14 @@ def is_bound_by(x, a, b):
 
 def order(a, b):
   return min(a, b), max(a, b)
+
+
+def create_coordinate(x, y):
+  return {
+    "type": "coordinate",
+    "x": num_to_dist(x),
+    "y": num_to_dist(y),
+  }
 
 
 """
