@@ -513,8 +513,8 @@ class CanvasManager(object):
         continue
       selector = get_default({
         "line": self._select_line,
-        "rectangle": self._select_line,
-        "curve": self._select_line,
+        "rectangle": self._select_rect,
+        "curve": self._select_curve,
       }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
@@ -564,8 +564,8 @@ class CanvasManager(object):
         continue
       selector = get_default({
         "line": self._select_line,
-        "rectangle": self._select_line,
-        "curve": self._select_line,
+        "rectangle": self._select_rect,
+        "curve": self._select_curve,
       }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
@@ -581,7 +581,6 @@ class CanvasManager(object):
     sel = (x0, y0, x1, y1)
 
     new_selected_ids = []
-
     for id_, bb in self._bounding_boxes.items():
       x, y, width, height = bb
       if id_ in self._selected_ids and intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
@@ -594,8 +593,8 @@ class CanvasManager(object):
         continue
       selector = get_default({
         "line": self._select_line,
-        "rectangle": self._select_line,
-        "curve": self._select_line,
+        "rectangle": self._select_rect,
+        "curve": self._select_curve,
       }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
@@ -649,31 +648,59 @@ class CanvasManager(object):
       self._delete_objects_related_to_id(id_, deleted_ids)
 
   def _paste(self):
-    if len(self._clipboard) > 0:
-      old_to_new_id_dict = {}
-      to_replace = []
-      new_objects = []
-      for id_ in self._clipboard:
-        obj = self._find_object_by_id(id_)
-        if obj is None:
-          continue
-        newobj = copy.deepcopy(obj)
-        newid = self._context.getid()
-        old_to_new_id_dict[newobj["id"]] = newid
-        newobj["id"] = newid
-        x, y = self._get_pointer_pos()
-        if get_default_of_type(newobj, "at", str, None) in self._clipboard:
-          to_replace.append(newobj)
-        else:
-          newobj["at"] = create_coordinate(x, y)
-          del_if_has(newobj, "at.anchor")
-        new_objects.append(newobj)
-      for obj in to_replace:
-        obj["at"] = old_to_new_id_dict[obj["at"]]
-      self._before_change()
-      for obj in new_objects:
-        self._context._picture.append(obj)
-      self._after_change()
+    if len(self._clipboard) == 0:
+      return
+
+    old_to_new_id_dict = {}
+    to_replace = []
+    new_objects = []
+    for id_ in self._clipboard:
+      obj = self._find_object_by_id(id_)
+      if obj is None:
+        continue
+      newobj = copy.deepcopy(obj)
+      """
+      This new object has conflict id with the original.
+      Update it.
+      """
+      newid = self._context.getid()
+      """
+      Remember the relation between old and new ids, because
+      if other copied objects rely on this, the reliance of them
+      should also be updated.
+      """
+      old_to_new_id_dict[newobj["id"]] = newid
+
+      newobj["id"] = newid
+
+      x, y = self._get_pointer_pos()
+      if get_default_of_type(newobj, "at", str, None) in self._clipboard:
+        """
+        If this object relies on another object that is also copied,
+        update the reliance to the copied id, which may not be known yet.
+        So postpone the replacement to the end of loop, when all the newids
+        are settled.
+        """
+        to_replace.append(newobj)
+      else:
+        """
+        Otherwise, simply put the copied object at the position of the pointer.
+        """
+        newobj["at"] = create_coordinate(x, y)
+        del_if_has(newobj, "at.anchor")
+
+      new_objects.append(newobj)
+
+    """
+    Now we have all newids ready, we can update the reliances.
+    """
+    for obj in to_replace:
+      obj["at"] = old_to_new_id_dict[obj["at"]]
+
+    self._before_change()
+    for obj in new_objects:
+      self._context._picture.append(obj)
+    self._after_change()
 
   def _jump_to_select(self):
     id_ = self._selected_ids[self._jump_to_select_index]
@@ -686,16 +713,17 @@ class CanvasManager(object):
     self._reset_pointer_into_screen()
 
   def _select_path_position(self):
-    if len(self._selected_paths) == 1:
-      path = self._selected_paths[0]
-      position_items = [(i, item) for (i, item) in enumerate(path["items"])
-                        if item["type"] == "nodename" or
-                           item["type"] == "coordinate" or
-                           item["type"] == "intersection"]
-      if len(position_items) > 0:
-        self._selected_path_position_index += len(position_items)
-        self._selected_path_position_index %= len(position_items)
-        self._selected_path_position = position_items[self._selected_path_position_index][0]
+    if len(self._selected_paths) != 1:
+      return
+
+    path = self._selected_paths[0]
+    position_items = [(i, item) for (i, item) in enumerate(path["items"])
+                      if item["type"] in ["nodename", "coordinate", "intersection"]]
+
+    if len(position_items) > 0:
+      self._selected_path_position_index += len(position_items)
+      self._selected_path_position_index %= len(position_items)
+      self._selected_path_position = position_items[self._selected_path_position_index][0]
 
   def _get_pointer_pos(self):
     return self._pointerx * self._grid_size(), self._pointery * self._grid_size()
