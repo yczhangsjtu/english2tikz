@@ -313,6 +313,25 @@ def satisfy_filters(obj, filters):
       return False
   return True
 
+
+def get_default(dic, key, default):
+  if key in dic:
+    return dic[key]
+  return default
+
+
+def bound_by(x, a, b):
+  return max(min(x, b), a)
+
+
+def is_bound_by(x, a, b):
+  return x <= max(a, b) and x >= min(a, b)
+
+
+def order(a, b):
+  return min(a, b), max(a, b)
+
+
 """
 Modified from
 https://git.sr.ht/~torresjrjr/Bezier.py/tree/bc87b14eaa226f8fb68d2925fb4f37c3344418c1/item/Bezier.py

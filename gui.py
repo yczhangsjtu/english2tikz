@@ -90,362 +90,354 @@ class CanvasManager(object):
   def _grid_size(self):
     return self._grid_sizes[self._grid_size_index]
 
+  def _handle_key_in_command_mode(self, event):
+    if event.char:
+      self._command_line += event.char
+    elif event.keysym == "Return":
+      self._process_command(self._command_line)
+      self._command_line = None
+    elif event.keysym == "BackSpace":
+      if len(self._command_line) > 0:
+        self._command_line = self._command_line[:-1]
+      else:
+        self._command_line = None
+    elif event.state == 4 and event.keysym in string.ascii_lowercase:
+      """Ctrl + letter"""
+      if event.keysym == "c":
+        self._command_line = None
+
+  def _handle_key_in_editing_mode(self, event):
+    if event.char:
+      self._editing_text += event.char
+    elif event.keysym == "Return":
+      self._editing_text += "\n"
+    elif event.keysym == "BackSpace":
+      if len(self._editing_text) > 0:
+        self._editing_text = self._editing_text[:-1]
+    elif event.state == 4 and event.keysym in string.ascii_lowercase:
+      """Ctrl + letter"""
+      if event.keysym == "c":
+        if self._obj_to_edit_text is None:
+          if len(self._editing_text) > 0:
+            x, y = self._get_pointer_pos_str()
+            self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
+                            with.align=left""")
+        else:
+          self._before_change()
+          self._obj_to_edit_text["text"] = self._editing_text
+          self._after_change()
+        self._editing_text = None
+      elif event.keysym == "o":
+        """
+        It is very inconvenient to edit text in our tool, and I'm too lazy
+        to implement a powerful text editor or using the tkinter text field.
+        So press Ctrl+o to open an external editor for assistance.
+        After editing it in the external editor, close the editor, and press
+        Ctrl+r to load the text into our tool.
+        """
+        with open("/tmp/editing", "w") as f:
+          f.write(self._editing_text)
+        os.system(f"open -a 'Sublime Text' /tmp/editing")
+      elif event.keysym == "r":
+        try:
+          with open("/tmp/editing") as f:
+            self._editing_text = f.read()
+        except Exception as e:
+          self._error_msg = f"Failed to open editing text: {e}"
+
+  def _handle_printable_char_in_normal_mode(self, event):
+    if event.char == ":":
+      self._command_line = ""
+      self._error_msg = None
+    elif event.char == "/":
+      self._command_line = "search "
+      self._error_msg = None
+    elif event.char == "j":
+      self._move_pointer(0, -1)
+    elif event.char == "k":
+      self._move_pointer(0, 1)
+    elif event.char == "h":
+      self._move_pointer(-1, 0)
+    elif event.char == "l":
+      self._move_pointer(1, 0)
+    elif event.char == "w":
+      self._move_pointer(round(1/self._grid_size()), 0)
+    elif event.char == "b":
+      self._move_pointer(-round(1/self._grid_size()), 0)
+    elif event.char == "e":
+      self._move_pointer(0, -round(1/self._grid_size()))
+    elif event.char == "E":
+      self._move_pointer(0, round(1/self._grid_size()))
+    elif event.char == "n":
+      self._jump_to_next_selected(1)
+    elif event.char == "N":
+      self._jump_to_next_selected(-1)
+    elif event.char == "L":
+      upper, lower, left, right = self._boundary_grids()
+      self._pointery = lower
+      self._move_pointer_into_screen()
+    elif event.char == "H":
+      upper, lower, left, right = self._boundary_grids()
+      self._pointery = upper
+      self._move_pointer_into_screen()
+    elif event.char == "M":
+      upper, lower, left, right = self._boundary_grids()
+      self._pointery = int((upper + lower)/2)
+      self._move_pointer_into_screen()
+    elif event.char == "0":
+      upper, lower, left, right = self._boundary_grids()
+      self._pointerx = left
+      self._move_pointer_into_screen()
+    elif event.char == "$":
+      upper, lower, left, right = self._boundary_grids()
+      self._pointerx = right
+      self._move_pointer_into_screen()
+    elif event.char == "G":
+      self._pointerx = 0
+      self._pointery = 0
+      self._centerx = self._screen_width / 2
+      self._centery = self._screen_height / 2
+    elif event.char == "i":
+      if self._visual_start is not None:
+        x0, y0 = self._get_pointer_pos()
+        x1, y1 = self._visual_start
+        x0, x1 = order(x0, x1)
+        y0, y1 = order(y0, y1)
+        w, h = x1 - x0, y1 - y0
+        self._editing_text_pos = x0 + w/2, y0 + h/2
+        x0 = num_to_dist(x0)
+        y0 = num_to_dist(y0)
+        w = num_to_dist(w)
+        h = num_to_dist(h)
+        self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
+        self._obj_to_edit_text = self._context._picture[-1]
+        self._editing_text = self._obj_to_edit_text["text"]
+        self._visual_start = None
+      elif len(self._selected_ids) > 1:
+        self._error_msg = "Cannot edit more than one objects"
+      elif len(self._selected_ids) == 1:
+        self._obj_to_edit_text = self._find_object_by_id(self._selected_ids[0])
+        if self._obj_to_edit_text is None:
+          self._error_msg = f"Cannot find object with id {self._selected_ids[0]}"
+        elif "text" in self._obj_to_edit_text:
+          self._editing_text = self._obj_to_edit_text["text"]
+          self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "center")
+        else:
+          self._error_msg = "The selected object does not support text."
+      else:
+        self._editing_text = ""
+        self._obj_to_edit_text = None
+        self._editing_text_pos = self._get_pointer_pos()
+    elif event.char == "a":
+      if self._visual_start is not None:
+        pass
+      elif len(self._selected_ids) > 1:
+        self._error_msg = "Cannot append to more than one objects"
+      elif len(self._selected_ids) == 1:
+        self._insert_text_following_id(self._selected_ids[0], "right")
+    elif event.char == "I":
+      if self._visual_start is not None:
+        pass
+      elif len(self._selected_ids) > 1:
+        self._error_msg = "Cannot prepend to more than one objects"
+      elif len(self._selected_ids) == 1:
+        self._insert_text_following_id(self._selected_ids[0], "left")
+    elif event.char == "o":
+      if self._visual_start is not None:
+        pass
+      elif len(self._selected_ids) > 1:
+        self._error_msg = "Cannot append to more than one objects"
+      elif len(self._selected_ids) == 1:
+        self._insert_text_following_id(self._selected_ids[0], "below")
+    elif event.char == "O":
+      if self._visual_start is not None:
+        pass
+      elif len(self._selected_ids) > 1:
+        self._error_msg = "Cannot prepend to more than one objects"
+      elif len(self._selected_ids) == 1:
+        self._insert_text_following_id(self._selected_ids[0], "above")
+    elif event.char == ">":
+      if self._visual_start is not None:
+        pass
+      elif len(self._selected_ids) > 0:
+        self._before_change()
+        for id_ in self._selected_ids:
+          self._shift_object(id_, self._grid_size(), 0)
+        self._after_change()
+      elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
+        self._before_change()
+        self._shift_path_position(self._selected_paths[0],
+                                  self._selected_path_position,
+                                  self._grid_size(), 0)
+        self._after_change()
+    elif event.char == "<":
+      if self._visual_start is not None:
+        pass
+      elif len(self._selected_ids) > 0:
+        self._before_change()
+        for id_ in self._selected_ids:
+          self._shift_object(id_, -self._grid_size(), 0)
+        self._after_change()
+      elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
+        self._before_change()
+        self._shift_path_position(self._selected_paths[0],
+                                  self._selected_path_position,
+                                  -self._grid_size(), 0)
+        self._after_change()
+    elif event.char == "K":
+      if self._visual_start is not None:
+        pass
+      elif len(self._selected_ids) > 0:
+        self._before_change()
+        for id_ in self._selected_ids:
+          self._shift_object(id_, 0, self._grid_size())
+        self._after_change()
+      elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
+        self._before_change()
+        self._shift_path_position(self._selected_paths[0],
+                                  self._selected_path_position,
+                                  0, self._grid_size())
+        self._after_change()
+    elif event.char == "J":
+      if self._visual_start is not None:
+        pass
+      elif len(self._selected_ids) > 0:
+        self._before_change()
+        for id_ in self._selected_ids:
+          self._shift_object(id_, 0, -self._grid_size())
+        self._after_change()
+      elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
+        self._before_change()
+        self._shift_path_position(self._selected_paths[0],
+                                  self._selected_path_position,
+                                  0, -self._grid_size())
+        self._after_change()
+    elif event.char == "u":
+      self._undo()
+    elif event.char == "v":
+      if self._visual_start is not None:
+        self._select_targets(False)
+        self._visual_start = None
+      else:
+        x, y = self._get_pointer_pos()
+        self._visual_start = (x, y)
+    elif event.char == "-":
+      if self._visual_start is not None:
+        self._deselect_targets()
+        self._visual_start = None
+    elif event.char == "D":
+      self._before_change()
+      if len(self._selected_ids) > 0:
+        deleted_ids = []
+        for id_ in self._selected_ids:
+          self._delete_objects_related_to_id(id_, deleted_ids)
+      if len(self._selected_paths) > 0:
+        for path in self._selected_paths:
+          self._delete_path(path)
+      self._after_change()
+      self._selected_paths = []
+      self._selected_ids = []
+      self._selected_path_position = None
+    elif event.char == 'm':
+      x, y = self._get_pointer_pos()
+      self._marks.append({
+        "type": "coordinate",
+        "x": num_to_dist(x),
+        "y": num_to_dist(y),
+      })
+    elif event.char == 'y':
+      self._clipboard = [id_ for id_ in self._selected_ids]
+    elif event.char == 'p':
+      self._paste()
+
+  def _handle_ctrl_key_in_normal_mode(self, event):
+    if event.keysym == "r":
+      self._redo()
+    elif event.keysym == "c":
+      self._clear()
+    elif event.keysym == "g":
+      self._change_grid_size(1)
+    elif event.keysym == "f":
+      self._change_grid_size(-1)
+    elif event.keysym == "e":
+      self._centery -= 100
+      self._reset_pointer_into_screen()
+    elif event.keysym == "y":
+      self._centery += 100
+      self._reset_pointer_into_screen()
+    elif event.keysym == "h":
+      if self._visual_start is not None:
+        return
+      self._shift_selected_object("left")
+    elif event.keysym == "j":
+      if self._visual_start is not None:
+        pass
+      self._shift_selected_object("down")
+    elif event.keysym == "k":
+      if self._visual_start is not None:
+        pass
+      self._shift_selected_object("up")
+    elif event.keysym == "l":
+      if self._visual_start is not None:
+        pass
+      self._shift_selected_object("right")
+
+  def _handle_key_in_normal_mode(self, event):
+    if event.char:
+      self._handle_printable_char_in_normal_mode(event)
+    elif event.keysym == "Return":
+      self._error_msg = None
+      if self._visual_start is not None:
+        self._select_targets()
+        self._visual_start = None
+    elif event.state == 4 and event.keysym in string.ascii_lowercase:
+      self._handle_ctrl_key_in_normal_mode(event)
+
   def handle_key(self, event):
     if self._command_line is not None:
-      if event.char:
-        self._command_line += event.char
-      elif event.keysym == "Return":
-        self._process_command(self._command_line)
-        self._command_line = None
-      elif event.keysym == "BackSpace":
-        if len(self._command_line) > 0:
-          self._command_line = self._command_line[:-1]
-        else:
-          self._command_line = None
-      elif event.state == 4 and event.keysym in string.ascii_lowercase:
-        """
-        Ctrl + letter
-        """
-        if event.keysym == "c":
-          self._command_line = None
-      else:
-        pass
+      self._handle_key_in_command_mode(event)
     else:
       if self._editing_text is not None:
-        if event.char:
-          self._editing_text += event.char
-        elif event.keysym == "Return":
-          self._editing_text += "\n"
-        elif event.keysym == "BackSpace":
-          if len(self._editing_text) > 0:
-            self._editing_text = self._editing_text[:-1]
-        elif event.state == 4 and event.keysym in string.ascii_lowercase:
-          """
-          Ctrl + letter
-          """
-          if event.keysym == "c":
-            if self._obj_to_edit_text is None:
-              if len(self._editing_text) > 0:
-                x, y = self._get_pointer_pos()
-                x = num_to_dist(x)
-                y = num_to_dist(y)
-                self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
-                                with.align=left""")
-            else:
-              self._before_change()
-              self._obj_to_edit_text["text"] = self._editing_text
-              self._after_change()
-            self._editing_text = None
-          elif event.keysym == "o":
-            with open("/tmp/editing", "w") as f:
-              f.write(self._editing_text)
-            os.system(f"open -a 'Sublime Text' /tmp/editing")
-          elif event.keysym == "r":
-            try:
-              with open("/tmp/editing") as f:
-                self._editing_text = f.read()
-            except Exception as e:
-              self._error_msg = f"Failed to open editing text: {e}"
-        else:
-          pass
-      elif event.char:
-        if event.char == ":":
-          self._command_line = ""
-          self._error_msg = None
-        elif event.char == "/":
-          self._command_line = "search "
-          self._error_msg = None
-        elif event.char == "j":
-          self._move_pointer(0, -1)
-        elif event.char == "k":
-          self._move_pointer(0, 1)
-        elif event.char == "h":
-          self._move_pointer(-1, 0)
-        elif event.char == "l":
-          self._move_pointer(1, 0)
-        elif event.char == "w":
-          self._move_pointer(round(1/self._grid_size()), 0)
-        elif event.char == "b":
-          self._move_pointer(-round(1/self._grid_size()), 0)
-        elif event.char == "e":
-          self._move_pointer(0, -round(1/self._grid_size()))
-        elif event.char == "E":
-          self._move_pointer(0, round(1/self._grid_size()))
-        elif event.char == "n":
-          if len(self._selected_ids) > 0:
-            self._jump_to_select_index += 1
-            self._jump_to_select_index %= len(self._selected_ids)
-            self._jump_to_select()
-          elif len(self._selected_paths) == 1:
-            self._selected_path_position_index += 1
-            self._select_path_position()
-        elif event.char == "N":
-          if len(self._selected_ids) > 0:
-            self._jump_to_select_index += len(self._selected_ids) - 1
-            self._jump_to_select_index %= len(self._selected_ids)
-            self._jump_to_select()
-          elif len(self._selected_paths) == 1:
-            self._selected_path_position_index -= 1
-            self._select_path_position()
-        elif event.char == "L":
-          upper, lower, left, right = self._boundary_grids()
-          self._pointery = lower
-          self._move_pointer_into_screen()
-        elif event.char == "H":
-          upper, lower, left, right = self._boundary_grids()
-          self._pointery = upper
-          self._move_pointer_into_screen()
-        elif event.char == "M":
-          upper, lower, left, right = self._boundary_grids()
-          self._pointery = int((upper + lower)/2)
-          self._move_pointer_into_screen()
-        elif event.char == "0":
-          upper, lower, left, right = self._boundary_grids()
-          self._pointerx = left
-          self._move_pointer_into_screen()
-        elif event.char == "$":
-          upper, lower, left, right = self._boundary_grids()
-          self._pointerx = right
-          self._move_pointer_into_screen()
-        elif event.char == "G":
-          self._pointerx = 0
-          self._pointery = 0
-          self._centerx = self._screen_width / 2
-          self._centery = self._screen_height / 2
-        elif event.char == "i":
-          if self._visual_start is not None:
-            x0, y0 = self._get_pointer_pos()
-            x1, y1 = self._visual_start
-            x0, x1 = min(x0, x1), max(x0, x1)
-            y0, y1 = min(y0, y1), max(y0, y1)
-            w, h = x1 - x0, y1 - y0
-            self._editing_text_pos = x0 + w/2, y0 + h/2
-            x0 = num_to_dist(x0)
-            y0 = num_to_dist(y0)
-            w = num_to_dist(w)
-            h = num_to_dist(h)
-            self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
-            self._obj_to_edit_text = self._context._picture[-1]
-            self._editing_text = self._obj_to_edit_text["text"]
-            self._visual_start = None
-          elif len(self._selected_ids) > 1:
-            self._error_msg = "Cannot edit more than one objects"
-          elif len(self._selected_ids) == 1:
-            self._obj_to_edit_text = self._find_object_by_id(self._selected_ids[0])
-            if self._obj_to_edit_text is None:
-              self._error_msg = f"Cannot find object with id {self._selected_ids[0]}"
-            elif "text" in self._obj_to_edit_text:
-              self._editing_text = self._obj_to_edit_text["text"]
-              self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "center")
-            else:
-              self._error_msg = "The selected object does not support text."
-          else:
-            self._editing_text = ""
-            self._obj_to_edit_text = None
-            self._editing_text_pos = self._get_pointer_pos()
-        elif event.char == "a":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 1:
-            self._error_msg = "Cannot append to more than one objects"
-          elif len(self._selected_ids) == 1:
-            self._insert_text_following_id(self._selected_ids[0], "right")
-        elif event.char == "I":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 1:
-            self._error_msg = "Cannot prepend to more than one objects"
-          elif len(self._selected_ids) == 1:
-            self._insert_text_following_id(self._selected_ids[0], "left")
-        elif event.char == "o":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 1:
-            self._error_msg = "Cannot append to more than one objects"
-          elif len(self._selected_ids) == 1:
-            self._insert_text_following_id(self._selected_ids[0], "below")
-        elif event.char == "O":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 1:
-            self._error_msg = "Cannot prepend to more than one objects"
-          elif len(self._selected_ids) == 1:
-            self._insert_text_following_id(self._selected_ids[0], "above")
-        elif event.char == ">":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 0:
-            self._before_change()
-            for id_ in self._selected_ids:
-              self._shift_object(id_, self._grid_size(), 0)
-            self._after_change()
-          elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
-            self._before_change()
-            self._shift_path_position(self._selected_paths[0],
-                                      self._selected_path_position,
-                                      self._grid_size(), 0)
-            self._after_change()
-        elif event.char == "<":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 0:
-            self._before_change()
-            for id_ in self._selected_ids:
-              self._shift_object(id_, -self._grid_size(), 0)
-            self._after_change()
-          elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
-            self._before_change()
-            self._shift_path_position(self._selected_paths[0],
-                                      self._selected_path_position,
-                                      -self._grid_size(), 0)
-            self._after_change()
-        elif event.char == "K":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 0:
-            self._before_change()
-            for id_ in self._selected_ids:
-              self._shift_object(id_, 0, self._grid_size())
-            self._after_change()
-          elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
-            self._before_change()
-            self._shift_path_position(self._selected_paths[0],
-                                      self._selected_path_position,
-                                      0, self._grid_size())
-            self._after_change()
-        elif event.char == "J":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 0:
-            self._before_change()
-            for id_ in self._selected_ids:
-              self._shift_object(id_, 0, -self._grid_size())
-            self._after_change()
-          elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
-            self._before_change()
-            self._shift_path_position(self._selected_paths[0],
-                                      self._selected_path_position,
-                                      0, -self._grid_size())
-            self._after_change()
-        elif event.char == "u":
-          self._undo()
-        elif event.char == "v":
-          if self._visual_start is not None:
-            self._select_targets(False)
-            self._visual_start = None
-          else:
-            x, y = self._get_pointer_pos()
-            self._visual_start = (x, y)
-        elif event.char == "-":
-          if self._visual_start is not None:
-            self._deselect_targets()
-            self._visual_start = None
-        elif event.char == "D":
-          self._before_change()
-          if len(self._selected_ids) > 0:
-            deleted_ids = []
-            for id_ in self._selected_ids:
-              self._delete_objects_related_to_id(id_, deleted_ids)
-          if len(self._selected_paths) > 0:
-            for path in self._selected_paths:
-              self._delete_path(path)
-          self._after_change()
-          self._selected_paths = []
-          self._selected_ids = []
-          self._selected_path_position = None
-        elif event.char == 'm':
-          x, y = self._get_pointer_pos()
-          self._marks.append({
-            "type": "coordinate",
-            "x": num_to_dist(x),
-            "y": num_to_dist(y),
-          })
-        elif event.char == 'y':
-          self._clipboard = [id_ for id_ in self._selected_ids]
-        elif event.char == 'p':
-          self._paste()
-      elif event.keysym == "Return":
-        self._error_msg = None
-        if self._visual_start is not None:
-          self._select_targets()
-          self._visual_start = None
-      elif event.state == 4 and event.keysym in string.ascii_lowercase:
-        if event.keysym == "r":
-          self._redo()
-        elif event.keysym == "c":
-          self._visual_start = None
-          self._selected_ids = []
-          self._selected_paths = []
-          self._selected_path_position = None
-        elif event.keysym == "g":
-          x, y = self._get_pointer_pos()
-          self._grid_size_index = min(self._grid_size_index + 1, len(self._grid_sizes) - 1)
-          self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
-          self._move_pointer_into_screen()
-        elif event.keysym == "f":
-          x, y = self._get_pointer_pos()
-          self._grid_size_index = max(self._grid_size_index - 1, 0)
-          self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
-          self._move_pointer_into_screen()
-        elif event.keysym == "e":
-          self._centery -= 100
-          self._reset_pointer_into_screen()
-        elif event.keysym == "y":
-          self._centery += 100
-          self._reset_pointer_into_screen()
-        elif event.keysym == "h":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 0:
-            for id_ in self._selected_ids:
-              obj = self._find_object_by_id(id_)
-              if not "at" in obj or not isinstance(obj["at"], str):
-                self._error_msg = "Object is not anchored to another object"
-              if "at.anchor" in obj:
-                at_anchor = obj["at.anchor"]
-              else:
-                at_anchor = "center"
-              obj["at.anchor"] = shift_anchor(at_anchor, "left")
-        elif event.keysym == "j":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 0:
-            for id_ in self._selected_ids:
-              obj = self._find_object_by_id(id_)
-              if not "at" in obj or not isinstance(obj["at"], str):
-                self._error_msg = "Object is not anchored to another object"
-              if "at.anchor" in obj:
-                at_anchor = obj["at.anchor"]
-              else:
-                at_anchor = "center"
-              obj["at.anchor"] = shift_anchor(at_anchor, "down")
-        elif event.keysym == "k":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 0:
-            for id_ in self._selected_ids:
-              obj = self._find_object_by_id(id_)
-              if not "at" in obj or not isinstance(obj["at"], str):
-                self._error_msg = "Object is not anchored to another object"
-              if "at.anchor" in obj:
-                at_anchor = obj["at.anchor"]
-              else:
-                at_anchor = "center"
-              obj["at.anchor"] = shift_anchor(at_anchor, "up")
-        elif event.keysym == "l":
-          if self._visual_start is not None:
-            pass
-          elif len(self._selected_ids) > 0:
-            for id_ in self._selected_ids:
-              obj = self._find_object_by_id(id_)
-              if not "at" in obj or not isinstance(obj["at"], str):
-                self._error_msg = "Object is not anchored to another object"
-              if "at.anchor" in obj:
-                at_anchor = obj["at.anchor"]
-              else:
-                at_anchor = "center"
-              obj["at.anchor"] = shift_anchor(at_anchor, "right")
+        self._handle_key_in_editing_mode(event)
+      else:
+        self._handle_key_in_normal_mode(event)
     self.draw()
+
+  def _clear(self):
+    self._visual_start = None
+    self._selected_ids = []
+    self._selected_paths = []
+    self._selected_path_position = None
+    self._marks = []
+
+  def _change_grid_size(self, by):
+    x, y = self._get_pointer_pos()
+    self._grid_size_index = bound_by(self._grid_size_index + by, 0, len(self._grid_sizes))
+    self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
+    self._move_pointer_into_screen()
+
+  def _shift_selected_object(self, direction):
+    if len(self._selected_ids) == 0:
+      return
+    for id_ in self._selected_ids:
+      obj = self._find_object_by_id(id_)
+      if obj is None:
+        continue
+      if not "at" in obj or not isinstance(obj["at"], str):
+        self._error_msg = f"Object {id_} is not anchored to another object"
+        return
+      obj["at.anchor"] = shift_anchor(
+          get_default(obj, "at.anchor", "center"),
+          direction)
+
+  def _jump_to_next_selected(self, by):
+    if len(self._selected_ids) > 0:
+      self._jump_to_select_index += len(self._selected_ids) + by
+      self._jump_to_select_index %= len(self._selected_ids)
+      self._jump_to_select()
+    elif len(self._selected_paths) == 1:
+      self._selected_path_position_index += by
+      self._select_path_position()
 
   def _find_object_by_id(self, id_):
     for obj in self._context._picture:
@@ -594,7 +586,7 @@ class CanvasManager(object):
             self._selected_path_position = None
         elif type_ == "curve":
           for x, y in data:
-            if x >= min(x0,x1) and x <= max(x0,x1) and y >= min(y0,y1) and y <= max(y0,y1):
+            if is_bound_by(x, x0, x1) and is_bound_by(y, y0, y1):
               self._selected_paths.append(path)
               self._selected_path_position = None
               break
@@ -624,7 +616,7 @@ class CanvasManager(object):
             self._selected_path_position = None
         elif type_ == "curve":
           for x, y in data:
-            if x >= min(x0,x1) and x <= max(x0,x1) and y >= min(y0,y1) and y <= max(y0,y1):
+            if is_bound_by(x, x0, x1) and is_bound_by(y, y0, y1):
               self._selected_paths = [p for p in self._selected_paths if p != path]
               self._selected_path_position = None
               break
@@ -727,11 +719,16 @@ class CanvasManager(object):
                            item["type"] == "coordinate" or
                            item["type"] == "intersection"]
       if len(position_items) > 0:
+        self._selected_path_position_index += len(position_items)
         self._selected_path_position_index %= len(position_items)
         self._selected_path_position = position_items[self._selected_path_position_index][0]
 
   def _get_pointer_pos(self):
     return self._pointerx * self._grid_size(), self._pointery * self._grid_size()
+
+  def _get_pointer_pos_str(self):
+    x, y = self._get_pointer_pos()
+    return num_to_dist(x), num_to_dist(y)
 
   def _get_pointer_screen_pos(self):
     x, y = self._get_pointer_pos()
@@ -759,8 +756,8 @@ class CanvasManager(object):
 
   def _reset_pointer_into_screen(self):
     screenx, screeny = self._get_pointer_screen_pos()
-    screenx = max(min(screenx, self._screen_width - self._scale + 10), self._scale - 10)
-    screeny = max(min(screeny, self._screen_height - self._scale + 10), self._scale - 10)
+    screenx = bound_by(screenx, self._scale - 10, self._screen_width - self._scale + 10)
+    screeny = bound_by(screeny, self._scale - 10, self._screen_height - self._scale + 10)
     x, y = reverse_map_point(screenx, screeny, self._coordinate_system())
     self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
 
