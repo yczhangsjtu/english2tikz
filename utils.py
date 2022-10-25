@@ -390,6 +390,10 @@ def append_if_not_in(l, e):
     l.append(e)
 
 
+def remove_if_in(l, e):
+  return [a for a in l if a != e]
+
+
 """
 Modified from
 https://git.sr.ht/~torresjrjr/Bezier.py/tree/bc87b14eaa226f8fb68d2925fb4f37c3344418c1/item/Bezier.py
