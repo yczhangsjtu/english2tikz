@@ -291,19 +291,19 @@ class CanvasManager(object):
     elif event.keysym == "h":
       if self._visual_start is not None:
         return
-      self._shift_selected_object("left")
+      self._shift_selected_object_at_anchor("left")
     elif event.keysym == "j":
       if self._visual_start is not None:
         pass
-      self._shift_selected_object("down")
+      self._shift_selected_object_at_anchor("down")
     elif event.keysym == "k":
       if self._visual_start is not None:
         pass
-      self._shift_selected_object("up")
+      self._shift_selected_object_at_anchor("up")
     elif event.keysym == "l":
       if self._visual_start is not None:
         pass
-      self._shift_selected_object("right")
+      self._shift_selected_object_at_anchor("right")
 
   def _handle_key_in_normal_mode(self, event):
     if event.char:
@@ -339,19 +339,25 @@ class CanvasManager(object):
     self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
     self._move_pointer_into_screen()
 
-  def _shift_selected_object(self, direction):
+  def _shift_object_at_anchor(self, id_, direction):
+    obj = self._find_object_by_id(id_)
+    if obj is None:
+      return
+
+    if not "at" in obj or not isinstance(obj["at"], str):
+      self._error_msg = f"Object {id_} is not anchored to another object"
+      return
+
+    obj["at.anchor"] = shift_anchor(
+        get_default(obj, "at.anchor", "center"),
+        direction)
+
+  def _shift_selected_object_at_anchor(self, direction):
     if len(self._selected_ids) == 0:
       return
+
     for id_ in self._selected_ids:
-      obj = self._find_object_by_id(id_)
-      if obj is None:
-        continue
-      if not "at" in obj or not isinstance(obj["at"], str):
-        self._error_msg = f"Object {id_} is not anchored to another object"
-        return
-      obj["at.anchor"] = shift_anchor(
-          get_default(obj, "at.anchor", "center"),
-          direction)
+      self._shift_object_at_anchor(id_, direction)
 
   def _jump_to_next_selected(self, by):
     if len(self._selected_ids) > 0:
