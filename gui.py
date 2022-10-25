@@ -508,14 +508,14 @@ class CanvasManager(object):
     for type_, data, path in self._segments:
       if path in self._selected_paths:
         continue
-      if type_ == "line":
-        self._select_line(sel, data, path)
-      elif type_ == "rectangle":
-        self._select_rect(sel, data, path)
-      elif type_ == "curve":
-        self._select_curve(sel, data, path)
-      else:
+      selector = get_default({
+        "line": self._select_line,
+        "rectangle": self._select_line,
+        "curve": self._select_line,
+      }, type_)
+      if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
+      selector(sel, data, path)
 
   def _select_line(self, bb, data, path):
     if rect_line_intersect(bb, data):
