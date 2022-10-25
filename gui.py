@@ -919,16 +919,18 @@ class CanvasManager(object):
       c.create_oval(x-10, y-10, x+10, y+10, fill=fill, outline=outline)
       c.create_text(x, y, text=str(i), fill="black")
 
+  def _draw_editing_text(self, c):
+    x, y = map_point(*self._editing_text_pos, self._coordinate_system())
+    if len(self._editing_text.strip()) == 0:
+      c.create_line((x, y-10, x, y+10), fill="black", width=3)
+    else:
+      t = c.create_text(x, y, text=self._editing_text, fill="black")
+      bg = c.create_rectangle(c.bbox(t), fill="white", outline="blue")
+      c.tag_lower(bg, t)
+
   def _draw_pointer(self, c):
     if self._editing_text is not None:
-      x, y = self._editing_text_pos
-      x, y = map_point(x, y, self._coordinate_system())
-      if len(self._editing_text.strip()) == 0:
-        c.create_line((x, y-10, x, y+10), fill="black", width=3)
-      else:
-        t = c.create_text(x, y, text=self._editing_text, fill="black")
-        bg = c.create_rectangle(c.bbox(t), fill="white", outline="blue")
-        c.tag_lower(bg, t)
+      self._draw_editing_text(c)
       return
     x, y = map_point(self._pointerx * self._grid_size(), self._pointery * self._grid_size(),
                      self._coordinate_system())
