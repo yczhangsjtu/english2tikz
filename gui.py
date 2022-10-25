@@ -837,7 +837,6 @@ class CanvasManager(object):
       self._draw_obj(c, obj, env)
     self._bounding_boxes = env["bounding box"]
     self._segments = env["segments"]
-    self._image_references = env["image references"]
 
   def _draw_obj(self, c, obj, env):
     for drawer in self._drawers:
@@ -851,37 +850,39 @@ class CanvasManager(object):
     raise Exception(f"Cannot find drawer for obj {obj}")
 
   def _draw_visual(self, c):
-    if self._visual_start is not None:
-      x, y = self._visual_start
-      x0, y0 = map_point(x, y, self._coordinate_system())
-      x1, y1 = self._get_pointer_screen_pos()
-      c.create_rectangle((x0, y0, x1, y1), outline="red", width=4, dash=8)
+    if self._visual_start is None:
+      return
+    x, y = self._visual_start
+    x0, y0 = map_point(x, y, self._coordinate_system())
+    x1, y1 = self._get_pointer_screen_pos()
+    c.create_rectangle((x0, y0, x1, y1), outline="red", width=4, dash=8)
 
   def _get_mark_pos(self, i, buffer={}):
     if i in buffer:
       return buffer[i]
+
     mark = self._marks[i]
-    if mark["type"] == "nodename":
+
+    if is_type(mark, "nodename"):
       bb = self._bounding_boxes[mark["name"]]
-      anchor = "center"
+      x, y = get_anchor_pos(bb, get_default(mark, "anchor", "center"))
       if "anchor" in mark:
-        anchor = mark["anchor"]
-      x, y = get_anchor_pos(bb, anchor)
-      if "anchor" in mark:
-        if "xshift" in mark:
-          x += dist_to_num(mark["xshift"])
-        if "yshift" in mark:
-          y += dist_to_num(mark["yshift"])
+        """
+        It's useless in tikz to shift a node name coordinate without specifying
+        the anchor.
+        """
+        x += dist_to_num(get_default(mark, "xshift", 0))
+        y += dist_to_num(get_default(mark, "yshift", 0))
       buffer[i] = (x, y)
       return x, y
-    elif mark["type"] == "coordinate":
-      if "relative" in mark and mark["relative"]:
+
+    elif is_type(mark, "coordinate"):
+      if get_default(mark, "relative", False):
         x0, y0 = self._get_mark_pos(i-1, buffer)
         x = x0 + dist_to_num(mark["x"])
         y = y0 + dist_to_num(mark["y"])
       else:
-        x = dist_to_num(mark["x"])
-        y = dist_to_num(mark["y"])
+        x, y = dist_to_num(mark["x"], mark["y"])
       buffer[i] = (x, y)
       return x, y
     else:
