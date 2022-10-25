@@ -60,12 +60,19 @@ def unindent(code):
   return "\n".join(lines)
 
 
-def dist_to_num(dist):
+def _dist_to_num(dist):
   if isinstance(dist, str):
     if dist.endswith("cm"):
       return float(dist[:-2])
     return float(dist)
   return float(dist)
+
+def dist_to_num(*dists):
+  if len(dists) == 0:
+    return None
+  if len(dists) == 1:
+    return _dist_to_num(dists[0])
+  return [_dist_to_num(dist) for dist in dists]
 
 
 def _num_to_dist(num):
@@ -358,6 +365,20 @@ def create_coordinate(x, y):
     "y": num_to_dist(y),
   }
 
+
+def get_type_if_dict(dic):
+  if not isinstance(dic, dict):
+    return None
+  if "type" not in dic:
+    return None
+  return dic["type"]
+
+
+def set_or_del(dic, key, value, empty):
+  if value == empty:
+    del_if_has(dic, key)
+  else:
+    dic[key] = value
 
 """
 Modified from

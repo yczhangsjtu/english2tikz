@@ -344,7 +344,7 @@ class CanvasManager(object):
     if obj is None:
       return
 
-    if not "at" in obj or not isinstance(obj["at"], str):
+    if get_default_of_type(obj, "at", str) is None:
       self._error_msg = f"Object {id_} is not anchored to another object"
       return
 
@@ -353,9 +353,6 @@ class CanvasManager(object):
         direction)
 
   def _shift_selected_object_at_anchor(self, direction):
-    if len(self._selected_ids) == 0:
-      return
-
     for id_ in self._selected_ids:
       self._shift_object_at_anchor(id_, direction)
 
@@ -463,8 +460,9 @@ class CanvasManager(object):
     obj = self._find_object_by_id(id_)
     if "at" in obj:
       at = obj["at"]
-      if isinstance(at, dict) and at["type"] == "coordinate":
-        x, y = dist_to_num(at["x"]) + dx, dist_to_num(at["y"]) + dy
+      if get_type_if_dict(at) == "coordinate":
+        x = dist_to_num(get_default(at, "x", 0)) + dx
+        y = dist_to_num(get_default(at, "y", 0)) + dy
         if dx != 0:
           x = round(x / self._grid_size()) * self._grid_size()
         if dy != 0:
@@ -474,30 +472,16 @@ class CanvasManager(object):
         return
 
     if dx != 0:
-      if "xshift" in obj:
-        xshift = dist_to_num(obj["xshift"]) + dx
-      else:
-        xshift = dx
+      xshift = dist_to_num(get_default(obj, "xshift", 0)) + dx
       xshift = round(xshift / self._grid_size()) * self._grid_size()
       xshift = num_to_dist(xshift)
-      if xshift == "0":
-        if "xshift" in obj:
-          del obj["xshift"]
-      else:
-        obj["xshift"] = xshift
+      set_or_del(obj, "xshift", "0")
 
     if dy != 0:
-      if "yshift" in obj:
-        yshift = dist_to_num(obj["yshift"]) + dy
-      else:
-        yshift = dy
+      yshift = dist_to_num(get_default(obj, "yshift", 0)) + dy
       yshift = round(yshift / self._grid_size()) * self._grid_size()
       yshift = num_to_dist(yshift)
-      if yshift == "0":
-        if "yshift" in obj:
-          del obj["yshift"]
-      else:
-        obj["yshift"] = yshift
+      set_or_del(obj, "yshift", "0")
 
   def _shift_path_position(self, path, index, dx, dy):
     item = path["items"][index]
