@@ -384,6 +384,12 @@ def set_or_del(dic, key, value, empty):
   else:
     dic[key] = value
 
+
+def append_if_not_in(l, e):
+  if e not in l:
+    l.append(e)
+
+
 """
 Modified from
 https://git.sr.ht/~torresjrjr/Bezier.py/tree/bc87b14eaa226f8fb68d2925fb4f37c3344418c1/item/Bezier.py

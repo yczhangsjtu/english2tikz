@@ -328,10 +328,13 @@ class CanvasManager(object):
 
   def _clear(self):
     self._visual_start = None
+    self._marks = []
+    self._clear_selects()
+
+  def _clear_selects(self):
     self._selected_ids = []
     self._selected_paths = []
     self._selected_path_position = None
-    self._marks = []
 
   def _change_grid_size(self, by):
     x, y = self._get_pointer_pos()
@@ -486,37 +489,52 @@ class CanvasManager(object):
 
   def _select_targets(self, clear=True):
     if clear:
-      self._selected_ids = []
-      self._selected_paths = []
+      self._clear_selects()
+
+    if self._visual_start is None:
+      return
+
+    x0, y0 = self._visual_start
+    x1, y1 = self._get_pointer_pos()
+    x0, x1 = order(x0, x1)
+    y0, y1 = order(y0, y1)
+    sel = (x0, y0, x1, y1)
+
+    for id_, bb in self._bounding_boxes.items():
+      x, y, width, height = bb
+      if intersect(sel, (x, y, x+width, y+height)):
+        append_if_not_in(self._selected_ids, id_)
+
+    for type_, data, path in self._segments:
+      if path in self._selected_paths:
+        continue
+      if type_ == "line":
+        self._select_line(sel, data, path)
+      elif type_ == "rectangle":
+        self._select_rect(sel, data, path)
+      elif type_ == "curve":
+        self._select_curve(sel, data, path)
+      else:
+        raise Exception(f"Unknown segment type: {type_}")
+
+  def _select_line(self, bb, data, path):
+    if rect_line_intersect(bb, data):
+      self._selected_paths.append(path)
       self._selected_path_position = None
-    if self._visual_start is not None:
-      x0, y0 = self._visual_start
-      x1, y1 = self._get_pointer_pos()
-      for id_, bb in self._bounding_boxes.items():
-        x, y, width, height = bb
-        if id_ not in self._selected_ids and intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
-          self._selected_ids.append(id_)
-      for type_, data, path in self._segments:
-        if path in self._selected_paths:
-          continue
-        if type_ == "line":
-          x2, y2, x3, y3 = data
-          if rect_line_intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
-            self._selected_paths.append(path)
-            self._selected_path_position = None
-        elif type_ == "rectangle":
-          x2, y2, x3, y3 = data
-          if intersect((x0, y0, x1, y1), (x2, y2, x3, y3)):
-            self._selected_paths.append(path)
-            self._selected_path_position = None
-        elif type_ == "curve":
-          for x, y in data:
-            if is_bound_by(x, x0, x1) and is_bound_by(y, y0, y1):
-              self._selected_paths.append(path)
-              self._selected_path_position = None
-              break
-        else:
-          raise Exception(f"Unknown segment type: {type_}")
+
+  def _select_rect(self, bb, data, path):
+    if intersect(bb, data):
+      self._selected_paths.append(path)
+      self._selected_path_position = None
+
+  def _select_curve(self, bb, data, path):
+    eps = 0.1
+    x0, y0, x1, y1 = bb
+    for x, y in data:
+      if is_bound_by(x, x0 - eps, x1 + eps) and is_bound_by(y, y0 - eps, y1 + eps):
+        self._selected_paths.append(path)
+        self._selected_path_position = None
+        return
 
   def _deselect_targets(self):
     if self._visual_start is not None:
