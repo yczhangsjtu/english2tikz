@@ -861,6 +861,9 @@ class CanvasManager(object):
     if i in buffer:
       return buffer[i]
 
+    if i < 0:
+      raise Exception(f"Trying to get mark of number {i}")
+
     mark = self._marks[i]
 
     if is_type(mark, "nodename"):
@@ -892,22 +895,29 @@ class CanvasManager(object):
     buffer = {}
     for i, mark in enumerate(self._marks):
       try:
+        """
+        When a mark is deleted, it may cause marks with relative positions
+        to be invalid. So it is possible to have exception here, and in
+        this case, we simply remove all the following marks.
+        """
         x, y = self._get_mark_pos(i, buffer)
-        x, y = map_point(x, y, self._coordinate_system())
-        if mark["type"] == "coordinate":
-          if "relative" in mark and mark["relative"]:
-            c.create_oval(x-10, y-10, x+10, y+10, fill="#ff7777", outline="red")
-          else:
-            c.create_oval(x-10, y-10, x+10, y+10, fill="#77ff77", outline="green")
-        elif mark["type"] == "nodename":
-          if "xshift" in mark or "yshift" in mark:
-            c.create_oval(x-10, y-10, x+10, y+10, fill="#7777ff", outline="blue")
-          else:
-            c.create_oval(x-10, y-10, x+10, y+10, fill="#ffff77", outline="orange")
-        c.create_text(x, y, text=str(i), fill="black")
       except:
         self._marks = self._marks[:i]
         return
+
+      x, y = map_point(x, y, self._coordinate_system())
+      if is_type(mark, "coordinate"):
+        if get_default(mark, "relative", False):
+          fill, outline = "#ff7777", "red"
+        else:
+          fill, outline = "#77ff77", "green"
+      elif is_type(mark, "nodename"):
+        if "xshift" in mark or "yshift" in mark:
+          fill, outline = "#7777ff", "blue"
+        else:
+          fill, outline = "#ffff77", "orange"
+      c.create_oval(x-10, y-10, x+10, y+10, fill=fill, outline=outline)
+      c.create_text(x, y, text=str(i), fill="black")
 
   def _draw_pointer(self, c):
     if self._editing_text is not None:
