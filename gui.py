@@ -765,7 +765,9 @@ class CanvasManager(object):
 
   def _boundary_grids(self):
     x0, y0 = reverse_map_point(0, 0, self._coordinate_system())
-    x1, y1 = reverse_map_point(self._screen_width, self._screen_height, self._coordinate_system())
+    x1, y1 = reverse_map_point(self._screen_width,
+                               self._screen_height,
+                               self._coordinate_system())
     step_upper = int(y0 / self._grid_size())
     step_lower = int(y1 / self._grid_size())
     step_left  = int(x0 / self._grid_size())
@@ -832,18 +834,21 @@ class CanvasManager(object):
       "image references": self._image_references,
     }
     for obj in ctx._picture:
-      drawed = False
-      for drawer in self._drawers:
-        if drawer.match(obj):
-          drawed = True
-          try:
-            drawer.draw(c, obj, env)
-          except Exception as e:
-            self._error_msg = f"Error in draw: {e}"
-          break
+      self._draw_obj(c, obj, env)
     self._bounding_boxes = env["bounding box"]
     self._segments = env["segments"]
     self._image_references = env["image references"]
+
+  def _draw_obj(self, c, obj, env):
+    for drawer in self._drawers:
+      if not drawer.match(obj):
+        continue
+      try:
+        drawer.draw(c, obj, env)
+      except Exception as e:
+        self._error_msg = f"Error in draw: {e}"
+      return
+    raise Exception(f"Cannot find drawer for obj {obj}")
 
   def _draw_visual(self, c):
     if self._visual_start is not None:
