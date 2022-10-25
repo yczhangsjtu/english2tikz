@@ -145,6 +145,67 @@ class CanvasManager(object):
         except Exception as e:
           self._error_msg = f"Failed to open editing text: {e}"
 
+  def _handle_key_without_visual(self, event):
+    if event.char == "a":
+      if len(self._selected_ids) > 1:
+        self._error_msg = "Cannot append to more than one objects"
+      elif len(self._selected_ids) == 1:
+        self._insert_text_following_id(self._selected_ids[0], "right")
+    elif event.char == "I":
+      if len(self._selected_ids) > 1:
+        self._error_msg = "Cannot prepend to more than one objects"
+      elif len(self._selected_ids) == 1:
+        self._insert_text_following_id(self._selected_ids[0], "left")
+    elif event.char == "o":
+      if len(self._selected_ids) > 1:
+        self._error_msg = "Cannot append to more than one objects"
+      elif len(self._selected_ids) == 1:
+        self._insert_text_following_id(self._selected_ids[0], "below")
+    elif event.char == "O":
+      if len(self._selected_ids) > 1:
+        self._error_msg = "Cannot prepend to more than one objects"
+      elif len(self._selected_ids) == 1:
+        self._insert_text_following_id(self._selected_ids[0], "above")
+    elif event.char == ">":
+      self._shift_selected_objects(self._grid_size(), 0)
+    elif event.char == "<":
+      self._shift_selected_objects(-self._grid_size(), 0)
+    elif event.char == "K":
+      self._shift_selected_objects(0, self._grid_size())
+    elif event.char == "J":
+      self._shift_selected_objects(0, -self._grid_size())
+    elif event.char == "u":
+      self._undo()
+    elif event.char == "D":
+      self._before_change()
+      if len(self._selected_ids) > 0:
+        deleted_ids = []
+        for id_ in self._selected_ids:
+          self._delete_objects_related_to_id(id_, deleted_ids)
+      if len(self._selected_paths) > 0:
+        for path in self._selected_paths:
+          self._delete_path(path)
+      self._after_change()
+      self._selected_paths = []
+      self._selected_ids = []
+      self._selected_path_position = None
+    elif event.char == 'm':
+      x, y = self._get_pointer_pos()
+      self._marks.append({
+        "type": "coordinate",
+        "x": num_to_dist(x),
+        "y": num_to_dist(y),
+      })
+    elif event.char == 'y':
+      self._clipboard = [id_ for id_ in self._selected_ids]
+    elif event.char == 'p':
+      self._paste()
+
+  def _handle_key_only_visual(self, event):
+    if event.char == "-":
+      self._deselect_targets()
+      self._visual_start = None
+
   def _handle_printable_char_in_normal_mode(self, event):
     if event.char == ":":
       self._command_line = ""
@@ -204,92 +265,6 @@ class CanvasManager(object):
         self._start_edit_text(self._selected_ids[0])
       else:
         self._start_edit_text()
-    elif event.char == "a":
-      if self._visual_start is not None:
-        pass
-      elif len(self._selected_ids) > 1:
-        self._error_msg = "Cannot append to more than one objects"
-      elif len(self._selected_ids) == 1:
-        self._insert_text_following_id(self._selected_ids[0], "right")
-    elif event.char == "I":
-      if self._visual_start is not None:
-        pass
-      elif len(self._selected_ids) > 1:
-        self._error_msg = "Cannot prepend to more than one objects"
-      elif len(self._selected_ids) == 1:
-        self._insert_text_following_id(self._selected_ids[0], "left")
-    elif event.char == "o":
-      if self._visual_start is not None:
-        pass
-      elif len(self._selected_ids) > 1:
-        self._error_msg = "Cannot append to more than one objects"
-      elif len(self._selected_ids) == 1:
-        self._insert_text_following_id(self._selected_ids[0], "below")
-    elif event.char == "O":
-      if self._visual_start is not None:
-        pass
-      elif len(self._selected_ids) > 1:
-        self._error_msg = "Cannot prepend to more than one objects"
-      elif len(self._selected_ids) == 1:
-        self._insert_text_following_id(self._selected_ids[0], "above")
-    elif event.char == ">":
-      if self._visual_start is not None:
-        pass
-      elif len(self._selected_ids) > 0:
-        self._before_change()
-        for id_ in self._selected_ids:
-          self._shift_object(id_, self._grid_size(), 0)
-        self._after_change()
-      elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
-        self._before_change()
-        self._shift_path_position(self._selected_paths[0],
-                                  self._selected_path_position,
-                                  self._grid_size(), 0)
-        self._after_change()
-    elif event.char == "<":
-      if self._visual_start is not None:
-        pass
-      elif len(self._selected_ids) > 0:
-        self._before_change()
-        for id_ in self._selected_ids:
-          self._shift_object(id_, -self._grid_size(), 0)
-        self._after_change()
-      elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
-        self._before_change()
-        self._shift_path_position(self._selected_paths[0],
-                                  self._selected_path_position,
-                                  -self._grid_size(), 0)
-        self._after_change()
-    elif event.char == "K":
-      if self._visual_start is not None:
-        pass
-      elif len(self._selected_ids) > 0:
-        self._before_change()
-        for id_ in self._selected_ids:
-          self._shift_object(id_, 0, self._grid_size())
-        self._after_change()
-      elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
-        self._before_change()
-        self._shift_path_position(self._selected_paths[0],
-                                  self._selected_path_position,
-                                  0, self._grid_size())
-        self._after_change()
-    elif event.char == "J":
-      if self._visual_start is not None:
-        pass
-      elif len(self._selected_ids) > 0:
-        self._before_change()
-        for id_ in self._selected_ids:
-          self._shift_object(id_, 0, -self._grid_size())
-        self._after_change()
-      elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
-        self._before_change()
-        self._shift_path_position(self._selected_paths[0],
-                                  self._selected_path_position,
-                                  0, -self._grid_size())
-        self._after_change()
-    elif event.char == "u":
-      self._undo()
     elif event.char == "v":
       if self._visual_start is not None:
         self._select_targets(False)
@@ -297,34 +272,10 @@ class CanvasManager(object):
       else:
         x, y = self._get_pointer_pos()
         self._visual_start = (x, y)
-    elif event.char == "-":
-      if self._visual_start is not None:
-        self._deselect_targets()
-        self._visual_start = None
-    elif event.char == "D":
-      self._before_change()
-      if len(self._selected_ids) > 0:
-        deleted_ids = []
-        for id_ in self._selected_ids:
-          self._delete_objects_related_to_id(id_, deleted_ids)
-      if len(self._selected_paths) > 0:
-        for path in self._selected_paths:
-          self._delete_path(path)
-      self._after_change()
-      self._selected_paths = []
-      self._selected_ids = []
-      self._selected_path_position = None
-    elif event.char == 'm':
-      x, y = self._get_pointer_pos()
-      self._marks.append({
-        "type": "coordinate",
-        "x": num_to_dist(x),
-        "y": num_to_dist(y),
-      })
-    elif event.char == 'y':
-      self._clipboard = [id_ for id_ in self._selected_ids]
-    elif event.char == 'p':
-      self._paste()
+    elif self._visual_start is None:
+      self._handle_key_without_visual(event)
+    else:
+      self._handle_key_only_visual(event)
 
   def _handle_ctrl_key_in_normal_mode(self, event):
     if event.keysym == "r":
@@ -492,6 +443,19 @@ class CanvasManager(object):
         self._bounding_boxes[self._selected_ids[0]],
         at_anchor)
     self._selected_ids = [self._obj_to_edit_text["id"]]
+
+  def _shift_selected_objects(self, dx, dy):
+    if len(self._selected_ids) > 0:
+      self._before_change()
+      for id_ in self._selected_ids:
+        self._shift_object(id_, dx, dy)
+      self._after_change()
+    elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
+      self._before_change()
+      self._shift_path_position(self._selected_paths[0],
+                                self._selected_path_position,
+                                dx, dy)
+      self._after_change()
 
   def _shift_object(self, id_, dx, dy):
     obj = self._find_object_by_id(id_)
