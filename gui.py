@@ -193,41 +193,17 @@ class CanvasManager(object):
       self._pointerx = right
       self._move_pointer_into_screen()
     elif event.char == "G":
-      self._pointerx = 0
-      self._pointery = 0
-      self._centerx = self._screen_width / 2
-      self._centery = self._screen_height / 2
+      self._reset_pointer_to_origin()
     elif event.char == "i":
       if self._visual_start is not None:
-        x0, y0 = self._get_pointer_pos()
-        x1, y1 = self._visual_start
-        x0, x1 = order(x0, x1)
-        y0, y1 = order(y0, y1)
-        w, h = x1 - x0, y1 - y0
-        self._editing_text_pos = x0 + w/2, y0 + h/2
-        x0 = num_to_dist(x0)
-        y0 = num_to_dist(y0)
-        w = num_to_dist(w)
-        h = num_to_dist(h)
-        self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
-        self._obj_to_edit_text = self._context._picture[-1]
-        self._editing_text = self._obj_to_edit_text["text"]
+        self._create_node_at_visual()
         self._visual_start = None
       elif len(self._selected_ids) > 1:
         self._error_msg = "Cannot edit more than one objects"
       elif len(self._selected_ids) == 1:
-        self._obj_to_edit_text = self._find_object_by_id(self._selected_ids[0])
-        if self._obj_to_edit_text is None:
-          self._error_msg = f"Cannot find object with id {self._selected_ids[0]}"
-        elif "text" in self._obj_to_edit_text:
-          self._editing_text = self._obj_to_edit_text["text"]
-          self._editing_text_pos = get_anchor_pos(self._bounding_boxes[self._selected_ids[0]], "center")
-        else:
-          self._error_msg = "The selected object does not support text."
+        self._start_edit_text(self._selected_ids[0])
       else:
-        self._editing_text = ""
-        self._obj_to_edit_text = None
-        self._editing_text_pos = self._get_pointer_pos()
+        self._start_edit_text()
     elif event.char == "a":
       if self._visual_start is not None:
         pass
@@ -438,6 +414,43 @@ class CanvasManager(object):
     elif len(self._selected_paths) == 1:
       self._selected_path_position_index += by
       self._select_path_position()
+
+  def _reset_pointer_to_origin(self):
+    self._pointerx = 0
+    self._pointery = 0
+    self._centerx = self._screen_width / 2
+    self._centery = self._screen_height / 2
+
+  def _create_node_at_visual(self):
+    x0, y0 = self._get_pointer_pos()
+    x1, y1 = self._visual_start
+    x0, x1 = order(x0, x1)
+    y0, y1 = order(y0, y1)
+    w, h = x1 - x0, y1 - y0
+    self._editing_text_pos = x0 + w/2, y0 + h/2
+    x0, y0, w, h = num_to_dist(x0, y0, w, h)
+    self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
+    self._obj_to_edit_text = self._context._picture[-1]
+    self._editing_text = self._obj_to_edit_text["text"]
+
+  def _start_edit_text(self, id_=None):
+    if id_ is None:
+      self._editing_text = ""
+      self._obj_to_edit_text = None
+      self._editing_text_pos = self._get_pointer_pos()
+      return
+
+    self._obj_to_edit_text = self._find_object_by_id(id_)
+    if self._obj_to_edit_text is None:
+      self._error_msg = f"Cannot find object with id {id_}"
+      return
+
+    if "text" not in self._obj_to_edit_text:
+      self._error_msg = f"The selected object {id_} does not support text."
+      return
+
+    self._editing_text = self._obj_to_edit_text["text"]
+    self._editing_text_pos = get_anchor_pos(self._bounding_boxes[id_], "center")
 
   def _find_object_by_id(self, id_):
     for obj in self._context._picture:

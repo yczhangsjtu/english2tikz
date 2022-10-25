@@ -68,12 +68,19 @@ def dist_to_num(dist):
   return float(dist)
 
 
-def num_to_dist(num):
+def _num_to_dist(num):
   if num == 0:
     return "0"
   if num < 0.001 and num > -0.001:
     return "0"
   return f"{num:g}cm"
+
+def num_to_dist(*nums):
+  if len(nums) == 0:
+    return None
+  if len(nums) == 1:
+    return _num_to_dist(nums[0])
+  return [_num_to_dist(num) for num in nums]
 
 
 def shift_by_anchor(x, y, anchor, width, height):
