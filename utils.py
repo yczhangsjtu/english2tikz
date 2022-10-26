@@ -441,6 +441,61 @@ def is_color(name):
   return True
 
 
+def clear_dict(d):
+  keys = [key for key in d.keys()]
+  for key in keys:
+    del d[key]
+
+
+def get_first_absolute_coordinate(data):
+  for obj in data:
+    at = get_default(obj, "at")
+    if is_type(at, "coordinate"):
+      if get_default(at, "relative", False):
+        raise Exception("An object cannot have relative coordinate")
+      return dist_to_num(get_default(at, "x", 0), get_default(at, "y", 0))
+    if "id" in obj and at is None:
+      return 0, 0
+    items = get_default(obj, "items")
+    if items is not None:
+      for item in items:
+        if is_type(item, "coordinate") and not get_default(item, "relative", False):
+          return dist_to_num(get_default(item, "x", 0), get_default(item, "y", 0))
+  return None
+
+
+def get_top_left_corner(data, bounding_boxes, segments):
+  x0, y0 = None, None
+  for obj in data:
+    id_ = get_default(obj, "id")
+    if id_ is not None:
+      x, y, w, h = bounding_boxes[id_]
+      if x0 is None or x < x0:
+        x0 = x
+      if y0 is None or y < y0:
+        y0 = y
+  for type_, segment_data, path in segments:
+    if path in data:
+      if type_ == "line" or type_ == "rectangle":
+        x, y, xp, yp = segment_data
+        x, y = min(x, xp), min(y, yp)
+        if x0 is None or x < x0:
+          x0 = x
+        if y0 is None or y < y0:
+          y0 = y
+      elif type_ == "curve":
+        for x, y in segment_data:
+          if x0 is None or x < x0:
+            x0 = x
+          if y0 is None or y < y0:
+            y0 = y
+      else:
+        raise Exception(f"Unrecognized segment type {type_}")
+  if x0 is None or y0 is None:
+    raise Exception("Failed to find top left corner")
+  return x0, y0
+
+
 """
 Modified from
 https://git.sr.ht/~torresjrjr/Bezier.py/tree/bc87b14eaa226f8fb68d2925fb4f37c3344418c1/item/Bezier.py
