@@ -1274,10 +1274,6 @@ class CanvasManager(object):
           start_point += f" shifted.down.by.{yshift[1:]}"
         else:
           start_point += f" shifted.up.by.{yshift}"
-      #  if "xshift" in mark or "yshift" in mark:
-        #  xshift = mark["xshift"] if "xshift" in mark else "0"
-        #  yshift = mark["yshift"] if "yshift" in mark else "0"
-        #  start_point += f" x.{xshift}.y.{yshift}.relative"
     else:
       raise Exception(f"Unknown mark type: {mark['type']}")
 
@@ -1334,11 +1330,7 @@ class CanvasManager(object):
 
   def _add_mark(self, *args):
     x, y = self._get_pointer_pos()
-    mark = {
-      "type": "coordinate",
-      "x": f"{x:g}cm",
-      "y": f"{y:g}cm",
-    }
+    mark = create_coordinate(x, y)
     to_del = None
     for t, v in args:
       if t == "command":
