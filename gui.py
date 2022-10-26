@@ -1167,10 +1167,10 @@ class CanvasManager(object):
     arrow = None
     for t, v in args:
       if t == "command":
-        if v == "rect":
-          obj = v
-        elif v == "path":
-          obj = v
+        if v == "rect" or v == "r":
+          obj = "rect"
+        elif v == "path" or v == "p":
+          obj = "path"
         elif v == "->":
           arrow = "stealth"
         elif v == "<-":
@@ -1186,59 +1186,26 @@ class CanvasManager(object):
       for i, mark in enumerate(self._marks):
         items.append(mark)
         if i < len(self._marks) - 1:
-          items.append({
-            "type": "line",
-          })
-      path = {
-        "type": "path",
-        "draw": True,
-        "items": items,
-      }
-      if arrow is not None:
-        path[arrow] = True
-      self._context._picture.append(path)
+          items.append(create_line())
+      self._context._picture.append(create_path(items, arrow))
       self._after_change()
 
     elif obj == "rect":
       if self._visual_start is not None:
         self._before_change()
-        x0, y0 = self._visual_start
-        x1, y1 = self._get_pointer_pos()
-        path = {
-          "type": "path",
-          "draw": True,
-          "items": [
-            {
-              "type": "coordinate",
-              "x": num_to_dist(x0),
-              "y": num_to_dist(y0),
-            },
-            {
-              "type": "rectangle",
-            },
-            {
-              "type": "coordinate",
-              "x": num_to_dist(x1),
-              "y": num_to_dist(y1),
-            },
-          ]
-        }
-        self._context._picture.append(path)
+        self._context._picture.append(create_path([
+          create_coordinate(*self._visual_start),
+          create_rectangle(),
+          create_coordinate(*self._get_pointer_pos()),
+        ]))
         self._after_change()
       elif len(self._marks) == 2:
         self._before_change()
-        path = {
-          "type": "path",
-          "draw": True,
-          "items": [
-            self._marks[0],
-            {
-              "type": "rectangle",
-            },
-            self._marks[1],
-          ]
-        }
-        self._context._picture.append(path)
+        self._context._picture.append(create_path([
+          self._marks[0],
+          create_rectangle(),
+          self._marks[1],
+        ]))
         self._after_change()
       else:
         raise Exception("Please set exactly two marks or draw a rect in visual mode")

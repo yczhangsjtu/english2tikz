@@ -27,6 +27,16 @@ short_anchor_dict = {
 }
 
 
+arrow_types = [
+  "arrow",
+  "reversed.arrow",
+  "double.arrow",
+  "stealth",
+  "reversed.stealth",
+  "double.stealth",
+]
+
+
 counter = 0
 
 
@@ -365,6 +375,24 @@ def create_coordinate(x, y):
     "x": num_to_dist(x),
     "y": num_to_dist(y),
   }
+
+
+def create_line():
+  return {"type": "line"}
+
+
+def create_rectangle():
+  return {"type": "rectangle"}
+
+
+def create_path(items, arrow=None):
+  ret = {"type": "path", "draw": True, "items": items}
+  if arrow is not None:
+    if arrow in arrow_types:
+      ret[arrow] = True
+    else:
+      raise Exception(f"Invalid arrow type: {arrow}")
+  return ret
 
 
 def get_type_if_dict(dic):
