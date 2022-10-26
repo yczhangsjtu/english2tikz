@@ -230,6 +230,10 @@ class CanvasManager(object):
       self._move_pointer(round(1/self._grid_size()), 0)
     elif event.char == "b":
       self._move_pointer(-round(1/self._grid_size()), 0)
+    elif event.char == "W":
+      self._move_pointer(4*round(1/self._grid_size()), 0)
+    elif event.char == "B":
+      self._move_pointer(-4*round(1/self._grid_size()), 0)
     elif event.char == "e":
       self._move_pointer(0, -round(1/self._grid_size()))
     elif event.char == "E":
