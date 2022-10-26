@@ -37,6 +37,13 @@ arrow_types = [
 ]
 
 
+arrow_symbols = {
+  "->": "stealth",
+  "<-": "reversed.stealth",
+  "<->": "double.stealth",
+}
+
+
 counter = 0
 
 

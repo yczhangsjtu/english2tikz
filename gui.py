@@ -1213,105 +1213,112 @@ class CanvasManager(object):
     else:
       raise Exception("Unknown object type")
 
+  def _connect_objects_by_ids(self, ids, *args):
+    assert len(ids) >= 2
+    arrow, annotates = "", [""] * (len(ids) - 1)
+    anchors = [""] * len(ids)
+    pairs = [(0, i) for i in range(1, len(ids))]
+    action = "line"
+    start_out, close_in = "", ""
+    for t, v in args:
+      if t == "command":
+        if v in arrow_symbols:
+          arrow = f"with.{arrow_symbols[v]}"
+        elif v == "h":
+          action = "line.horizontal"
+        elif v == "v":
+          action = "line.vertical"
+        elif v == "chain":
+          pairs = [(i-1, i) for i in range(1, len(ids))]
+        elif v in anchor_list or v in short_anchor_dict:
+          if v in short_anchor_dict:
+            v = short_anchor_dict[v]
+          for j in range(len(anchors)):
+            if anchors[j] == "":
+              anchors[j] = f".{v}"
+              break
+        elif v.startswith("out="):
+          start_out = f"start.out.{v[4:]}"
+        elif v.startswith("in="):
+          close_in = f"close.in.{v[3:]}"
+      elif t == "text" and len(v) > 0:
+        for j in range(len(annotates)):
+          if annotates[j] == "":
+            annotates[j] = f"with.annotate '{v}'"
+            break
+    for id_ in ids:
+      self._ensure_name_is_id(id_)
+    for k, pair in enumerate(pairs):
+      i, j = pair
+      id1, id2 = ids[i], ids[j]
+      anchor1, anchor2 = anchors[i], anchors[j]
+      annotate = annotates[k]
+      self._parse(f"draw {arrow} from.{id1}{anchor1} {action}.to.{id2}{anchor2} {start_out} {close_in} {annotate}")
+
+  def _connect_mark_with_objects_by_ids(self, mark, ids, *args):
+    if mark["type"] == "coordinate":
+      start_point = f"x.{mark['x']}.y.{mark['y']}"
+    elif mark["type"] == "nodename":
+      start_point = f"move.to.{mark['name']}"
+      if "anchor" in mark:
+        start_point += f".{mark['anchor']}"
+      if "xshift" in mark:
+        xshift = mark["xshift"]
+        if xshift.startswith("-"):
+          start_point += f" shifted.left.by.{xshift[1:]}"
+        else:
+          start_point += f" shifted.right.by.{xshift}"
+      if "yshift" in mark:
+        yshift = mark["yshift"]
+        if yshift.startswith("-"):
+          start_point += f" shifted.down.by.{yshift[1:]}"
+        else:
+          start_point += f" shifted.up.by.{yshift}"
+      #  if "xshift" in mark or "yshift" in mark:
+        #  xshift = mark["xshift"] if "xshift" in mark else "0"
+        #  yshift = mark["yshift"] if "yshift" in mark else "0"
+        #  start_point += f" x.{xshift}.y.{yshift}.relative"
+    else:
+      raise Exception(f"Unknown mark type: {mark['type']}")
+
+    action, anchor = "line", ""
+    start_out, close_in = "", ""
+    arrow = ""
+    annotates = []
+    for t, v in args:
+      if t == "command":
+        if v in arrow_symbols:
+          arrow = f"with.{arrow_symbols[v]}"
+        elif v == "h":
+          action = "line.horizontal"
+        elif v == "v":
+          action = "line.vertical"
+        elif v in anchor_list:
+          anchor = f".{v}"
+        elif v in short_anchor_dict:
+          anchor = f".{short_anchor_dict[v]}"
+        elif v.startswith("out="):
+          start_out = f"start.out.{v[4:]}"
+        elif v.startswith("in="):
+          close_in = f"close.in.{v[3:]}"
+      elif t == "text" and len(v) > 0:
+        annotates.append(f"with.annotate '{v}'")
+    for id_ in ids:
+      self._ensure_name_is_id(id_)
+      self._ensure_name_is_id(id_)
+      self._parse(f"draw {arrow} {start_point} {action}.to.{id_}{anchor} {start_out} {close_in} {' '.join(annotates)}")
+
   def _connect(self, *args):
     if len(self._selected_paths) != 0:
       raise Exception("Cannot connect paths")
     if len(self._marks) == 0:
       if len(self._selected_ids) < 2:
         raise Exception("Should select at least two objects, or set at least one mark")
-      arrow, annotates = "", ["" for i in range(len(self._selected_ids) - 1)]
-      action = "line"
-      pairs = [(0, i) for i in range(1, len(self._selected_ids))]
-      anchors = ["" for i in range(len(self._selected_ids))]
-      start_out, close_in = "", ""
-      for t, v in args:
-        if t == "command":
-          if v == "->":
-            arrow = "with.stealth"
-          elif v == "<-":
-            arrow = "with.reversed.stealth"
-          elif v == "<->":
-            arrow = "with.double.stealth"
-          elif v == "h":
-            action = "line.horizontal"
-          elif v == "v":
-            action = "line.vertical"
-          elif v == "chain":
-            pairs = [(i-1, i) for i in range(1, len(self._selected_ids))]
-          elif v in anchor_list:
-            for j in range(len(anchors)):
-              if anchors[j] == "":
-                anchors[j] = f".{v}"
-                break
-          elif v in short_anchor_dict:
-            for j in range(len(anchors)):
-              if anchors[j] == "":
-                anchors[j] = f".{short_anchor_dict[v]}"
-                break
-          elif v.startswith("out="):
-            start_out = f"start.out.{v[4:]}"
-          elif v.startswith("in="):
-            close_in = f"close.in.{v[3:]}"
-        elif t == "text" and len(v) > 0:
-          for j in range(len(annotates)):
-            if annotates[j] == "":
-              annotates[j] = f"with.annotate '{v}'"
-              break
-      for id_ in self._selected_ids:
-        self._ensure_name_is_id(id_)
-      for k, pair in enumerate(pairs):
-        i, j = pair
-        id1, id2 = self._selected_ids[i], self._selected_ids[j]
-        anchor1, anchor2 = anchors[i], anchors[j]
-        annotate = annotates[k]
-        self._parse(f"draw {arrow} from.{id1}{anchor1} {action}.to.{id2}{anchor2} {start_out} {close_in} {annotate}")
+      self._connect_objects_by_ids(self._selected_ids, *args)
     elif len(self._marks) == 1:
       if len(self._selected_ids) == 0:
         raise Exception("Should select at least one object")
-      mark = self._marks[0]
-      if mark["type"] == "coordinate":
-        start_point = f"x.{mark['x']}.y.{mark['y']}"
-      elif mark["type"] == "nodename":
-        start_point = f"move.to.{mark['name']}"
-        if "anchor" in mark:
-          start_point += f".{mark['anchor']}"
-        if "xshift" in mark or "yshift" in mark:
-          xshift = mark["xshift"] if "xshift" in mark else "0"
-          yshift = mark["yshift"] if "yshift" in mark else "0"
-          start_point += f" x.{xshift}.y.{yshift}.relative"
-      else:
-        raise Exception(f"Unknown mark type: {mark['type']}")
-
-      action, anchor = "line", ""
-      start_out, close_in = "", ""
-      arrow = ""
-      annotates = []
-      for t, v in args:
-        if t == "command":
-          if v == "->":
-            arrow = "with.stealth"
-          elif v == "<-":
-            arrow = "with.reversed.stealth"
-          elif v == "<->":
-            arrow = "with.double.stealth"
-          elif v == "h":
-            action = "line.horizontal"
-          elif v == "v":
-            action = "line.vertical"
-          elif v in anchor_list:
-            anchor = f".{v}"
-          elif v in short_anchor_dict:
-            anchor = f".{short_anchor_dict[v]}"
-          elif v.startswith("out="):
-            start_out = f"start.out.{v[4:]}"
-          elif v.startswith("in="):
-            close_in = f"close.in.{v[3:]}"
-        elif t == "text" and len(v) > 0:
-          annotates.append(f"with.annotate '{v}'")
-      for id_ in self._selected_ids:
-        self._ensure_name_is_id(id_)
-        self._ensure_name_is_id(id_)
-        self._parse(f"draw {arrow} {start_point} {action}.to.{id_}{anchor} {start_out} {close_in} {' '.join(annotates)}")
+      self._connect_mark_with_objects_by_ids(self._marks[0], self._selected_ids, *args)
 
   def _set_grid(self, *args):
     self._show_grid = True
