@@ -6,6 +6,7 @@ import json
 import os
 from english2tikz.describe_it import DescribeIt
 from english2tikz.drawers import *
+from english2tikz.handlers import WithAttributeHandler
 from english2tikz.utils import *
 
 screen_width, screen_height = 1200, 750
@@ -1028,8 +1029,12 @@ class CanvasManager(object):
       cmd_name = tokens[0][1]
       if cmd_name == "set":
         self._set(*tokens[1:])
+      elif cmd_name == "unset" or cmd_name == "un":
+        self._unset(*tokens[1:])
       elif cmd_name == "fill" or cmd_name == "f":
         self._set_fill(*tokens[1:])
+      elif cmd_name in anchor_list:
+        self._set(("command", cmd_name))
       elif cmd_name == "make" or cmd_name == "mk":
         self._make(*tokens[1:])
       elif cmd_name == "rect":
@@ -1048,7 +1053,7 @@ class CanvasManager(object):
         self._annotate(*tokens[1:])
       elif cmd_name == "ch" or cmd_name == "chain":
         self._chain(*tokens[1:])
-      elif cmd_name == "search" or cmd_name == "s":
+      elif cmd_name == "search":
         self._search(*tokens[1:])
       elif cmd_name == "read":
         self._read(*tokens[1:])
@@ -1095,21 +1100,59 @@ class CanvasManager(object):
     if key is not None:
       self._set_selected_objects(key, True)
 
+  def _unset(self, *args):
+    if len(self._selected_ids) == 0 and len(self._selected_paths) == 0:
+      raise Exception("No object selected")
+    for t, v in args:
+      if t == "command":
+        self._set_selected_objects(v, False)
+
+  def _process_key_value(self, key, value):
+    """
+    Implement acronyms and aliases.
+    """
+    if is_color(key) and value == True:
+      """
+      set blue <=> set color=blue
+      """
+      return [("color", key)]
+    if key in anchor_list and value == True:
+      return [("anchor", key)]
+    if key in short_anchor_dict and value == True:
+      return [("anchor", short_anchor_dict[key])]
+    if key == "at" and value in anchor_list:
+      return [("at.anchor", value)]
+    if key == "at" and value in short_anchor_dict:
+      return [("at.anchor", short_anchor_dict[value])]
+    if key == "at":
+      raise Exception("Does not support setting node position (except anchor)")
+    if key == "rc":
+      key = "rounded.corners"
+    if value == "False" or value == "None":
+      return [(key, None)]
+    ret = [(key, value)]
+    for s in WithAttributeHandler.mutually_exclusive:
+      if key in s:
+        ret = ret + [(k, False) for k in s if k != key]
+    return ret
+
+  def _set_object(self, obj, key_values):
+    for key, value in key_values:
+      if value is None or value == False:
+        del_if_has(obj, key)
+      else:
+        obj[key] = value
+
   def _set_selected_objects(self, key, value):
     self._before_change()
+    key_values = self._process_key_value(key, value)
     for id_ in self._selected_ids:
       obj = self._find_object_by_id(id_)
       if obj is None:
         raise Exception(f"Cannot find object by id {id_}")
-      if value == "False":
-        del_if_has(obj, key)
-      else:
-        obj[key] = value
+      self._set_object(obj, key_values)
     for path in self._selected_paths:
-      if value == "False":
-        del_if_has(path, key)
-      else:
-        path[key] = value
+      self._set_object(path, key_values)
     self._after_change()
 
   def _set_fill(self, *args):

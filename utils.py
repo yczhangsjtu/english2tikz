@@ -1,4 +1,5 @@
 import math
+import re
 
 
 colors = [
@@ -392,6 +393,17 @@ def append_if_not_in(l, e):
 
 def remove_if_in(l, e):
   return [a for a in l if a != e]
+
+
+def is_color(name):
+  if name is None:
+    return False
+  if name == "":
+    return False
+  for item in name.split("!"):
+    if not item in colors and not re.match(r"\d+$", item):
+      return False
+  return True
 
 
 """

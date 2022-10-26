@@ -444,15 +444,15 @@ class PathDrawer(Drawer):
 
               if "annotates" in to_draw:
                 for annotate in to_draw["annotates"]:
-                  if "start" in annotate:
+                  if "at.start" in annotate:
                     t = 1
                   elif "near.start" in annotate:
-                    t = 0.9
+                    t = 0.8
                   elif "midway" in annotate:
                     t = 0.5
                   elif "near.end" in annotate:
-                    t = 0.1
-                  elif "end" in annotate:
+                    t = 0.2
+                  elif "at.end" in annotate:
                     t = 0
                   else:
                     t = 0.5
@@ -554,15 +554,15 @@ class PathDrawer(Drawer):
 
               if "annotates" in to_draw:
                 for annotate in to_draw["annotates"]:
-                  if "start" in annotate:
+                  if "at.start" in annotate:
                     t = 1
                   elif "near.start" in annotate:
-                    t = 0.9
+                    t = 0.8
                   elif "midway" in annotate:
                     t = 0.5
                   elif "near.end" in annotate:
-                    t = 0.1
-                  elif "end" in annotate:
+                    t = 0.2
+                  elif "at.end" in annotate:
                     t = 0
                   else:
                     t = 0.5
