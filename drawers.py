@@ -214,6 +214,13 @@ class BoxDrawer(Drawer):
           canvas.create_rectangle(x0 - 5, y0 + 5, x1 + 5, y1 - 5, outline="red", dash=2, fill="")
         x, y = map_point(anchorx, anchory, cs)
         canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#77ff77", outline="green")
+
+      if env["finding prefix"] is not None:
+        candidate_code = env["get_candidate_code"](obj)
+        if candidate_code is not None:
+          ftext = canvas.create_text(x0, y0, anchor="nw", text=candidate_code, fill="black")
+          fback = canvas.create_rectangle(canvas.bbox(ftext), fill="yellow", outline="blue")
+          canvas.tag_lower(fback, ftext)
     else:
       x0, y0 = map_point(x, y, cs)
       x1, y1 = map_point(x + width, y + height, cs)
@@ -287,6 +294,13 @@ class BoxDrawer(Drawer):
 
         x, y = map_point(anchorx, anchory, cs)
         canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#77ff77", outline="green")
+
+      if env["finding prefix"] is not None:
+        candidate_code = env["get_candidate_code"](obj)
+        if candidate_code is not None:
+          ftext = canvas.create_text(x0, y0, anchor="nw", text=candidate_code, fill="black")
+          fback = canvas.create_rectangle(canvas.bbox(ftext), fill="yellow", outline="blue")
+          canvas.tag_lower(fback, ftext)
 
   def round_rectangle(canvas, x1, y1, x2, y2, radius=25, angle=None, rotate_center=None, **kwargs):
     x1, x2 = min(x1, x2), max(x1, x2)
@@ -634,6 +648,8 @@ class PathDrawer(Drawer):
             canvas.create_text(x, y, text=str(position_number), fill="blue")
           else:
             canvas.create_oval(x-width, y-width, x+width, y+width, outline="red", dash=2)
+        if current_pos is None:
+          starting_pos = new_pos
         current_pos = new_pos
         current_pos_clip = new_pos_clip
         position_number += 1
@@ -641,3 +657,11 @@ class PathDrawer(Drawer):
 
     if to_draw is not None:
       raise Exception(f"Undrawn item {to_draw}")
+
+    if env["finding prefix"] is not None:
+      candidate_code = env["get_candidate_code"](obj)
+      if candidate_code is not None:
+        x0, y0 = map_point(*starting_pos, cs)
+        ftext = canvas.create_text(x0, y0, anchor="nw", text=candidate_code, fill="black")
+        fback = canvas.create_rectangle(canvas.bbox(ftext), fill="yellow", outline="blue")
+        canvas.tag_lower(fback, ftext)

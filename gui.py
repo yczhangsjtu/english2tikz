@@ -53,6 +53,8 @@ class CanvasManager(object):
     self._selected_path_position_index = 0
     self._selected_path_position = None
     self._clipboard = []
+    self._finding_prefix = None
+    self._finding_candidates = None
     self.filename = None
     root.bind("<Key>", self.handle_key)
     self.draw()
@@ -227,6 +229,8 @@ class CanvasManager(object):
                                             or obj in self._selected_paths]
     elif event.char == 'p':
       self._paste()
+    elif event.char == "f":
+      self._initialize_finding_mode()
 
   def _handle_key_only_visual(self, event):
     if event.char == "-":
@@ -235,6 +239,35 @@ class CanvasManager(object):
     elif event.char == "^":
       self._intersect_select_targets()
       self._visual_start = None
+
+  def _handle_key_in_finding_mode(self, event):
+    if event.char in string.ascii_lowercase:
+      self._finding_prefix += event.char.upper()
+      current_candidates = self._current_finding_candidates()
+      if len(current_candidates) == 0:
+        self._error_msg = f"Cannot find object with code {self._finding_prefix}"
+        self._exit_finding_mode()
+      elif len(current_candidates) == 1:
+        if isinstance(current_candidates[0], str):
+          self._selected_ids = [current_candidates[0]]
+          self._selected_paths = []
+        elif is_type(current_candidates[0], "path"):
+          self._selected_paths = [current_candidates[0]]
+          self._selected_ids = []
+        else:
+          raise Exception(f"Invalid finding candidate {current_candidates[0]}")
+        self._exit_finding_mode()
+    elif event.keysym == "BackSpace":
+      if len(self._finding_prefix) > 1:
+        self._finding_prefix = self._finding_prefix[:-1]
+      else:
+        self._exit_finding_mode()
+    else:
+      self._exit_finding_mode()
+
+  def _exit_finding_mode(self):
+    self._finding_prefix = None
+    self._finding_candidates = None
 
   def _handle_printable_char_in_normal_mode(self, event):
     if event.char == ":":
@@ -358,7 +391,9 @@ class CanvasManager(object):
     if self._command_line is not None:
       self._handle_key_in_command_mode(event)
     else:
-      if self._editing_text is not None:
+      if self._finding_prefix is not None:
+        self._handle_key_in_finding_mode(event)
+      elif self._editing_text is not None:
         self._handle_key_in_editing_mode(event)
       else:
         self._handle_key_in_normal_mode(event)
@@ -379,6 +414,55 @@ class CanvasManager(object):
     self._grid_size_index = bound_by(self._grid_size_index + by, 0, len(self._grid_sizes))
     self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
     self._move_pointer_into_screen()
+
+  def _initialize_finding_mode(self):
+    self._finding_prefix = ""
+    self._finding_candidates = {}
+    candidate_ids, candidate_paths = self._find_all_in_screen()
+    candidates_number = len(candidate_ids) + len(candidate_paths)
+    if candidates_number == 0:
+      self._error_msg = "No object on screen"
+    elif candidates_number <= 26:
+      for i in range(0, candidates_number):
+        c = chr(ord('A') + i)
+        self._finding_candidates[c] = \
+            candidate_ids[i] if i < len(candidate_ids) \
+            else candidate_paths[i-len(candidate_ids)]
+    elif candidates_number <= 26 * 26:
+      for i in range(0, candidates_number):
+        c = chr(ord('A') + i // 26) + chr(ord('A') + i % 26)
+        self._finding_candidates[c] = \
+            candidate_ids[i] if i < len(candidate_ids) \
+            else candidate_paths[i-len(candidate_ids)]
+    elif candidates_number <= 26 * 26 * 26:
+      for i in range(0, candidates_number):
+        c = chr(ord('A') + i // (26 * 26)) + \
+            chr(ord('A') + (i // 26) % 26) + \
+            chr(ord('A') + i % 26)
+        self._finding_candidates[c] = \
+            candidate_ids[i] if i < len(candidate_ids) \
+            else candidate_paths[i-len(candidate_ids)]
+    else:
+      self._error_msg = "Too many objects on screen"
+
+  def _get_candidate_code(self, obj):
+    for key, value in self._finding_candidates.items():
+      if not key.startswith(self._finding_prefix):
+        continue
+      if isinstance(value, str):
+        if get_default(obj, "id") == value:
+          return key
+      elif obj == value:
+        return key
+    return None
+
+  def _current_finding_candidates(self):
+    ret = []
+    for key, value in self._finding_candidates.items():
+      if not key.startswith(self._finding_prefix):
+        continue
+      ret.append(value)
+    return ret
 
   def _shift_object_at_anchor(self, id_, direction):
     obj = self._find_object_by_id(id_)
@@ -525,6 +609,33 @@ class CanvasManager(object):
       self._shift_dist(item, "xshift", dx)
       self._shift_dist(item, "yshift", dy)
 
+  def _find_all_in_screen(self):
+    x0, y0 = reverse_map_point(0, 0, self._coordinate_system())
+    x1, y1 = reverse_map_point(self._screen_width,
+                               self._screen_height,
+                               self._coordinate_system())
+    sel = (x0, y0, x1, y1)
+    selected_ids, selected_paths = [], []
+
+    for id_, bb in self._bounding_boxes.items():
+      x, y, width, height = bb
+      if intersect(sel, (x, y, x+width, y+height)):
+        selected_ids.append(id_)
+
+    for type_, data, path in self._segments:
+      selector = get_default({
+        "line": self._select_line,
+        "rectangle": self._select_rect,
+        "curve": self._select_curve,
+      }, type_)
+      if selector is None:
+        raise Exception(f"Unknown segment type: {type_}")
+      if selector(sel, data, path, check_only=True):
+        selected_paths.append(path)
+
+    return selected_ids, selected_paths
+
+
   def _select_targets(self, clear=True):
     if clear:
       self._clear_selects()
@@ -564,21 +675,33 @@ class CanvasManager(object):
       self._selected_paths.append(path)
     self._selected_path_position = None
 
-  def _select_line(self, bb, data, path, deselect=False, new_selected_paths=None):
+  def _select_line(self, bb, data, path, deselect=False, new_selected_paths=None, check_only=False):
     if rect_line_intersect(bb, data):
+      if check_only:
+        return True
       self._select_path(path, deselect, new_selected_paths)
+    if check_only:
+      return False
 
-  def _select_rect(self, bb, data, path, deselect=False, new_selected_paths=None):
+  def _select_rect(self, bb, data, path, deselect=False, new_selected_paths=None, check_only=False):
     if intersect(bb, data):
+      if check_only:
+        return True
       self._select_path(path, deselect, new_selected_paths)
+    if check_only:
+      return False
 
-  def _select_curve(self, bb, data, path, deselect=False, new_selected_paths=None):
+  def _select_curve(self, bb, data, path, deselect=False, new_selected_paths=None, check_only=False):
     eps = 0.1
     x0, y0, x1, y1 = bb
     for x, y in data:
       if is_bound_by(x, x0 - eps, x1 + eps) and is_bound_by(y, y0 - eps, y1 + eps):
+        if check_only:
+          return True
         self._select_path(path, deselect, new_selected_paths)
         return
+    if check_only:
+      return False
 
   def _deselect_targets(self):
     if self._visual_start is None:
@@ -819,6 +942,8 @@ class CanvasManager(object):
       "selected paths": self._selected_paths,
       "selected path position": self._selected_path_position,
       "image references": self._image_references,
+      "finding prefix": self._finding_prefix,
+      "get_candidate_code": self._get_candidate_code,
     }
     for obj in ctx._picture:
       self._draw_obj(c, obj, env)
