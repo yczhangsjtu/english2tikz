@@ -128,10 +128,19 @@ class BoxDrawer(Drawer):
     elif "below" in obj:
       anchor = "north"
     x, y = shift_by_anchor(x, y, anchor, width, height)
-    if "xshift" in obj:
-      x += dist_to_num(obj["xshift"])
-    if "yshift" in obj:
-      y += dist_to_num(obj["yshift"])
+
+    if "xshift" in obj or "yshift" in obj:
+      if angle is None:
+        if "xshift" in obj:
+          x += dist_to_num(obj["xshift"])
+        if "yshift" in obj:
+          y += dist_to_num(obj["yshift"])
+      else:
+        dx, dy = dist_to_num(get_default(obj, "xshift", 0), get_default(obj, "yshift", 0))
+        dx, dy = rotate(dx, dy, 0, 0, (angle + 180) % 360)
+        x += dx
+        y += dy
+
     env["bounding box"][obj["id"]] = (x, y, width, height)
 
 

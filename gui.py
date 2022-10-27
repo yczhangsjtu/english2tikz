@@ -348,7 +348,13 @@ class CanvasManager(object):
     if event.keysym == "r":
       self._redo()
     elif event.keysym == "c":
-      self._clear()
+      if self._visual_start is not None:
+        self._visual_start = None
+      elif len(self._selected_ids) > 0 or len(self._selected_paths) > 0:
+        self._selected_ids = []
+        self._selected_paths = []
+      else:
+        self._marks = []
     elif event.keysym == "g":
       self._change_grid_size(1)
     elif event.keysym == "f":
@@ -411,7 +417,7 @@ class CanvasManager(object):
 
   def _change_grid_size(self, by):
     x, y = self._get_pointer_pos()
-    self._grid_size_index = bound_by(self._grid_size_index + by, 0, len(self._grid_sizes))
+    self._grid_size_index = bound_by(self._grid_size_index + by, 0, len(self._grid_sizes) - 1)
     self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
     self._move_pointer_into_screen()
 
@@ -1194,6 +1200,10 @@ class CanvasManager(object):
       elif cmd_name == "q":
         self._root.after(1, self._root.destroy())
         self._end = True
+      elif cmd_name == "python":
+        self._execute_python_code()
+      elif cmd_name == "pyedit":
+        self._edit_python_code()
       else:
         raise Exception(f"Unkown command: {cmd_name}")
     except Exception as e:
@@ -1811,6 +1821,24 @@ class CanvasManager(object):
       os.mkdir(self._object_path)
     with open(path, "w") as f:
       f.write("\n".join(history))
+
+  def _execute_python_code(self):
+    self._before_change()
+    with open("/tmp/english2tikz.py") as f:
+      code = f.read()
+    selected_objects = [self._find_object_by_id(id_) for id_ in self._selected_ids]
+    selected_paths = self._selected_paths
+    exec(code, locals())
+    self._after_change()
+        
+  def _edit_python_code(self):
+    if not os.path.exists("/tmp/english2tikz.py"):
+      with open("/tmp/english2tikz.py", "w") as f:
+        f.write(r"""# Available local variables:
+# selected_objects: list, objects with ids
+# selected_paths: list, paths
+""")
+    os.system("open -a 'Sublime Text' /tmp/english2tikz.py")
         
 
 if __name__ == "__main__":
