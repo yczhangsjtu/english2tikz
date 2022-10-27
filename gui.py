@@ -1103,6 +1103,8 @@ class CanvasManager(object):
       key = "rounded.corners"
     if value == "False" or value == "None":
       return [(key, None)]
+    if key in ["width", "height", "xshift", "yshift"]:
+      value = num_to_dist(value)
     ret = [(key, value)]
     for s in WithAttributeHandler.mutually_exclusive:
       if key in s:

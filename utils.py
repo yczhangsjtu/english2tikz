@@ -94,6 +94,12 @@ def dist_to_num(*dists):
 
 
 def _num_to_dist(num):
+  if isinstance(num, str):
+    if num.endswith("cm"):
+      return num
+    if num == "0":
+      return num
+    return f"{num}cm"
   if num == 0:
     return "0"
   if num < 0.001 and num > -0.001:

@@ -144,6 +144,10 @@ class BoxDrawer(Drawer):
       line_width = obj["line.width"]
     else:
       line_width = None
+    if "dashed" in obj:
+      dash = 2
+    else:
+      dash = None
     if "rounded.corners" in obj:
       if isinstance(obj["rounded.corners"], bool):
         rounded_corners = 0.2
@@ -164,12 +168,14 @@ class BoxDrawer(Drawer):
                                         radius=rounded_corners*cs["scale"],
                                         fill=color_to_tk(fill),
                                         outline=color_to_tk(color),
-                                        width=line_width)
+                                        width=line_width,
+                                        dash=dash)
         else:
           r = canvas.create_rectangle((x0, y0, x1, y1),
                                       fill=color_to_tk(fill),
                                       outline=color_to_tk(color),
-                                      width=line_width)
+                                      width=line_width,
+                                      dash=dash)
       if "text" in obj and obj["text"]:
         center_x, center_y = get_anchor_pos((x, y, width, height), "center")
         x, y = map_point(center_x, center_y, cs)
