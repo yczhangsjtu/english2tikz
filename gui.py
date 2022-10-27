@@ -809,7 +809,8 @@ class CanvasManager(object):
     if len(self._clipboard) == 0:
       return
     self._before_change()
-    self._paste_data(self._clipboard, False, self._bounding_boxes, self._segments)
+    self._paste_data(copy.deepcopy(self._clipboard), False,
+                     self._bounding_boxes, self._segments)
     self._after_change()
 
   def _jump_to_select(self):

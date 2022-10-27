@@ -218,7 +218,8 @@ class BoxDrawer(Drawer):
       if env["finding prefix"] is not None:
         candidate_code = env["get_candidate_code"](obj)
         if candidate_code is not None:
-          ftext = canvas.create_text(x0, y0, anchor="nw", text=candidate_code, fill="black")
+          candidate_code = candidate_code[len(env["finding prefix"]):]
+          ftext = canvas.create_text(x0, y1, anchor="nw", text=candidate_code, fill="black")
           fback = canvas.create_rectangle(canvas.bbox(ftext), fill="yellow", outline="blue")
           canvas.tag_lower(fback, ftext)
     else:
@@ -298,7 +299,8 @@ class BoxDrawer(Drawer):
       if env["finding prefix"] is not None:
         candidate_code = env["get_candidate_code"](obj)
         if candidate_code is not None:
-          ftext = canvas.create_text(x0, y0, anchor="nw", text=candidate_code, fill="black")
+          candidate_code = candidate_code[len(env["finding prefix"]):]
+          ftext = canvas.create_text(x0, y1, anchor="nw", text=candidate_code, fill="black")
           fback = canvas.create_rectangle(canvas.bbox(ftext), fill="yellow", outline="blue")
           canvas.tag_lower(fback, ftext)
 
@@ -661,6 +663,7 @@ class PathDrawer(Drawer):
     if env["finding prefix"] is not None:
       candidate_code = env["get_candidate_code"](obj)
       if candidate_code is not None:
+        candidate_code = candidate_code[len(env["finding prefix"]):]
         x0, y0 = map_point(*starting_pos, cs)
         ftext = canvas.create_text(x0, y0, anchor="nw", text=candidate_code, fill="black")
         fback = canvas.create_rectangle(canvas.bbox(ftext), fill="yellow", outline="blue")
