@@ -16,6 +16,7 @@ class CanvasManager(object):
                picture=None, object_path=".english2tikz"):
     self._canvas = canvas
     self._root = root
+    self._object_path = os.path.join(os.getenv("HOME"), object_path)
     self._context = DescribeIt()
     if picture is not None:
       self._context._picture = picture
@@ -30,6 +31,8 @@ class CanvasManager(object):
     self._pointery = 0
     self._scale = 100
     self._command_line = None
+    self._command_history_index = None
+    self._command_history = self._read_command_history()
     self._error_msg = None
     self._grid_size_index = 0
     self._grid_sizes = [1, 0.5, 0.2, 0.1, 0.05]
@@ -50,7 +53,6 @@ class CanvasManager(object):
     self._selected_path_position_index = 0
     self._selected_path_position = None
     self._clipboard = []
-    self._object_path = os.path.join(os.getenv("HOME"), object_path)
     self.filename = None
     root.bind("<Key>", self.handle_key)
     self.draw()
@@ -93,22 +95,45 @@ class CanvasManager(object):
 
   def _grid_size(self):
     return self._grid_sizes[self._grid_size_index]
+  
+  def _get_command_line(self):
+    if self._command_history_index is None:
+      return self._command_line
+    return self._command_history[self._command_history_index]
+
+  def _exit_command_mode(self):
+    self._command_line = None
+    self._command_history_index = None
 
   def _handle_key_in_command_mode(self, event):
     if event.char:
-      self._command_line += event.char
+      self._command_line = self._get_command_line() + event.char
+      self._command_history_index = None
     elif event.keysym == "Return":
-      self._process_command(self._command_line)
-      self._command_line = None
+      self._process_command(self._get_command_line())
+      self._exit_command_mode()
     elif event.keysym == "BackSpace":
+      self._command_line = self._get_command_line()
+      self._command_history_index = None
       if len(self._command_line) > 0:
         self._command_line = self._command_line[:-1]
       else:
-        self._command_line = None
+        self._exit_command_mode()
+    elif event.keysym == "Up":
+      if self._command_history_index is None:
+        if len(self._command_history) > 0:
+          self._command_history_index = len(self._command_history) - 1
+      else:
+        self._command_history_index = max(0, self._command_history_index - 1)
+    elif event.keysym == "Down":
+      if self._command_history_index is not None:
+        self._command_history_index += 1
+        if self._command_history_index >= len(self._command_history):
+          self._command_history_index = None
     elif event.state == 4 and event.keysym in string.ascii_lowercase:
       """Ctrl + letter"""
       if event.keysym == "c":
-        self._command_line = None
+        self._exit_command_mode()
 
   def _handle_key_in_editing_mode(self, event):
     if event.char:
@@ -901,9 +926,10 @@ class CanvasManager(object):
     c.create_oval(x-10, y-10, x+10, y+10, fill="red", outline="black")
 
   def _draw_command(self, c):
-    if self._command_line is not None:
+    command = self._get_command_line()
+    if command is not None:
       c.create_rectangle((3, self._screen_height-15, self._screen_width, self._screen_height), fill="white", outline="black")
-      c.create_text(5, self._screen_height, text=":"+self._command_line, anchor="sw", fill="black")
+      c.create_text(5, self._screen_height, text=":"+command, anchor="sw", fill="black")
     elif self._error_msg is not None:
       c.create_rectangle((3, self._screen_height-15, self._screen_width, self._screen_height), fill="white", outline="black")
       c.create_text(5, self._screen_height, text=self._error_msg, anchor="sw", fill="red")
@@ -989,6 +1015,8 @@ class CanvasManager(object):
     self.draw()
 
   def _process_command(self, cmd):
+    self._append_command(cmd)
+    self._save_command_history(self._command_history)
     try:
       tokens = self._tokenize(cmd)
       if len(tokens) == 0:
@@ -1044,6 +1072,11 @@ class CanvasManager(object):
         raise Exception(f"Unkown command: {cmd_name}")
     except Exception as e:
       self._error_msg = f"Error in executing command: {e}"
+
+  def _append_command(self, cmd):
+    self._command_history.append(cmd)
+    if len(self._command_history) > 100:
+      self._command_history = self._command_history[-100:]
 
   def _set(self, *args):
     if len(self._selected_ids) == 0 and len(self._selected_paths) == 0:
@@ -1636,6 +1669,22 @@ class CanvasManager(object):
     if not os.path.exists(self._object_path):
       os.mkdir(self._object_path)
     return os.path.join(self._object_path, f"{name}.json")
+
+  def _read_command_history(self):
+    path = os.path.join(self._object_path, "history")
+    try:
+      with open(path) as f:
+        history = f.read()
+    except:
+      return []
+    return history.split("\n")
+
+  def _save_command_history(self, history):
+    path = os.path.join(self._object_path, "history")
+    if not os.path.exists(self._object_path):
+      os.mkdir(self._object_path)
+    with open(path, "w") as f:
+      f.write("\n".join(history))
         
 
 if __name__ == "__main__":
