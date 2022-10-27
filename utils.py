@@ -326,8 +326,16 @@ def get_angle(x0, y0, x1, y1):
   return angle
 
 
+latex_hints = [
+  "$", "\\textbf{", "\\begin{", "\\emph{"
+]
+
+
 def need_latex(text):
-  return "$" in text or text.find("\\textbf{") >= 0
+  for hint in latex_hints:
+    if text.find(hint) >= 0:
+      return True
+  return False
 
 
 def satisfy_filters(obj, filters):
@@ -465,35 +473,46 @@ def get_first_absolute_coordinate(data):
 
 
 def get_top_left_corner(data, bounding_boxes, segments):
-  x0, y0 = None, None
+  x0, y0, x1, y1 = get_bounding_box(data, bounding_boxes, segments)
+  return x0, y0
+
+
+def enlarge_bound_box(x0, y0, x1, y1, x, y):
+  if x0 is None or x < x0:
+    x0 = x
+  if y0 is None or y < y0:
+    y0 = y
+  if x1 is None or x > x1:
+    x1 = x
+  if y1 is None or y > y1:
+    y1 = y
+  return x0, y0, x1, y1
+
+
+def get_bounding_box(data, bounding_boxes, segments):
+  x0, y0, x1, y1 = None, None, None, None
   for obj in data:
     id_ = get_default(obj, "id")
     if id_ is not None:
       x, y, w, h = bounding_boxes[id_]
-      if x0 is None or x < x0:
-        x0 = x
-      if y0 is None or y < y0:
-        y0 = y
+      x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x, y)
+      x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x+w, y+h)
   for type_, segment_data, path in segments:
     if path in data:
       if type_ == "line" or type_ == "rectangle":
         x, y, xp, yp = segment_data
-        x, y = min(x, xp), min(y, yp)
-        if x0 is None or x < x0:
-          x0 = x
-        if y0 is None or y < y0:
-          y0 = y
+        x, xp = order(x, xp)
+        y, yp = order(y, yp)
+        x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x, y)
+        x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, xp, yp)
       elif type_ == "curve":
         for x, y in segment_data:
-          if x0 is None or x < x0:
-            x0 = x
-          if y0 is None or y < y0:
-            y0 = y
+          x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x, y)
       else:
         raise Exception(f"Unrecognized segment type {type_}")
-  if x0 is None or y0 is None:
-    raise Exception("Failed to find top left corner")
-  return x0, y0
+  if x0 is None or y0 is None or x1 is None or y1 is None:
+    raise Exception("Failed to find bounding box")
+  return x0, y0, x1, y1
 
 
 """

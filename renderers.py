@@ -1,4 +1,5 @@
 from .utils import colors, dump_options
+from .latex import escape_for_latex
 
 
 class Renderer(object):
@@ -75,8 +76,9 @@ class BoxRenderer(Renderer):
   def render(self, obj):
     options = BoxRenderer.prepare_options(obj)
     if len(options) > 0:
-      return r"\node[draw, {options}] ({id}) {{{text}}};".format(
+      return r"\node[draw, {options}] ({id}) {{{escaped_text}}};".format(
         **obj,
+        escaped_text=escape_for_latex(obj["text"]),
         options=dump_options(options),
       )
     return r"\node[draw] ({id}) {{{text}}};".format(**obj)
@@ -95,14 +97,16 @@ class TextRenderer(Renderer):
     if "draw" in obj:
       options["draw"] = obj["draw"]
     if len(options) > 0:
-      return r"{prefix}[{options}] ({id}) {{{text}}}{postfix}".format(
+      return r"{prefix}[{options}] ({id}) {{{escaped_text}}}{postfix}".format(
         **obj,
+        escaped_text=escape_for_latex(obj["text"]),
         prefix=prefix,
         postfix=postfix,
         options=dump_options(options),
       )
-    return r"{prefix} ({id}) {{{text}}}{postfix}".format(
-        **obj, prefix=prefix, postfix=postfix)
+    return r"{prefix} ({id}) {{{escaped_text}}}{postfix}".format(
+        **obj, escaped_text=escape_for_latex(obj["text"]),
+        prefix=prefix, postfix=postfix)
 
 
 class PathRenderer(Renderer):

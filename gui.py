@@ -966,9 +966,18 @@ class CanvasManager(object):
     return tokens
 
   def _save(self):
+    if len(self._context._picture) == 0:
+      x0, y0, x1, y1 = 0, 0, 0, 0
+    else:
+      x0, y0, x1, y1 = get_bounding_box(self._context._picture,
+                                        self._bounding_boxes,
+                                        self._segments)
     return {
       "picture": self._context._picture,
       "nextid": get_default(self._context._state, "nextid", 0),
+      "bound_box": [x0, y0, x1, y1],
+      "width": x1 - x0,
+      "height": y1 - y0,
     }
 
   def load(self, data):
@@ -1539,8 +1548,16 @@ class CanvasManager(object):
           to_replace.append((obj, "at"))
       elif is_type(obj, "path"):
         for item in obj["items"]:
+          id_ = get_default(item, "id")
+          if id_ is not None:
+            new_id = self._context.getid()
+            old_to_new_id_dict[id_] = new_id
+            item["id"] = new_id
           if is_type(item, "nodename"):
             to_replace.append((item, "name"))
+          elif is_type(item, "intersection"):
+            to_replace.append((item, "name1"))
+            to_replace.append((item, "name2"))
           elif is_type(item, "coordinate"):
             if not get_default(item, "relative", False):
               item["x"] = num_to_dist(dist_to_num(get_default(item, "x", 0)) + dx)
@@ -1572,6 +1589,24 @@ class CanvasManager(object):
           raise Exception("Must provide the bounding boxes if not check relative positions")
         bb = bounding_boxes[old_id]
         anchor = get_default(item, "anchor", "center")
+        x, y = get_anchor_pos(bb, anchor)
+        """
+        We can only modify 'item' in place, because we cannot overwrite item itself
+        without knowing where it is pointed from
+        """
+        clear_dict(item)
+        item["type"] = "coordinate"
+        item["x"] = num_to_dist(x + dx)
+        item["y"] = num_to_dist(y + dy)
+      elif is_type(item, "intersection"):
+        if bounding_boxes is None:
+          raise Exception("Must provide the bounding boxes if not check relative positions")
+        bb = bounding_boxes[old_id]
+        """
+        key is "name1" or "name2", and the key for anchor is respectively "anchor1"
+        "anchor2"
+        """
+        anchor = get_default(item, f"anchor{key[4]}", "center")
         x, y = get_anchor_pos(bb, anchor)
         """
         We can only modify 'item' in place, because we cannot overwrite item itself

@@ -2,6 +2,11 @@ import os
 from hashlib import sha256
 
 
+def escape_for_latex(text):
+  text = text.replace("\n", "\\\\")
+  return text
+
+
 def text_to_latex_image_path(text, color="black"):
   code = sha256(bytes(text, "utf8")).hexdigest()
   if color != "black":
@@ -17,7 +22,7 @@ def text_to_latex_image_path(text, color="black"):
     color = "black"
   with open("/tmp/tmp.tex", "w") as f:
     f.write(r"""
-\documentclass{standalone}
+\documentclass[varwidth=\maxdimen]{standalone}
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
@@ -26,7 +31,7 @@ def text_to_latex_image_path(text, color="black"):
 \Huge
 \textcolor{%s}{%s}
 \end{document}
-""" % (color, text))
+""" % (color, escape_for_latex(text)))
   ret = os.system("cd /tmp && pdflatex tmp.tex &> /dev/null")
   if ret != 0:
     raise Exception(f"Error compiling latex: {text}")
