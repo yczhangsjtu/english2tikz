@@ -497,6 +497,15 @@ def get_bounding_box(data, bounding_boxes, segments):
       x, y, w, h = bounding_boxes[id_]
       x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x, y)
       x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x+w, y+h)
+    if "items" in obj:
+      for item in obj["items"]:
+        if "annotates" in item:
+          for annotate in item["annotates"]:
+            id_ = get_default(annotate, "id")
+            if id_ is not None:
+              x, y, w, h = bounding_boxes[id_]
+              x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x, y)
+              x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x+w, y+h)
   for type_, segment_data, path in segments:
     if path in data:
       if type_ == "line" or type_ == "rectangle":
