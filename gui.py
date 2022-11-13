@@ -1500,9 +1500,9 @@ class CanvasManager(object):
           xshift = pointerx - anchorx
           yshift = pointery - anchory
           if xshift != 0:
-            mark["xshift"] = f"{xshift:g}cm"
+            mark["xshift"] = num_to_dist(xshift)
           if yshift != 0:
-            mark["yshift"] = f"{yshift:g}cm"
+            mark["yshift"] = num_to_dist(xshift)
         elif v == "relative" or v == "rel":
           if mark["type"] != "coordinate":
             raise Exception("Do not specify anchor")
@@ -1510,8 +1510,8 @@ class CanvasManager(object):
           pointerx, pointery = self._get_pointer_pos()
           xshift = pointerx - x0
           yshift = pointery - y0
-          mark["x"] = f"{xshift:g}cm"
-          mark["y"] = f"{yshift:g}cm"
+          mark["x"] = num_to_dist(xshift)
+          mark["y"] = num_to_dist(yshift)
           mark["relative"] = True
         elif v == "clear":
           self._marks = []
