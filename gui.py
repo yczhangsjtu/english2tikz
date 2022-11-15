@@ -1502,7 +1502,7 @@ class CanvasManager(object):
           if xshift != 0:
             mark["xshift"] = num_to_dist(xshift)
           if yshift != 0:
-            mark["yshift"] = num_to_dist(xshift)
+            mark["yshift"] = num_to_dist(yshift)
         elif v == "relative" or v == "rel":
           if mark["type"] != "coordinate":
             raise Exception("Do not specify anchor")
@@ -1709,6 +1709,7 @@ class CanvasManager(object):
         old_to_new_id_dict[id_] = new_id
         at = get_default(obj, "at")
         obj["id"] = new_id
+        obj["name"] = new_id
         if at is None:
           obj["at"] = create_coordinate(dx, dy)
         elif is_type(at, "coordinate"):

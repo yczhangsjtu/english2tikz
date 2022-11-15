@@ -23,6 +23,7 @@ class BoxDrawer(Drawer):
 
   def _draw(canvas, obj, env, position=None, angle=None):
     assert "id" in obj
+    obj["name"] = obj["id"]
     tmptext = None
     """
     The LaTeX equations are smaller than expected.
@@ -519,7 +520,7 @@ class PathDrawer(Drawer):
                 dy = math.sin(in_degree / 180 * math.pi) * dist / 3
                 dx = math.cos(in_degree / 180 * math.pi) * dist / 3
                 if new_pos_clip:
-                  cx, cy, cw, ch = current_pos_clip
+                  cx, cy, cw, ch = new_pos_clip
                   diagnal = math.sqrt(cw*cw + ch*ch)
                   end_point = clip_line(x1, y1,
                       x1 + dx * diagnal / dist * 3,
