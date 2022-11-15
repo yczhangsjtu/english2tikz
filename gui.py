@@ -9,7 +9,9 @@ from english2tikz.drawers import *
 from english2tikz.handlers import WithAttributeHandler
 from english2tikz.utils import *
 
+
 screen_width, screen_height = 1200, 750
+
 
 class CanvasManager(object):
   def __init__(self, root, canvas, screen_width, screen_height,
@@ -55,6 +57,8 @@ class CanvasManager(object):
     self._clipboard = []
     self._finding_prefix = None
     self._finding_candidates = None
+    self._command_refershing_timer_started = True
+    self._editing_refershing_timer_started = True
     self.filename = None
     root.bind("<Key>", self.handle_key)
     self.draw()
@@ -69,7 +73,8 @@ class CanvasManager(object):
 
   def _before_change(self):
     self._history = self._history[:self._history_index+1]
-    self._history[self._history_index] = copy.deepcopy(self._history[self._history_index])
+    self._history[self._history_index] = copy.deepcopy(
+        self._history[self._history_index])
 
   def _parse(self, code):
     self._before_change()
@@ -97,7 +102,7 @@ class CanvasManager(object):
 
   def _grid_size(self):
     return self._grid_sizes[self._grid_size_index]
-  
+
   def _get_command_line(self):
     if self._command_history_index is None:
       return self._command_line
@@ -107,14 +112,35 @@ class CanvasManager(object):
     self._command_line = None
     self._command_history_index = None
 
+  def _start_timer_for_refreshing_command(self):
+    self._command_refershing_timer_started = True
+    self._root.after(100, self._refresh_command)
+
+  def _refresh_command(self):
+    if not self._command_refershing_timer_started:
+      return
+    if self._command_line is None:
+      self._command_refershing_timer_started = False
+      return
+    try:
+      with open("/tmp/command") as f:
+        self._command_line = f.read()
+    except Exception as e:
+      self._error_msg = f"Failed to refresh command: {e}"
+    self._root.after(100, self._refresh_command)
+    self.draw()
+
   def _handle_key_in_command_mode(self, event):
     if event.char:
+      self._command_refershing_timer_started = False
       self._command_line = self._get_command_line() + event.char
       self._command_history_index = None
     elif event.keysym == "Return":
+      self._command_refershing_timer_started = False
       self._process_command(self._get_command_line())
       self._exit_command_mode()
     elif event.keysym == "BackSpace":
+      self._command_refershing_timer_started = False
       self._command_line = self._get_command_line()
       self._command_history_index = None
       if len(self._command_line) > 0:
@@ -122,12 +148,14 @@ class CanvasManager(object):
       else:
         self._exit_command_mode()
     elif event.keysym == "Up":
+      self._command_refershing_timer_started = False
       if self._command_history_index is None:
         if len(self._command_history) > 0:
           self._command_history_index = len(self._command_history) - 1
       else:
         self._command_history_index = max(0, self._command_history_index - 1)
     elif event.keysym == "Down":
+      self._command_refershing_timer_started = False
       if self._command_history_index is not None:
         self._command_history_index += 1
         if self._command_history_index >= len(self._command_history):
@@ -136,35 +164,52 @@ class CanvasManager(object):
       """Ctrl + letter"""
       if event.keysym == "c":
         self._exit_command_mode()
+        self._command_refershing_timer_started = False
       elif event.keysym == "o":
         """
         It is very inconvenient to edit text in our tool, and I'm too lazy
         to implement a powerful text editor or using the tkinter text field.
         So press Ctrl+o to open an external editor for assistance.
-        After editing it in the external editor, close the editor, and press
-        Ctrl+r to load the text into our tool.
         """
+        if not self._command_refershing_timer_started:
+          self._start_timer_for_refreshing_command()
         with open("/tmp/command", "w") as f:
           f.write(self._command_line)
         os.system(f"open -a 'Sublime Text' /tmp/command")
-      elif event.keysym == "r":
-        try:
-          with open("/tmp/command") as f:
-            self._command_line = f.read()
-        except Exception as e:
-          self._error_msg = f"Failed to open editing command: {e}"
+
+  def _start_timer_for_refreshing_editing(self):
+    self._editing_refershing_timer_started = True
+    self._root.after(100, self._refresh_editing)
+
+  def _refresh_editing(self):
+    if not self._editing_refershing_timer_started:
+      return
+    if self._editing_text is None:
+      self._editing_refershing_timer_started = False
+      return
+    try:
+      with open("/tmp/editing") as f:
+        self._editing_text = f.read()
+    except Exception as e:
+      self._error_msg = f"Failed to refresh editing: {e}"
+    self._root.after(100, self._refresh_editing)
+    self.draw()
 
   def _handle_key_in_editing_mode(self, event):
     if event.char:
       self._editing_text += event.char
+      self._editing_refershing_timer_started = False
     elif event.keysym == "Return":
       self._editing_text += "\n"
+      self._editing_refershing_timer_started = False
     elif event.keysym == "BackSpace":
       if len(self._editing_text) > 0:
         self._editing_text = self._editing_text[:-1]
+      self._editing_refershing_timer_started = False
     elif event.state == 4 and event.keysym in string.ascii_lowercase:
       """Ctrl + letter"""
       if event.keysym == "c":
+        self._editing_refershing_timer_started = False
         if self._obj_to_edit_text is None:
           if len(self._editing_text) > 0:
             x, y = self._get_pointer_pos_str()
@@ -180,18 +225,11 @@ class CanvasManager(object):
         It is very inconvenient to edit text in our tool, and I'm too lazy
         to implement a powerful text editor or using the tkinter text field.
         So press Ctrl+o to open an external editor for assistance.
-        After editing it in the external editor, close the editor, and press
-        Ctrl+r to load the text into our tool.
         """
         with open("/tmp/editing", "w") as f:
           f.write(self._editing_text)
         os.system(f"open -a 'Sublime Text' /tmp/editing")
-      elif event.keysym == "r":
-        try:
-          with open("/tmp/editing") as f:
-            self._editing_text = f.read()
-        except Exception as e:
-          self._error_msg = f"Failed to open editing text: {e}"
+        self._start_timer_for_refreshing_editing()
 
   def _handle_key_without_visual(self, event):
     if event.char == "a":
@@ -242,8 +280,8 @@ class CanvasManager(object):
       self._marks.append(create_coordinate(x, y))
     elif event.char == 'y':
       self._clipboard = [copy.deepcopy(obj) for obj in self._context._picture
-                                            if get_default(obj, "id") in self._selected_ids
-                                            or obj in self._selected_paths]
+                         if get_default(obj, "id") in self._selected_ids
+                         or obj in self._selected_paths]
     elif event.char == 'p':
       self._paste()
     elif event.char == "f":
