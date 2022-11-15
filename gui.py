@@ -136,6 +136,23 @@ class CanvasManager(object):
       """Ctrl + letter"""
       if event.keysym == "c":
         self._exit_command_mode()
+      elif event.keysym == "o":
+        """
+        It is very inconvenient to edit text in our tool, and I'm too lazy
+        to implement a powerful text editor or using the tkinter text field.
+        So press Ctrl+o to open an external editor for assistance.
+        After editing it in the external editor, close the editor, and press
+        Ctrl+r to load the text into our tool.
+        """
+        with open("/tmp/command", "w") as f:
+          f.write(self._command_line)
+        os.system(f"open -a 'Sublime Text' /tmp/command")
+      elif event.keysym == "r":
+        try:
+          with open("/tmp/command") as f:
+            self._command_line = f.read()
+        except Exception as e:
+          self._error_msg = f"Failed to open editing command: {e}"
 
   def _handle_key_in_editing_mode(self, event):
     if event.char:
