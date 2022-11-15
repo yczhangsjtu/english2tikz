@@ -59,6 +59,7 @@ class CanvasManager(object):
     self._finding_candidates = None
     self._command_refershing_timer_started = True
     self._editing_refershing_timer_started = True
+    self._union_find = False
     self.filename = None
     root.bind("<Key>", self.handle_key)
     self.draw()
@@ -285,7 +286,9 @@ class CanvasManager(object):
     elif event.char == 'p':
       self._paste()
     elif event.char == "f":
-      self._initialize_finding_mode()
+      self._initialize_finding_mode(False)
+    elif event.char == "F":
+      self._initialize_finding_mode(True)
 
   def _handle_key_only_visual(self, event):
     if event.char == "-":
@@ -296,21 +299,32 @@ class CanvasManager(object):
       self._visual_start = None
 
   def _handle_key_in_finding_mode(self, event):
-    if event.char in string.ascii_lowercase:
+    if event.keysym in string.ascii_lowercase:
       self._finding_prefix += event.char.upper()
       current_candidates = self._current_finding_candidates()
       if len(current_candidates) == 0:
-        self._error_msg = f"Cannot find object with code {self._finding_prefix}"
+        self._error_msg = f"Cannot find object with " \
+                          f"code {self._finding_prefix}"
         self._exit_finding_mode()
       elif len(current_candidates) == 1:
-        if isinstance(current_candidates[0], str):
-          self._selected_ids = [current_candidates[0]]
-          self._selected_paths = []
-        elif is_type(current_candidates[0], "path"):
-          self._selected_paths = [current_candidates[0]]
-          self._selected_ids = []
+        if self._union_find:
+          if isinstance(current_candidates[0], str):
+            if current_candidates[0] not in self._selected_ids:
+              self._selected_ids.append(current_candidates[0])
+          elif is_type(current_candidates[0], "path"):
+            if current_candidates[0] not in self._selected_paths:
+              self._selected_paths.append(current_candidates[0])
+          else:
+            raise Exception(f"Invalid finding candidate {current_candidates[0]}")
         else:
-          raise Exception(f"Invalid finding candidate {current_candidates[0]}")
+          if isinstance(current_candidates[0], str):
+            self._selected_ids = [current_candidates[0]]
+            self._selected_paths = []
+          elif is_type(current_candidates[0], "path"):
+            self._selected_paths = [current_candidates[0]]
+            self._selected_ids = []
+          else:
+            raise Exception(f"Invalid finding candidate {current_candidates[0]}")
         self._exit_finding_mode()
     elif event.keysym == "BackSpace":
       if len(self._finding_prefix) > 1:
@@ -318,6 +332,7 @@ class CanvasManager(object):
       else:
         self._exit_finding_mode()
     else:
+      print(event.keysym)
       self._exit_finding_mode()
 
   def _exit_finding_mode(self):
@@ -490,13 +505,16 @@ class CanvasManager(object):
 
   def _change_grid_size(self, by):
     x, y = self._get_pointer_pos()
-    self._grid_size_index = bound_by(self._grid_size_index + by, 0, len(self._grid_sizes) - 1)
-    self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
+    self._grid_size_index = bound_by(self._grid_size_index + by,
+                                     0, len(self._grid_sizes) - 1)
+    self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x,
+                                                                           y)
     self._move_pointer_into_screen()
 
-  def _initialize_finding_mode(self):
+  def _initialize_finding_mode(self, union=False):
     self._finding_prefix = ""
     self._finding_candidates = {}
+    self._union_find = union
     candidate_ids, candidate_paths = self._find_all_in_screen()
     candidates_number = len(candidate_ids) + len(candidate_paths)
     if candidates_number == 0:
@@ -565,7 +583,7 @@ class CanvasManager(object):
         raise Exception(f"Unknown direction {direction}")
     else:
       self._error_msg = f"Object {id_} is not anchored to another object, " \
-                         "nor at intersection"
+          "nor at intersection"
       return
 
   def _shift_object_anchor(self, id_, direction):
@@ -691,8 +709,8 @@ class CanvasManager(object):
     elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
       self._before_change()
       self._shift_path_position(self._selected_paths[0],
-                                self._selected_path_position,
-                                dx, dy)
+          self._selected_path_position,
+          dx, dy)
       self._after_change()
 
   def _shift_dist(self, obj, key, delta, empty_val=None):
@@ -726,8 +744,8 @@ class CanvasManager(object):
   def _find_all_in_screen(self):
     x0, y0 = reverse_map_point(0, 0, self._coordinate_system())
     x1, y1 = reverse_map_point(self._screen_width,
-                               self._screen_height,
-                               self._coordinate_system())
+        self._screen_height,
+        self._coordinate_system())
     sel = (x0, y0, x1, y1)
     selected_ids, selected_paths = [], []
 
@@ -741,7 +759,7 @@ class CanvasManager(object):
         "line": self._select_line,
         "rectangle": self._select_rect,
         "curve": self._select_curve,
-      }, type_)
+        }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
       if selector(sel, data, path, check_only=True):
@@ -775,7 +793,7 @@ class CanvasManager(object):
         "line": self._select_line,
         "rectangle": self._select_rect,
         "curve": self._select_curve,
-      }, type_)
+        }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
       selector(sel, data, path)
@@ -838,7 +856,7 @@ class CanvasManager(object):
         "line": self._select_line,
         "rectangle": self._select_rect,
         "curve": self._select_curve,
-      }, type_)
+        }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
       selector(sel, data, path, deselect=True)
@@ -867,7 +885,7 @@ class CanvasManager(object):
         "line": self._select_line,
         "rectangle": self._select_rect,
         "curve": self._select_curve,
-      }, type_)
+        }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
       selector(sel, data, path, deselect=True, new_selected_paths=new_selected_paths)
@@ -877,17 +895,17 @@ class CanvasManager(object):
     to_removes = [obj for obj in self._context._picture if self._related_to(obj, id_)]
     deleted_ids.append(id_)
     related_ids = [item["id"] for item in to_removes
-                              if "id" in item and
-                              item["id"] not in deleted_ids]
+        if "id" in item and
+        item["id"] not in deleted_ids]
     self._context._picture = [obj for obj in self._context._picture
-                                  if not self._related_to(obj, id_)]
+        if not self._related_to(obj, id_)]
 
     for obj in self._context._picture:
       if "items" in obj:
         for item in obj["items"]:
           if "annotates" in item:
             item["annotates"] = [annotate for annotate in item["annotates"]
-                                          if "id" not in annotate or annotate["id"] != id_]
+                if "id" not in annotate or annotate["id"] != id_]
     for id_ in related_ids:
       self._delete_objects_related_to_id(id_, deleted_ids)
 
@@ -924,7 +942,7 @@ class CanvasManager(object):
       return
     self._before_change()
     self._paste_data(copy.deepcopy(self._clipboard), False,
-                     self._bounding_boxes, self._segments)
+        self._bounding_boxes, self._segments)
     self._after_change()
 
   def _jump_to_select(self):
@@ -943,7 +961,7 @@ class CanvasManager(object):
 
     path = self._selected_paths[0]
     position_items = [(i, item) for (i, item) in enumerate(path["items"])
-                      if item["type"] in ["nodename", "coordinate", "intersection"]]
+        if item["type"] in ["nodename", "coordinate", "intersection"]]
 
     if len(position_items) > 0:
       self._selected_path_position_index += len(position_items)
@@ -991,14 +1009,14 @@ class CanvasManager(object):
   def _boundary_grids(self):
     x0, y0 = reverse_map_point(0, 0, self._coordinate_system())
     x1, y1 = reverse_map_point(self._screen_width,
-                               self._screen_height,
-                               self._coordinate_system())
+        self._screen_height,
+        self._coordinate_system())
     step_upper = int(y0 / self._grid_size())
     step_lower = int(y1 / self._grid_size())
     step_left  = int(x0 / self._grid_size())
     step_right = int(x1 / self._grid_size())
     return step_upper, step_lower, step_left, step_right
-    
+
   def draw(self):
     if self._end:
       return
@@ -1041,25 +1059,25 @@ class CanvasManager(object):
 
   def _coordinate_system(self):
     return {
-      "width": self._screen_width,
-      "height": self._screen_height,
-      "center_x": self._centerx,
-      "center_y": self._centery,
-      "scale": self._scale,
-    }
+        "width": self._screen_width,
+        "height": self._screen_height,
+        "center_x": self._centerx,
+        "center_y": self._centery,
+        "scale": self._scale,
+        }
 
   def _draw_picture(self, c, ctx):
     env = {
-      "bounding box": {},
-      "segments": [],
-      "coordinate system": self._coordinate_system(),
-      "selected ids": self._selected_ids,
-      "selected paths": self._selected_paths,
-      "selected path position": self._selected_path_position,
-      "image references": self._image_references,
-      "finding prefix": self._finding_prefix,
-      "get_candidate_code": self._get_candidate_code,
-    }
+        "bounding box": {},
+        "segments": [],
+        "coordinate system": self._coordinate_system(),
+        "selected ids": self._selected_ids,
+        "selected paths": self._selected_paths,
+        "selected path position": self._selected_path_position,
+        "image references": self._image_references,
+        "finding prefix": self._finding_prefix,
+        "get_candidate_code": self._get_candidate_code,
+        }
     for obj in ctx._picture:
       self._draw_obj(c, obj, env)
     self._bounding_boxes = env["bounding box"]
@@ -1160,7 +1178,7 @@ class CanvasManager(object):
       self._draw_editing_text(c)
       return
     x, y = map_point(self._pointerx * self._grid_size(), self._pointery * self._grid_size(),
-                     self._coordinate_system())
+        self._coordinate_system())
     c.create_line((0, y, self._screen_width, y), fill="red", width=1)
     c.create_line((x, 0, x, self._screen_height), fill="red", width=1)
     c.create_oval(x-10, y-10, x+10, y+10, fill="red", outline="black")
@@ -1236,15 +1254,15 @@ class CanvasManager(object):
       x0, y0, x1, y1 = 0, 0, 0, 0
     else:
       x0, y0, x1, y1 = get_bounding_box(self._context._picture,
-                                        self._bounding_boxes,
-                                        self._segments)
+          self._bounding_boxes,
+          self._segments)
     return {
-      "picture": self._context._picture,
-      "nextid": get_default(self._context._state, "nextid", 0),
-      "bound_box": [x0, y0, x1, y1],
-      "width": x1 - x0,
-      "height": y1 - y0,
-    }
+        "picture": self._context._picture,
+        "nextid": get_default(self._context._state, "nextid", 0),
+        "bound_box": [x0, y0, x1, y1],
+        "width": x1 - x0,
+        "height": y1 - y0,
+        }
 
   def load(self, data):
     if "picture" in data:
@@ -1449,7 +1467,7 @@ class CanvasManager(object):
           create_coordinate(*self._visual_start),
           create_rectangle(),
           create_coordinate(*self._get_pointer_pos()),
-        ]))
+          ]))
         self._after_change()
       elif len(self._marks) == 2:
         self._before_change()
@@ -1457,7 +1475,7 @@ class CanvasManager(object):
           self._marks[0],
           create_rectangle(),
           self._marks[1],
-        ]))
+          ]))
         self._after_change()
       else:
         raise Exception("Please set exactly two marks or draw a rect in visual mode")
@@ -1594,10 +1612,10 @@ class CanvasManager(object):
           id_ = self._selected_ids[0]
           self._ensure_name_is_id(id_)
           mark = {
-            "type": "nodename",
-            "name": id_,
-            "anchor": v if v in anchor_list else short_anchor_dict[v],
-          }
+              "type": "nodename",
+              "name": id_,
+              "anchor": v if v in anchor_list else short_anchor_dict[v],
+              }
         elif v == "shift":
           if mark["type"] != "nodename":
             raise Exception("Please specify anchor before shift")
@@ -1671,7 +1689,7 @@ class CanvasManager(object):
       "above": True,
       "sloped": True,
       "scale": "0.7",
-    })
+      })
     self._after_change()
 
   def _chain(self, *args):
@@ -1776,8 +1794,8 @@ class CanvasManager(object):
         object_name = v
     if len(self._selected_ids) > 0 or len(self._selected_paths) > 0:
       data = json.dumps([obj for obj in self._context._picture
-                         if get_default(obj, "id") in self._selected_ids
-                         or obj in self._selected_paths])
+        if get_default(obj, "id") in self._selected_ids
+        or obj in self._selected_paths])
     else:
       data = json.dumps(self._context._picture)
     with open(self._get_object_path(object_name), "w") as f:
@@ -1795,7 +1813,7 @@ class CanvasManager(object):
     self._after_change()
 
   def _paste_data(self, data, check_all_relative_pos=False,
-                  bounding_boxes=None, segments=None):
+      bounding_boxes=None, segments=None):
     if len(data) == 0:
       return
     pos = get_first_absolute_coordinate(data)
@@ -1939,7 +1957,7 @@ class CanvasManager(object):
     selected_paths = self._selected_paths
     exec(code, locals())
     self._after_change()
-        
+
   def _edit_python_code(self):
     if not os.path.exists("/tmp/english2tikz.py"):
       with open("/tmp/english2tikz.py", "w") as f:
@@ -1948,7 +1966,7 @@ class CanvasManager(object):
 # selected_paths: list, paths
 """)
     os.system("open -a 'Sublime Text' /tmp/english2tikz.py")
-        
+
 
 if __name__ == "__main__":
   root = tk.Tk()
