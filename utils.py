@@ -257,6 +257,18 @@ def color_name_to_rgb(name):
   raise Exception(f"Unrecognized color {name}")
 
 
+def flipped(direction):
+  if direction == "left":
+    return "right"
+  if direction == "right":
+    return "left"
+  if direction == "up":
+    return "down"
+  if direction == "down":
+    return "up"
+  raise Exception(f"Unrecognized direction {direction}")
+
+
 def shift_anchor(anchor, direction):
   x, y = anchor_to_num(anchor)
   dx, dy = direction_to_num(direction)

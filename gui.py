@@ -436,6 +436,22 @@ class CanvasManager(object):
       if self._visual_start is not None:
         pass
       self._shift_selected_object_at_anchor("right")
+    elif event.keysym == "a":
+      if self._visual_start is not None:
+        return
+      self._shift_selected_object_anchor("left")
+    elif event.keysym == "s":
+      if self._visual_start is not None:
+        pass
+      self._shift_selected_object_anchor("down")
+    elif event.keysym == "w":
+      if self._visual_start is not None:
+        pass
+      self._shift_selected_object_anchor("up")
+    elif event.keysym == "d":
+      if self._visual_start is not None:
+        pass
+      self._shift_selected_object_anchor("right")
 
   def _handle_key_in_normal_mode(self, event):
     if event.char:
@@ -538,9 +554,22 @@ class CanvasManager(object):
         get_default(obj, "at.anchor", "center"),
         direction)
 
+  def _shift_object_anchor(self, id_, direction):
+    obj = self._find_object_by_id(id_)
+    if obj is None:
+      return
+
+    obj["anchor"] = shift_anchor(
+        get_default(obj, "anchor", "center"),
+        flipped(direction))
+
   def _shift_selected_object_at_anchor(self, direction):
     for id_ in self._selected_ids:
       self._shift_object_at_anchor(id_, direction)
+
+  def _shift_selected_object_anchor(self, direction):
+    for id_ in self._selected_ids:
+      self._shift_object_anchor(id_, direction)
 
   def _jump_to_next_selected(self, by):
     if len(self._selected_ids) > 0:
