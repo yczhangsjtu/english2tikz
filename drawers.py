@@ -116,9 +116,9 @@ class BoxDrawer(Drawer):
       y = dist_to_num(obj["at"]["y"]) if "y" in obj["at"] else 0
     elif obj["at"]["type"] == "intersection":
       x, _ = get_anchor_pos(env["bounding box"][obj["at"]["name1"]],
-                            get_default(obj, "anchor1", "center"))
+                            get_default(obj["at"], "anchor1", "center"))
       _, y = get_anchor_pos(env["bounding box"][obj["at"]["name2"]],
-                            get_default(obj, "anchor2", "center"))
+                            get_default(obj["at"], "anchor2", "center"))
     else:
       raise Exception(f"Unsupported at {obj['at']}")
 

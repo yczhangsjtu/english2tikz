@@ -548,13 +548,25 @@ class CanvasManager(object):
     if obj is None:
       return
 
-    if get_default_of_type(obj, "at", str) is None:
-      self._error_msg = f"Object {id_} is not anchored to another object"
+    if get_default_of_type(obj, "at", str):
+      obj["at.anchor"] = shift_anchor(
+          get_default(obj, "at.anchor", "center"),
+          direction)
+    elif is_type(obj["at"], "intersection"):
+      if direction == "left" or direction == "right":
+        obj["at"]["anchor1"] = shift_anchor(
+            get_default(obj["at"], "anchor1", "center"),
+            direction)
+      elif direction == "up" or direction == "down":
+        obj["at"]["anchor2"] = shift_anchor(
+            get_default(obj["at"], "anchor2", "center"),
+            direction)
+      else:
+        raise Exception(f"Unknown direction {direction}")
+    else:
+      self._error_msg = f"Object {id_} is not anchored to another object, " \
+                         "nor at intersection"
       return
-
-    obj["at.anchor"] = shift_anchor(
-        get_default(obj, "at.anchor", "center"),
-        direction)
 
   def _shift_object_anchor(self, id_, direction):
     obj = self._find_object_by_id(id_)
