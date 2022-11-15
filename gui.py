@@ -332,7 +332,6 @@ class CanvasManager(object):
       else:
         self._exit_finding_mode()
     else:
-      print(event.keysym)
       self._exit_finding_mode()
 
   def _exit_finding_mode(self):
