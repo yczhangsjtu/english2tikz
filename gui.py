@@ -381,8 +381,10 @@ class CanvasManager(object):
       if self._visual_start is not None:
         self._create_node_at_visual()
         self._visual_start = None
-      elif len(self._selected_ids) > 1:
+      elif len(self._selected_ids) > 2:
         self._error_msg = "Cannot edit more than one objects"
+      elif len(self._selected_ids) == 2:
+        self._create_node_at_intersection()
       elif len(self._selected_ids) == 1:
         self._start_edit_text(self._selected_ids[0])
       else:
@@ -595,6 +597,16 @@ class CanvasManager(object):
     self._editing_text_pos = x0 + w/2, y0 + h/2
     x0, y0, w, h = num_to_dist(x0, y0, w, h)
     self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
+    self._obj_to_edit_text = self._context._picture[-1]
+    self._editing_text = self._obj_to_edit_text["text"]
+
+  def _create_node_at_intersection(self):
+    assert len(self._selected_ids) == 2
+    id0, id1 = self._selected_ids
+    x0, _ = get_anchor_pos(self._bounding_boxes[id0], "center")
+    _, y0 = get_anchor_pos(self._bounding_boxes[id1], "center")
+    self._editing_text_pos = x0, y0
+    self._parse(f"there.is.text at.intersection.of.{id0}.and.{id1}")
     self._obj_to_edit_text = self._context._picture[-1]
     self._editing_text = self._obj_to_edit_text["text"]
 
