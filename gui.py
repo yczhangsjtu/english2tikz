@@ -62,8 +62,11 @@ class CanvasManager(object):
     self._command_refershing_timer_started = True
     self._editing_refershing_timer_started = True
     self._toggle_find = False
+    self._start_time = now()
+    self._pointer_objects = []
     self.filename = None
     root.bind("<Key>", self.handle_key)
+    root.after(50, self._draw_animated)
     self.draw()
 
   def _register_fundamental_drawers(self):
@@ -1052,8 +1055,22 @@ class CanvasManager(object):
     self._draw_visual(self._canvas)
     self._draw_marks(self._canvas)
     self._draw_attributes(self._canvas)
-    self._draw_pointer(self._canvas)
+    if self._editing_text is not None:
+      self._draw_editing_text(self._canvas)
+    else:
+      self._draw_pointer_indicator(self._canvas)
     self._draw_command(self._canvas)
+
+  def _draw_animated(self):
+    if self._end:
+      return
+    for obj in self._pointer_objects:
+      self._canvas.delete(obj)
+    if self._editing_text is None:
+      self._pointer_objects = self._draw_pointer(self._canvas)
+    else:
+      self._pointer_objects = []
+    self._root.after(100, self._draw_animated)
 
   def _draw_grid(self, c):
     step_upper, step_lower, step_left, step_right = self._boundary_grids()
@@ -1202,16 +1219,30 @@ class CanvasManager(object):
       bg = c.create_rectangle(c.bbox(t), fill="white", outline="blue")
       c.tag_lower(bg, t)
 
-  def _draw_pointer(self, c):
-    if self._editing_text is not None:
-      self._draw_editing_text(c)
-      return
+  def _elapsed(self):
+    return now() - self._start_time
+
+  def _draw_pointer_indicator(self, c):
     x, y = map_point(self._pointerx * self._grid_size(),
                      self._pointery * self._grid_size(),
                      self._coordinate_system())
     c.create_line((0, y, self._screen_width, y), fill="red", width=1)
     c.create_line((x, 0, x, self._screen_height), fill="red", width=1)
-    c.create_oval(x-10, y-10, x+10, y+10, fill="red", outline="black")
+
+  def _draw_pointer(self, c):
+    ret = []
+    x, y = map_point(self._pointerx * self._grid_size(),
+                     self._pointery * self._grid_size(),
+                     self._coordinate_system())
+    angle = int((self._elapsed() / 5)) % 360
+    rad = angle / 180 * math.pi
+    dx1, dy1 = 10 * math.cos(rad), 10 * math.sin(rad)
+    dx2, dy2 = -10 * math.sin(rad), 10 * math.cos(rad)
+    ret.append(c.create_line((x+dx1, y+dy1, x-dx1, y-dy1),
+                             fill="red", width=2))
+    ret.append(c.create_line((x+dx2, y+dy2, x-dx2, y-dy2),
+                             fill="red", width=2))
+    return ret
 
   def _selected_single_object(self):
     if len(self._selected_ids) == 1 and len(self._selected_paths) == 0:
@@ -1420,8 +1451,8 @@ class CanvasManager(object):
       elif cmd_name == "ro":
         self._read_object(*tokens[1:])
       elif cmd_name == "q":
-        self._root.after(1, self._root.destroy())
         self._end = True
+        self._root.after(100, self._root.destroy())
       elif cmd_name == "py":
         self._execute_python_code()
       elif cmd_name == "epy":

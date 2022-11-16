@@ -1,5 +1,6 @@
 import math
 import re
+from datetime import datetime
 
 
 colors = [
@@ -48,6 +49,10 @@ directions = ["left", "right", "up", "down"]
 
 
 counter = 0
+
+
+def now():
+  return int(datetime.now().timestamp() * 1000)
 
 
 def mutex(a, b, c):
@@ -200,7 +205,8 @@ def reverse_map_point(x, y, cs):
 def intersect(rect1, rect2):
   x0, y0, x1, y1 = rect1
   x2, y2, x3, y3 = rect2
-  return intersect_interval((x0, x1), (x2, x3)) and intersect_interval((y0, y1), (y2, y3))
+  return both(intersect_interval((x0, x1), (x2, x3)),
+              intersect_interval((y0, y1), (y2, y3)))
 
 
 def intersect_interval(interval1, interval2):
@@ -215,11 +221,11 @@ def rect_line_intersect(rect, line):
   x0, y0, x1, y1 = rect
   x2, y2, x3, y3 = line
   return point_in_rect(x2, y2, rect) or \
-      point_in_rect(x3, y3, rect) or \
-      line_line_intersect((x0, y0, x1, y0), line) or \
-      line_line_intersect((x0, y0, x0, y1), line) or \
-      line_line_intersect((x1, y1, x0, y1), line) or \
-      line_line_intersect((x1, y1, x0, y1), line)
+    point_in_rect(x3, y3, rect) or \
+    line_line_intersect((x0, y0, x1, y0), line) or \
+    line_line_intersect((x0, y0, x0, y1), line) or \
+    line_line_intersect((x1, y1, x0, y1), line) or \
+    line_line_intersect((x1, y1, x0, y1), line)
 
 
 def point_in_rect(x, y, rect, strict=False):
@@ -527,7 +533,7 @@ def is_color(name):
   if name == "":
     return False
   for item in name.split("!"):
-    if not item in colors and not re.match(r"\d+$", item):
+    if item not in colors and not re.match(r"\d+$", item):
       return False
   return True
 
@@ -550,8 +556,10 @@ def get_first_absolute_coordinate(data):
     items = get_default(obj, "items")
     if items is not None:
       for item in items:
-        if is_type(item, "coordinate") and not get_default(item, "relative", False):
-          return dist_to_num(get_default(item, "x", 0), get_default(item, "y", 0))
+        if both(is_type(item, "coordinate"),
+                not get_default(item, "relative", False)):
+          return dist_to_num(get_default(item, "x", 0),
+                             get_default(item, "y", 0))
   return None
 
 
