@@ -58,7 +58,8 @@ class BoxDrawer(Drawer):
       text_color = "black"
 
     if "width" in obj and "height" in obj:
-      width, height = dist_to_num(obj["width"]) * scale, dist_to_num(obj["height"]) * scale
+      width, height = dist_to_num(
+          obj["width"]) * scale, dist_to_num(obj["height"]) * scale
     elif "text" in obj:
       if need_latex(obj["text"]):
         path = text_to_latex_image_path(obj["text"], text_color)
@@ -74,8 +75,8 @@ class BoxDrawer(Drawer):
           image = env["image references"][(path, scale, obj["id"])]
         tmptext = canvas.create_image(0, 0, image=image)
       else:
-        tmptext = canvas.create_text(0, 0, text=obj["text"],
-                                     font=("Times New Roman", font_size, "normal"))
+        tmptext = canvas.create_text(
+            0, 0, text=obj["text"], font=default_font(font_size))
       x0, y0, x1, y1 = canvas.bbox(tmptext)
       if "inner.sep" in obj:
         inner_sep = dist_to_num(obj["inner.sep"])
@@ -84,11 +85,13 @@ class BoxDrawer(Drawer):
       if "width" in obj:
         width = dist_to_num(obj["width"]) * scale
       else:
-        width = (x1 - x0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
+        width = (x1 - x0) / \
+            env["coordinate system"]["scale"] + inner_sep * 2 * scale
       if "height" in obj:
         height = dist_to_num(obj["height"]) * scale
       else:
-        height = (y1 - y0) / env["coordinate system"]["scale"] + inner_sep * 2 * scale
+        height = (y1 - y0) / \
+            env["coordinate system"]["scale"] + inner_sep * 2 * scale
     else:
       if "width" in obj:
         width = dist_to_num(obj["width"]) * scale
@@ -142,13 +145,13 @@ class BoxDrawer(Drawer):
         if "yshift" in obj:
           y += dist_to_num(obj["yshift"])
       else:
-        dx, dy = dist_to_num(get_default(obj, "xshift", 0), get_default(obj, "yshift", 0))
+        dx, dy = dist_to_num(get_default(obj, "xshift", 0),
+                             get_default(obj, "yshift", 0))
         dx, dy = rotate(dx, dy, 0, 0, (angle + 180) % 360)
         x += dx
         y += dy
 
     env["bounding box"][obj["id"]] = (x, y, width, height)
-
 
     if "fill" in obj:
       fill = obj["fill"]
@@ -171,7 +174,7 @@ class BoxDrawer(Drawer):
     else:
       rounded_corners = None
     cs = env["coordinate system"]
-    
+
     if angle is None:
       x0, y0 = map_point(x, y, cs)
       x1, y1 = map_point(x + width, y + height, cs)
@@ -215,8 +218,9 @@ class BoxDrawer(Drawer):
               canvas.tag_lower(r, tmptext)
         else:
           if tmptext is None:
-            canvas.create_text(x, y, text=obj["text"], fill=color_to_tk(text_color),
-                               font=("Times New Roman", font_size, "normal"))
+            canvas.create_text(x, y, text=obj["text"],
+                               fill=color_to_tk(text_color),
+                               font=default_font(font_size))
           else:
             canvas.move(tmptext, x, y)
             canvas.itemconfig(tmptext, fill=color_to_tk(text_color))
@@ -224,18 +228,24 @@ class BoxDrawer(Drawer):
               canvas.tag_lower(r, tmptext)
       if obj["id"] in env["selected ids"]:
         if rounded_corners:
-          BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5, radius=rounded_corners*cs["scale"], fill="", outline="red", dash=2)
+          BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
+                                    radius=rounded_corners*cs["scale"],
+                                    fill="", outline="red", dash=2)
         else:
-          canvas.create_rectangle(x0 - 5, y0 + 5, x1 + 5, y1 - 5, outline="red", dash=2, fill="")
+          canvas.create_rectangle(
+              x0 - 5, y0 + 5, x1 + 5, y1 - 5, outline="red", dash=2, fill="")
         x, y = map_point(anchorx, anchory, cs)
-        canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#77ff77", outline="green")
+        canvas.create_oval(x - 3, y - 3, x + 3, y + 3,
+                           fill="#77ff77", outline="green")
 
       if env["finding prefix"] is not None:
         candidate_code = env["get_candidate_code"](obj)
         if candidate_code is not None:
           candidate_code = candidate_code[len(env["finding prefix"]):]
-          ftext = canvas.create_text(x0, y1, anchor="nw", text=candidate_code, fill="black")
-          fback = canvas.create_rectangle(canvas.bbox(ftext), fill="yellow", outline="blue")
+          ftext = canvas.create_text(
+              x0, y1, anchor="nw", text=candidate_code, fill="black")
+          fback = canvas.create_rectangle(
+              canvas.bbox(ftext), fill="yellow", outline="blue")
           canvas.tag_lower(fback, ftext)
     else:
       x0, y0 = map_point(x, y, cs)
@@ -250,7 +260,8 @@ class BoxDrawer(Drawer):
                                         fill=color_to_tk(fill),
                                         outline=color_to_tk(color),
                                         width=line_width, angle=angle,
-                                        rotate_center=(anchor_screen_x, anchor_screen_y))
+                                        rotate_center=(anchor_screen_x,
+                                                       anchor_screen_y))
         else:
           rx0, ry0 = rotate(x0, y0, anchor_screen_x, anchor_screen_y, angle)
           rx1, ry1 = rotate(x0, y1, anchor_screen_x, anchor_screen_y, angle)
@@ -258,12 +269,14 @@ class BoxDrawer(Drawer):
           rx3, ry3 = rotate(x1, y0, anchor_screen_x, anchor_screen_y, angle)
           r = canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
                                     fill=color_to_tk(fill),
-                                    outline=color_to_tk(color), width=line_width)
+                                    outline=color_to_tk(color),
+                                    width=line_width)
 
       if "text" in obj and obj["text"]:
         center_x, center_y = get_anchor_pos((x, y, width, height), "center")
         anchor_x, anchor_y = get_anchor_pos((x, y, width, height), anchor)
-        rotated_x, rotated_y = rotate(center_x, center_y, anchor_x, anchor_y, 360-angle)
+        rotated_x, rotated_y = rotate(
+            center_x, center_y, anchor_x, anchor_y, 360-angle)
 
         x, y = map_point(rotated_x, rotated_y, cs)
         if need_latex(obj["text"]):
@@ -277,7 +290,7 @@ class BoxDrawer(Drawer):
             img = img.resize((int(w * scale * latex_scale_ratio),
                               int(h * scale * latex_scale_ratio)))
             if angle != 0:
-              img = img.rotate((180+angle)%360, expand=True)
+              img = img.rotate((180+angle) % 360, expand=True)
             image = ImageTk.PhotoImage(img)
             env["image references"][(path, scale, angle, obj["id"])] = image
           else:
@@ -285,41 +298,53 @@ class BoxDrawer(Drawer):
           canvas.create_image(x, y, image=image)
         else:
           if tmptext is None:
-            canvas.create_text(x, y, text=obj["text"], fill=color_to_tk(text_color),
+            canvas.create_text(x, y, text=obj["text"],
+                               fill=color_to_tk(text_color),
                                font=("Times New Roman", font_size, "normal"),
-                               angle=(180+angle)%360)
+                               angle=(180+angle) % 360)
           else:
             canvas.move(tmptext, x, y)
-            canvas.itemconfig(tmptext, fill=color_to_tk(text_color), angle=(180+angle)%360)
+            canvas.itemconfig(tmptext, fill=color_to_tk(
+                text_color), angle=(180+angle) % 360)
             if r:
               canvas.tag_lower(r, tmptext)
 
       if obj["id"] in env["selected ids"]:
         if rounded_corners:
           BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
-                                    radius=rounded_corners*cs["scale"], angle=angle,
-                                    rotate_center=(anchor_screen_x, anchor_screen_y),
+                                    radius=rounded_corners*cs["scale"],
+                                    angle=angle,
+                                    rotate_center=(anchor_screen_x,
+                                                   anchor_screen_y),
                                     fill="", outline="red", dash=2)
         else:
-          rx0, ry0 = rotate(x0 - 5, y0 + 5, anchor_screen_x, anchor_screen_y, angle)
-          rx1, ry1 = rotate(x0 - 5, y1 - 5, anchor_screen_x, anchor_screen_y, angle)
-          rx2, ry2 = rotate(x1 + 5, y1 - 5, anchor_screen_x, anchor_screen_y, angle)
-          rx3, ry3 = rotate(x1 + 5, y0 + 5, anchor_screen_x, anchor_screen_y, angle)
+          rx0, ry0 = rotate(x0 - 5, y0 + 5, anchor_screen_x,
+                            anchor_screen_y, angle)
+          rx1, ry1 = rotate(x0 - 5, y1 - 5, anchor_screen_x,
+                            anchor_screen_y, angle)
+          rx2, ry2 = rotate(x1 + 5, y1 - 5, anchor_screen_x,
+                            anchor_screen_y, angle)
+          rx3, ry3 = rotate(x1 + 5, y0 + 5, anchor_screen_x,
+                            anchor_screen_y, angle)
           canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
                                 outline="red", dash=2, fill="")
 
         x, y = map_point(anchorx, anchory, cs)
-        canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill="#77ff77", outline="green")
+        canvas.create_oval(x - 3, y - 3, x + 3, y + 3,
+                           fill="#77ff77", outline="green")
 
       if env["finding prefix"] is not None:
         candidate_code = env["get_candidate_code"](obj)
         if candidate_code is not None:
           candidate_code = candidate_code[len(env["finding prefix"]):]
-          ftext = canvas.create_text(x0, y1, anchor="nw", text=candidate_code, fill="black")
-          fback = canvas.create_rectangle(canvas.bbox(ftext), fill="yellow", outline="blue")
+          ftext = canvas.create_text(
+              x0, y1, anchor="nw", text=candidate_code, fill="black")
+          fback = canvas.create_rectangle(
+              canvas.bbox(ftext), fill="yellow", outline="blue")
           canvas.tag_lower(fback, ftext)
 
-  def round_rectangle(canvas, x1, y1, x2, y2, radius=25, angle=None, rotate_center=None, **kwargs):
+  def round_rectangle(canvas, x1, y1, x2, y2, radius=25, angle=None,
+                      rotate_center=None, **kwargs):
     x1, x2 = min(x1, x2), max(x1, x2)
     y1, y2 = min(y1, y2), max(y1, y2)
     points = [(x1+radius, y1),
@@ -500,7 +525,8 @@ class PathDrawer(Drawer):
                     angle = (get_angle(x0, y0, x1, y1) + 180) % 360
                     if angle > 270 or angle < 90:
                       angle = (angle + 180) % 360
-                  BoxDrawer._draw(canvas, annotate, env, position=(x, y), angle=angle)
+                  BoxDrawer._draw(canvas, annotate, env,
+                                  position=(x, y), angle=angle)
             else:
               points = [[x0, y0]]
               dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
@@ -513,8 +539,9 @@ class PathDrawer(Drawer):
                   cx, cy, cw, ch = current_pos_clip
                   diagnal = math.sqrt(cw*cw + ch*ch)
                   start_point = clip_line(x0, y0,
-                      x0 + dx * diagnal / dist * 3,
-                      y0 + dy * diagnal / dist * 3, current_pos_clip)
+                                          x0 + dx * diagnal / dist * 3,
+                                          y0 + dy * diagnal / dist * 3,
+                                          current_pos_clip)
                   assert start_point is not None
                   x0, y0 = start_point
                   points[0] = [x0, y0]
@@ -528,8 +555,9 @@ class PathDrawer(Drawer):
                   cx, cy, cw, ch = new_pos_clip
                   diagnal = math.sqrt(cw*cw + ch*ch)
                   end_point = clip_line(x1, y1,
-                      x1 + dx * diagnal / dist * 3,
-                      y1 + dy * diagnal / dist * 3, new_pos_clip)
+                                        x1 + dx * diagnal / dist * 3,
+                                        y1 + dy * diagnal / dist * 3,
+                                        new_pos_clip)
                   assert end_point is not None
                   x1, y1 = end_point
                 points.append([x1 + dx, y1 + dy])
@@ -550,7 +578,8 @@ class PathDrawer(Drawer):
                   continue
 
               if new_pos_clip:
-                curve = list(reversed(clip_curve(list(reversed(curve)), new_pos_clip)))
+                curve = list(
+                    reversed(clip_curve(list(reversed(curve)), new_pos_clip)))
                 if curve is None:
                   to_draw = None
                   if new_pos is not None:
@@ -582,7 +611,8 @@ class PathDrawer(Drawer):
                 arrow = None
 
               if is_selected:
-                canvas.create_line(*[e for x, y in screen_curve for e in (x, y)],
+                canvas.create_line(*[e for x, y in screen_curve
+                                     for e in (x, y)],
                                    fill="red", dash=6,
                                    width=width+4 if width is not None else 4)
               canvas.create_line(*[e for x, y in screen_curve for e in (x, y)],
@@ -615,7 +645,8 @@ class PathDrawer(Drawer):
                     angle = (get_angle(x0, y0, x1, y1) + 180) % 360
                     if angle > 270 or angle < 90:
                       angle = (angle + 180) % 360
-                  BoxDrawer._draw(canvas, annotate, env, position=(x, y), angle=angle)
+                  BoxDrawer._draw(canvas, annotate, env,
+                                  position=(x, y), angle=angle)
         elif to_draw["type"] == "rectangle":
           if current_pos is None:
             raise Exception("No starting position for rectangle")
@@ -646,9 +677,12 @@ class PathDrawer(Drawer):
             dashed = 2 if "dashed" in obj else None
 
             if is_selected:
-              canvas.create_rectangle((x0p-5, y0p+5, x1p+5, y1p-5), fill="", outline="red", dash=4)
-            canvas.create_rectangle((x0p, y0p, x1p, y1p), fill=color_to_tk(fill),
-                                    outline=color_to_tk(color), width=width, dash=dashed)
+              canvas.create_rectangle(
+                  (x0p-5, y0p+5, x1p+5, y1p-5), fill="", outline="red", dash=4)
+            canvas.create_rectangle((x0p, y0p, x1p, y1p),
+                                    fill=color_to_tk(fill),
+                                    outline=color_to_tk(color), width=width,
+                                    dash=dashed)
 
         to_draw = None
 
@@ -661,10 +695,12 @@ class PathDrawer(Drawer):
           else:
             width = 5
           if index == env["selected path position"]:
-            canvas.create_oval(x-width-2, y-width-2, x+width+2, y+width+2, outline="black", fill="yellow")
+            canvas.create_oval(x-width-2, y-width-2, x+width+2,
+                               y+width+2, outline="black", fill="yellow")
             canvas.create_text(x, y, text=str(position_number), fill="blue")
           else:
-            canvas.create_oval(x-width, y-width, x+width, y+width, outline="red", dash=2)
+            canvas.create_oval(x-width, y-width, x+width,
+                               y+width, outline="red", dash=2)
         if current_pos is None:
           starting_pos = new_pos
         current_pos = new_pos
@@ -680,6 +716,8 @@ class PathDrawer(Drawer):
       if candidate_code is not None:
         candidate_code = candidate_code[len(env["finding prefix"]):]
         x0, y0 = map_point(*starting_pos, cs)
-        ftext = canvas.create_text(x0, y0, anchor="nw", text=candidate_code, fill="black")
-        fback = canvas.create_rectangle(canvas.bbox(ftext), fill="yellow", outline="blue")
+        ftext = canvas.create_text(
+            x0, y0, anchor="nw", text=candidate_code, fill="black")
+        fback = canvas.create_rectangle(
+            canvas.bbox(ftext), fill="yellow", outline="blue")
         canvas.tag_lower(fback, ftext)

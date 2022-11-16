@@ -30,23 +30,16 @@ class DescribeIt(object):
       return f"id{ret}"
     self._state["nextid"] = 1
     return "id0"
-  
+
   def process(self, command_or_text):
-    if (command_or_text.startswith('"') and
-        command_or_text.endswith('"')) or \
-       (command_or_text.startswith("'") and
-        command_or_text.endswith("'")) or \
-       (command_or_text.startswith("'''") and
-        command_or_text.endswith("'''")) or \
-       (command_or_text.startswith('"""') and
-        command_or_text.endswith('"""')):
+    if is_str(command_or_text):
       """
       This is a string. Pass it to the string processor
       of the handler for the last command
       """
       if self._last_handler is None:
         raise Exception("Cannot start with text")
-      if command_or_text.startswith('"""') or command_or_text.startswith("'''"):
+      if is_long_str(command_or_text):
         text = command_or_text[3:-3]
       else:
         text = command_or_text[1:-1]
@@ -73,19 +66,20 @@ class DescribeIt(object):
         self._last_command_or_text = command
         return
     raise Exception(f"Unsupported command: {command}")
-  
+
   def _render(self, obj):
     for renderer in reversed(self._renderers):
       if renderer.match(obj):
         return renderer.render(obj)
     raise Exception(f"Unknown object: {obj}")
-  
+
   def render(self):
     paths = []
     for obj in self._picture:
       rendered = self._render(obj)
       if rendered is None:
-        raise Exception(f"Object not supported by any render: {json.dumps(obj)}")
+        raise Exception(
+            f"Object not supported by any render: {json.dumps(obj)}")
       paths.append(rendered)
     ret = r"""\begin{tikzpicture}
   %s
@@ -93,11 +87,11 @@ class DescribeIt(object):
     if self._scale != 1:
       ret = f"\\scalebox{{{self._scale}}}{{{ret}}}"
     return ret
-  
+
   def register_handler(self, handler):
     assert isinstance(handler, Handler)
     self._handlers.append(handler)
-  
+
   def register_renderer(self, renderer):
     assert isinstance(renderer, Renderer)
     self._renderers.append(renderer)
@@ -105,7 +99,7 @@ class DescribeIt(object):
   def register_preprocessor(self, preprocessor):
     assert isinstance(preprocessor, Preprocessor)
     self._preprocessors.append(preprocessor)
-  
+
   def parse(self, code):
     code = code.strip()
     while len(code) > 0:
@@ -166,7 +160,7 @@ class DescribeIt(object):
       break
     if self._last_handler is not None:
       self._last_handler.on_finished(self)
-      
+
   def _register_fundamental_handlers(self):
     self._there_is_handler = ThereIsHandler()
     self._there_are_handler = ThereAreHandler()
@@ -246,7 +240,7 @@ class DescribeIt(object):
     self.register_handler(TheLayerBaseHandler())
     self.register_handler(TheLayeredGraphHandler())
     self.register_handler(ConnectLayeredGraphNodesHandler())
-    
+
   def _register_fundamental_renderers(self):
     self.register_renderer(BoxRenderer())
     self.register_renderer(TextRenderer())
@@ -290,4 +284,5 @@ class DescribeIt(object):
     self._replace_preprocessor.add_replace_text(pattern, repl, regexp)
 
   def replace_command_and_text(self, pattern, repl, regexp=True):
-    self._replace_preprocessor.add_replace_command_and_text(pattern, repl, regexp)
+    self._replace_preprocessor.add_replace_command_and_text(
+        pattern, repl, regexp)

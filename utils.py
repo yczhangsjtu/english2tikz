@@ -3,44 +3,44 @@ import re
 
 
 colors = [
-  "red", "blue", "white", "black", "yellow", "orange", "green"
+    "red", "blue", "white", "black", "yellow", "orange", "green"
 ]
 
 
 anchor_list = [
-  "north.west", "north", "north.east",
-  "west", "center", "east",
-  "south.west", "south", "south.east",
+    "north.west", "north", "north.east",
+    "west", "center", "east",
+    "south.west", "south", "south.east",
 ]
 
 
 short_anchor_dict = {
-  "nw": "north.west",
-  "n": "north",
-  "ne": "north.east",
-  "w": "west",
-  "c": "center",
-  "e": "east",
-  "sw": "south.west",
-  "s": "south",
-  "se": "south.east",
+    "nw": "north.west",
+    "n": "north",
+    "ne": "north.east",
+    "w": "west",
+    "c": "center",
+    "e": "east",
+    "sw": "south.west",
+    "s": "south",
+    "se": "south.east",
 }
 
 
 arrow_types = [
-  "arrow",
-  "reversed.arrow",
-  "double.arrow",
-  "stealth",
-  "reversed.stealth",
-  "double.stealth",
+    "arrow",
+    "reversed.arrow",
+    "double.arrow",
+    "stealth",
+    "reversed.stealth",
+    "double.stealth",
 ]
 
 
 arrow_symbols = {
-  "->": "stealth",
-  "<-": "reversed.stealth",
-  "<->": "double.stealth",
+    "->": "stealth",
+    "<-": "reversed.stealth",
+    "<->": "double.stealth",
 }
 
 
@@ -64,6 +64,26 @@ def index_two_lists(a, b, i):
 
 def add_to_key(item, key, delta):
   item[key] = num_to_dist(dist_to_num(get_default(item, key, 0)) + delta)
+
+
+def default_font(font_size):
+  return ("Times New Roman", font_size, "normal")
+
+
+def is_str(s):
+  marks = ['"', "'"]
+  for mark in marks:
+    if s.startswith(mark) and s.endswith(mark):
+      return True
+  return False
+
+
+def is_long_str(s):
+  marks = ['"""', "'''"]
+  for mark in marks:
+    if s.startswith(mark) and s.endswith(mark):
+      return True
+  return False
 
 
 def both(a, b):
@@ -96,7 +116,8 @@ def unindent(code):
   for i, line in enumerate(lines):
     if line.strip() != "":
       if len(line) < indent_size or line[:indent_size] != " " * indent_size:
-        raise Exception(f"code does not have sufficient indentation on line {i}:\n{code}")
+        raise Exception(
+            f"code does not have sufficient indentation on line {i}:\n{code}")
       lines[i] = lines[i][indent_size:]
   return "\n".join(lines)
 
@@ -129,6 +150,7 @@ def _num_to_dist(num):
   if num < 0.001 and num > -0.001:
     return "0"
   return f"{num:g}cm"
+
 
 def num_to_dist(*nums):
   if len(nums) == 0:
@@ -193,11 +215,11 @@ def rect_line_intersect(rect, line):
   x0, y0, x1, y1 = rect
   x2, y2, x3, y3 = line
   return point_in_rect(x2, y2, rect) or \
-         point_in_rect(x3, y3, rect) or \
-         line_line_intersect((x0, y0, x1, y0), line) or \
-         line_line_intersect((x0, y0, x0, y1), line) or \
-         line_line_intersect((x1, y1, x0, y1), line) or \
-         line_line_intersect((x1, y1, x0, y1), line)
+      point_in_rect(x3, y3, rect) or \
+      line_line_intersect((x0, y0, x1, y0), line) or \
+      line_line_intersect((x0, y0, x0, y1), line) or \
+      line_line_intersect((x1, y1, x0, y1), line) or \
+      line_line_intersect((x1, y1, x0, y1), line)
 
 
 def point_in_rect(x, y, rect, strict=False):
@@ -303,33 +325,33 @@ def shift_anchor(anchor, direction):
 
 def anchor_to_num(anchor):
   return {
-    "center": (0, 0),
-    "north": (0, 1),
-    "south": (0, -1),
-    "east": (1, 0),
-    "west": (-1, 0),
-    "north.east": (1, 1),
-    "north.west": (-1, 1),
-    "south.east": (1, -1),
-    "south.west": (-1, -1),
+      "center": (0, 0),
+      "north": (0, 1),
+      "south": (0, -1),
+      "east": (1, 0),
+      "west": (-1, 0),
+      "north.east": (1, 1),
+      "north.west": (-1, 1),
+      "south.east": (1, -1),
+      "south.west": (-1, -1),
   }[anchor]
 
 
 def direction_to_num(direction):
   return {
-    "up": (0, 1),
-    "down": (0, -1),
-    "left": (-1, 0),
-    "right": (1, 0),
+      "up": (0, 1),
+      "down": (0, -1),
+      "left": (-1, 0),
+      "right": (1, 0),
   }[direction]
 
 
 def direction_to_angle(direction):
   return {
-    "up": 90,
-    "down": 270,
-    "left": 180,
-    "right": 0,
+      "up": 90,
+      "down": 270,
+      "left": 180,
+      "right": 0,
   }[direction]
 
 
@@ -380,7 +402,7 @@ def get_angle(x0, y0, x1, y1):
 
 
 latex_hints = [
-  "$", "\\textbf{", "\\begin{", "\\emph{"
+    "$", "\\textbf{", "\\begin{", "\\emph{"
 ]
 
 
@@ -439,9 +461,9 @@ def order(a, b):
 
 def create_coordinate(x, y):
   return {
-    "type": "coordinate",
-    "x": num_to_dist(x),
-    "y": num_to_dist(y),
+      "type": "coordinate",
+      "x": num_to_dist(x),
+      "y": num_to_dist(y),
   }
 
 
@@ -612,6 +634,7 @@ Bezier, a module for creating Bezier curves.
 Version 1.1, from < BezierCurveFunction-v1.ipynb > on 2019-05-02
 """
 
+
 class Bezier():
   def TwoPoints(t, P1, P2):
     assert len(P1) == 2
@@ -641,7 +664,8 @@ class Bezier():
       newpoints.append(point)
     assert isinstance(newpoints, list)
     assert isinstance(newpoints[0], list)
-    assert isinstance(newpoints[0][0], float) or isinstance(newpoints[0][1], int)
+    assert isinstance(newpoints[0][0], float) or isinstance(
+        newpoints[0][1], int)
     return newpoints
 
   def Point(t, *points):
@@ -654,7 +678,8 @@ class Bezier():
     assert len(newpoints) == 1
     assert isinstance(newpoints[0], list)
     assert len(newpoints[0]) == 2
-    assert isinstance(newpoints[0][0], float) or isinstance(newpoints[0][0], int)
+    assert isinstance(newpoints[0][0], float) or isinstance(
+        newpoints[0][0], int)
     return newpoints[0]
 
   def Curve(t_values, *points):
