@@ -41,6 +41,7 @@ class CanvasManager(object):
     self._grid_sizes = [1, 0.5, 0.2, 0.1, 0.05]
     self._show_axes = True
     self._show_grid = True
+    self._show_attributes = True
     self._obj_to_edit_text = None
     self._editing_text = None
     self._editing_text_pos = None
@@ -1050,6 +1051,7 @@ class CanvasManager(object):
     self._draw_picture(self._canvas, self._context)
     self._draw_visual(self._canvas)
     self._draw_marks(self._canvas)
+    self._draw_attributes(self._canvas)
     self._draw_pointer(self._canvas)
     self._draw_command(self._canvas)
 
@@ -1211,6 +1213,64 @@ class CanvasManager(object):
     c.create_line((x, 0, x, self._screen_height), fill="red", width=1)
     c.create_oval(x-10, y-10, x+10, y+10, fill="red", outline="black")
 
+  def _selected_single_object(self):
+    if len(self._selected_ids) == 1 and len(self._selected_paths) == 0:
+      return self._find_object_by_id(self._selected_ids[0])
+    if len(self._selected_ids) == 0 and len(self._selected_paths) == 1:
+      path = self._selected_paths[0]
+      if self._selected_path_position is not None:
+        return path["items"][self._selected_path_position]
+      return path
+    return None
+
+  def _draw_attributes(self, c):
+    if not self._show_attributes:
+      return
+
+    obj = self._selected_single_object()
+    if obj is None:
+      return
+
+    keys = list(obj.keys())
+    if is_type(obj, "path"):
+      keys = remove_if_in(keys, "items")
+      to_draw = {key: obj[key] for key in keys}
+      to_draw["#items"] = len(obj["items"])
+    elif is_type(obj, "box"):
+      keys = remove_if_in(keys, "name")
+      to_draw = {key: obj[key] for key in keys}
+      to_draw["draw"] = True
+    elif is_type(obj, "text"):
+      keys = remove_if_in(keys, "name")
+      to_draw = {key: obj[key] for key in keys}
+    else:
+      to_draw = {key: obj[key] for key in keys}
+
+    keys = sorted(list(to_draw.keys()))
+
+    i = 0
+    for key in keys:
+      value = to_draw[key]
+      if isinstance(value, str):
+        c.create_text(15, 5 + i * 18, anchor="nw", text=key, fill="blue",
+                      font=("Helvetica", 15, "normal"))
+        c.create_text(120, 5 + i * 18, anchor="nw", text=str(value),
+                      fill="#0000aa", font=("Helvetica", 15, "normal"))
+        i += 1
+      elif isinstance(value, dict):
+        c.create_text(15, 5 + i * 18, anchor="nw", text=key, fill="blue",
+                      font=("Helvetica", 15, "normal"))
+        for k, v in value.items():
+          c.create_text(120, 5 + i * 18, anchor="nw", text=k,
+                        fill="#0000aa", font=("Helvetica", 15, "normal"))
+          c.create_text(200, 5 + i * 18, anchor="nw", text=v,
+                        fill="#007700", font=("Helvetica", 15, "normal"))
+          i += 1
+      elif value is True:
+        c.create_text(15, 5 + i * 18, anchor="nw", text=key, fill="blue",
+                      font=("Helvetica", 15, "normal"))
+        i += 1
+
   def _draw_command(self, c):
     command = self._get_command_line()
     if command is not None:
@@ -1338,6 +1398,8 @@ class CanvasManager(object):
         self._set_axes(*tokens[1:])
       elif cmd_name == "mark" or cmd_name == "m":
         self._add_mark(*tokens[1:])
+      elif cmd_name == "attr":
+        self._show_attributes = not self._show_attributes
       elif cmd_name == "ann" or cmd_name == "annotate":
         self._annotate(*tokens[1:])
       elif cmd_name == "ch" or cmd_name == "chain":
