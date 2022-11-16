@@ -766,10 +766,10 @@ class CanvasManager(object):
 
     for type_, data, path in self._segments:
       selector = get_default({
-        "line": self._select_line,
-        "rectangle": self._select_rect,
-        "curve": self._select_curve,
-        }, type_)
+          "line": self._select_line,
+          "rectangle": self._select_rect,
+          "curve": self._select_curve,
+      }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
       if selector(sel, data, path, check_only=True):
@@ -799,10 +799,10 @@ class CanvasManager(object):
       if path in self._selected_paths:
         continue
       selector = get_default({
-        "line": self._select_line,
-        "rectangle": self._select_rect,
-        "curve": self._select_curve,
-        }, type_)
+          "line": self._select_line,
+          "rectangle": self._select_rect,
+          "curve": self._select_curve,
+      }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
       selector(sel, data, path)
@@ -870,10 +870,10 @@ class CanvasManager(object):
       if path not in self._selected_paths:
         continue
       selector = get_default({
-        "line": self._select_line,
-        "rectangle": self._select_rect,
-        "curve": self._select_curve,
-        }, type_)
+          "line": self._select_line,
+          "rectangle": self._select_rect,
+          "curve": self._select_curve,
+      }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
       selector(sel, data, path, deselect=True)
@@ -900,10 +900,10 @@ class CanvasManager(object):
       if path not in self._selected_paths:
         continue
       selector = get_default({
-        "line": self._select_line,
-        "rectangle": self._select_rect,
-        "curve": self._select_curve,
-        }, type_)
+          "line": self._select_line,
+          "rectangle": self._select_rect,
+          "curve": self._select_curve,
+      }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
       selector(sel, data, path,
@@ -1090,7 +1090,7 @@ class CanvasManager(object):
         "center_x": self._centerx,
         "center_y": self._centery,
         "scale": self._scale,
-        }
+    }
 
   def _draw_picture(self, c, ctx):
     env = {
@@ -1103,7 +1103,7 @@ class CanvasManager(object):
         "image references": self._image_references,
         "finding prefix": self._finding_prefix,
         "get_candidate_code": self._get_candidate_code,
-        }
+    }
     for obj in ctx._picture:
       self._draw_obj(c, obj, env)
     self._bounding_boxes = env["bounding box"]
@@ -1296,7 +1296,7 @@ class CanvasManager(object):
         "bound_box": [x0, y0, x1, y1],
         "width": x1 - x0,
         "height": y1 - y0,
-        }
+    }
 
   def load(self, data):
     if "picture" in data:
@@ -1360,10 +1360,14 @@ class CanvasManager(object):
       elif cmd_name == "q":
         self._root.after(1, self._root.destroy())
         self._end = True
-      elif cmd_name == "python":
+      elif cmd_name == "py":
         self._execute_python_code()
-      elif cmd_name == "pyedit":
+      elif cmd_name == "epy":
         self._edit_python_code()
+      elif cmd_name == "eg":
+        self._execute_describeit_code()
+      elif cmd_name == "eeg":
+        self._edit_describeit_code()
       else:
         raise Exception(f"Unkown command: {cmd_name}")
     except Exception as e:
@@ -1532,18 +1536,18 @@ class CanvasManager(object):
       if self._visual_start is not None:
         self._before_change()
         self._context._picture.append(create_path([
-          create_coordinate(*self._visual_start),
-          create_rectangle(),
-          create_coordinate(*self._get_pointer_pos()),
-          ]))
+            create_coordinate(*self._visual_start),
+            create_rectangle(),
+            create_coordinate(*self._get_pointer_pos()),
+        ]))
         self._after_change()
       elif len(self._marks) == 2:
         self._before_change()
         self._context._picture.append(create_path([
-          self._marks[0],
-          create_rectangle(),
-          self._marks[1],
-          ]))
+            self._marks[0],
+            create_rectangle(),
+            self._marks[1],
+        ]))
         self._after_change()
       else:
         raise Exception("Please set exactly two marks "
@@ -1690,7 +1694,7 @@ class CanvasManager(object):
               "type": "nodename",
               "name": id_,
               "anchor": v if v in anchor_list else short_anchor_dict[v],
-              }
+          }
         elif v == "shift":
           if mark["type"] != "nodename":
             raise Exception("Please specify anchor before shift")
@@ -1756,15 +1760,15 @@ class CanvasManager(object):
     if "annotates" not in line:
       line["annotates"] = []
     line["annotates"].append({
-      "id": self._context.getid(),
-      "type": "text",
-      "in_path": True,
-      "text": v,
-      "midway": True,
-      "above": True,
-      "sloped": True,
-      "scale": "0.7",
-      })
+        "id": self._context.getid(),
+        "type": "text",
+        "in_path": True,
+        "text": v,
+        "midway": True,
+        "above": True,
+        "sloped": True,
+        "scale": "0.7",
+    })
     self._after_change()
 
   def _chain(self, *args):
@@ -2050,6 +2054,26 @@ class CanvasManager(object):
 # selected_paths: list, paths
 """)
     os.system("open -a 'Sublime Text' /tmp/english2tikz.py")
+
+  def _execute_describeit_code(self):
+    self._before_change()
+    with open("/tmp/english2tikz.desc") as f:
+      code = f.read()
+    selected_objects = [self._find_object_by_id(id_)
+                        for id_ in self._selected_ids]
+    ctx = self._context
+    ctx._state["refered_to"] = selected_objects + self._selected_paths
+    for i, id_ in enumerate(self._selected_ids):
+      code = code.replace(f"{{#{i}}}", id_)
+    print(code)
+    ctx.parse(code)
+    self._after_change()
+
+  def _edit_describeit_code(self):
+    if not os.path.exists("/tmp/english2tikz.desc"):
+      with open("/tmp/english2tikz.desc", "w") as f:
+        f.write("### Write the describe it code here ###")
+    os.system("open -a 'Sublime Text' /tmp/english2tikz.desc")
 
 
 if __name__ == "__main__":
