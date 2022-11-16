@@ -836,11 +836,14 @@ class CanvasManager(object):
     if check_only:
       return False
 
-  def _select_curve(self, bb, data, path, deselect=False, new_selected_paths=None, check_only=False):
+  def _select_curve(self, bb, data, path,
+                    deselect=False, new_selected_paths=None,
+                    check_only=False):
     eps = 0.1
     x0, y0, x1, y1 = bb
     for x, y in data:
-      if is_bound_by(x, x0 - eps, x1 + eps) and is_bound_by(y, y0 - eps, y1 + eps):
+      if both(is_bound_by(x, x0 - eps, x1 + eps),
+              is_bound_by(y, y0 - eps, y1 + eps)):
         if check_only:
           return True
         self._select_path(path, deselect, new_selected_paths)
@@ -859,7 +862,8 @@ class CanvasManager(object):
 
     for id_, bb in self._bounding_boxes.items():
       x, y, width, height = bb
-      if id_ in self._selected_ids and intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
+      if both(id_ in self._selected_ids,
+              intersect((x0, y0, x1, y1), (x, y, x+width, y+height))):
         self._selected_ids = remove_if_in(self._selected_ids, id_)
 
     for type_, data, path in self._segments:
@@ -886,7 +890,8 @@ class CanvasManager(object):
     new_selected_ids = []
     for id_, bb in self._bounding_boxes.items():
       x, y, width, height = bb
-      if id_ in self._selected_ids and intersect((x0, y0, x1, y1), (x, y, x+width, y+height)):
+      if both(id_ in self._selected_ids,
+              intersect((x0, y0, x1, y1), (x, y, x+width, y+height))):
         new_selected_ids.append(id_)
     self._selected_ids = new_selected_ids
 
@@ -901,24 +906,26 @@ class CanvasManager(object):
         }, type_)
       if selector is None:
         raise Exception(f"Unknown segment type: {type_}")
-      selector(sel, data, path, deselect=True, new_selected_paths=new_selected_paths)
+      selector(sel, data, path,
+               deselect=True, new_selected_paths=new_selected_paths)
     self._selected_paths = new_selected_paths
 
-  def _delete_objects_related_to_id(self, id_, deleted_ids = []):
-    to_removes = [obj for obj in self._context._picture if self._related_to(obj, id_)]
+  def _delete_objects_related_to_id(self, id_, deleted_ids=[]):
+    to_removes = [obj for obj in self._context._picture
+                  if self._related_to(obj, id_)]
     deleted_ids.append(id_)
     related_ids = [item["id"] for item in to_removes
-        if "id" in item and
-        item["id"] not in deleted_ids]
+                   if "id" in item and item["id"] not in deleted_ids]
     self._context._picture = [obj for obj in self._context._picture
-        if not self._related_to(obj, id_)]
+                              if not self._related_to(obj, id_)]
 
     for obj in self._context._picture:
       if "items" in obj:
         for item in obj["items"]:
           if "annotates" in item:
             item["annotates"] = [annotate for annotate in item["annotates"]
-                if "id" not in annotate or annotate["id"] != id_]
+                                 if "id" not in annotate
+                                 or annotate["id"] != id_]
     for id_ in related_ids:
       self._delete_objects_related_to_id(id_, deleted_ids)
 
@@ -939,7 +946,7 @@ class CanvasManager(object):
     for item in path["items"]:
       if "annotates" in item:
         for annotate in item["annotates"]:
-          if "id" in annotate and not "id" in affected_ids:
+          if "id" in annotate and "id" not in affected_ids:
             affected_ids.append(annotate["id"])
     for i in range(len(self._context._picture)):
       if self._context._picture[i] == path:
@@ -955,7 +962,7 @@ class CanvasManager(object):
       return
     self._before_change()
     self._paste_data(copy.deepcopy(self._clipboard), False,
-        self._bounding_boxes, self._segments)
+                     self._bounding_boxes, self._segments)
     self._after_change()
 
   def _jump_to_select(self):
@@ -981,7 +988,8 @@ class CanvasManager(object):
           self._selected_path_position_index][0]
 
   def _get_pointer_pos(self):
-    return self._pointerx * self._grid_size(), self._pointery * self._grid_size()
+    return (self._pointerx * self._grid_size(),
+            self._pointery * self._grid_size())
 
   def _get_pointer_pos_str(self):
     x, y = self._get_pointer_pos()
@@ -1013,19 +1021,21 @@ class CanvasManager(object):
 
   def _reset_pointer_into_screen(self):
     screenx, screeny = self._get_pointer_screen_pos()
-    screenx = bound_by(screenx, self._scale - 10, self._screen_width - self._scale + 10)
-    screeny = bound_by(screeny, self._scale - 10, self._screen_height - self._scale + 10)
-    x, y = reverse_map_point(screenx, screeny, self._coordinate_system())
-    self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(x, y)
+    screenx = bound_by(screenx, self._scale - 10,
+                       self._screen_width - self._scale + 10)
+    screeny = bound_by(screeny, self._scale - 10,
+                       self._screen_height - self._scale + 10)
+    self._pointerx, self._pointery = self._find_closest_pointer_grid_coord(
+        *reverse_map_point(screenx, screeny, self._coordinate_system()))
 
   def _boundary_grids(self):
     x0, y0 = reverse_map_point(0, 0, self._coordinate_system())
     x1, y1 = reverse_map_point(self._screen_width,
-        self._screen_height,
-        self._coordinate_system())
+                               self._screen_height,
+                               self._coordinate_system())
     step_upper = int(y0 / self._grid_size())
     step_lower = int(y1 / self._grid_size())
-    step_left  = int(x0 / self._grid_size())
+    step_left = int(x0 / self._grid_size())
     step_right = int(x1 / self._grid_size())
     return step_upper, step_lower, step_left, step_right
 
@@ -1054,7 +1064,8 @@ class CanvasManager(object):
       if draw_text:
         text = "%g" % (i * self._grid_size())
         c.create_text(5, y, text=text, anchor="sw", fill=color)
-        c.create_text(self._screen_width-3, y, text=text, anchor="se", fill=color)
+        c.create_text(self._screen_width-3, y,
+                      text=text, anchor="se", fill=color)
     for i in range(step_left, step_right+1):
       x, y = map_point(self._grid_size() * i, 0, self._coordinate_system())
       c.create_line((x, 0, x, self._screen_height), fill="gray", dash=2)
@@ -1063,11 +1074,14 @@ class CanvasManager(object):
       if draw_text:
         text = "%g" % (i * self._grid_size())
         c.create_text(x, 0, text=text, anchor="nw", fill=color)
-        c.create_text(x, self._screen_height, text=text, anchor="sw", fill=color)
+        c.create_text(x, self._screen_height,
+                      text=text, anchor="sw", fill=color)
 
   def _draw_axes(self, c):
-    c.create_line((0, self._centery, self._screen_width, self._centery), fill="blue", width=1.5)
-    c.create_line((self._centerx, 0, self._centerx, self._screen_height), fill="blue", width=1.5)
+    c.create_line((0, self._centery, self._screen_width, self._centery),
+                  fill="blue", width=1.5)
+    c.create_line((self._centerx, 0, self._centerx, self._screen_height),
+                  fill="blue", width=1.5)
 
   def _coordinate_system(self):
     return {
@@ -1159,7 +1173,7 @@ class CanvasManager(object):
         this case, we simply remove all the following marks.
         """
         x, y = self._get_mark_pos(i, buffer)
-      except:
+      except Exception:
         self._marks = self._marks[:i]
         return
 
@@ -1190,8 +1204,9 @@ class CanvasManager(object):
     if self._editing_text is not None:
       self._draw_editing_text(c)
       return
-    x, y = map_point(self._pointerx * self._grid_size(), self._pointery * self._grid_size(),
-        self._coordinate_system())
+    x, y = map_point(self._pointerx * self._grid_size(),
+                     self._pointery * self._grid_size(),
+                     self._coordinate_system())
     c.create_line((0, y, self._screen_width, y), fill="red", width=1)
     c.create_line((x, 0, x, self._screen_height), fill="red", width=1)
     c.create_oval(x-10, y-10, x+10, y+10, fill="red", outline="black")
@@ -1199,11 +1214,17 @@ class CanvasManager(object):
   def _draw_command(self, c):
     command = self._get_command_line()
     if command is not None:
-      c.create_rectangle((3, self._screen_height-15, self._screen_width, self._screen_height), fill="white", outline="black")
-      c.create_text(5, self._screen_height, text=":"+command, anchor="sw", fill="black")
+      c.create_rectangle((3, self._screen_height-15,
+                          self._screen_width, self._screen_height),
+                         fill="white", outline="black")
+      c.create_text(5, self._screen_height, text=":"+command,
+                    anchor="sw", fill="black")
     elif self._error_msg is not None:
-      c.create_rectangle((3, self._screen_height-15, self._screen_width, self._screen_height), fill="white", outline="black")
-      c.create_text(5, self._screen_height, text=self._error_msg, anchor="sw", fill="red")
+      c.create_rectangle((3, self._screen_height-15,
+                          self._screen_width, self._screen_height),
+                         fill="white", outline="black")
+      c.create_text(5, self._screen_height, text=self._error_msg,
+                    anchor="sw", fill="red")
 
   def _tokenize(self, code):
     code = code.strip()
@@ -1267,8 +1288,8 @@ class CanvasManager(object):
       x0, y0, x1, y1 = 0, 0, 0, 0
     else:
       x0, y0, x1, y1 = get_bounding_box(self._context._picture,
-          self._bounding_boxes,
-          self._segments)
+                                        self._bounding_boxes,
+                                        self._segments)
     return {
         "picture": self._context._picture,
         "nextid": get_default(self._context._state, "nextid", 0),
@@ -1392,14 +1413,14 @@ class CanvasManager(object):
     """
     Implement acronyms and aliases.
     """
-    if is_color(key) and value == True:
+    if is_color(key) and value is True:
       """
       set blue <=> set color=blue
       """
       return [("color", key)]
-    if key in anchor_list and value == True:
+    if key in anchor_list and value is True:
       return [("anchor", key)]
-    if key in short_anchor_dict and value == True:
+    if key in short_anchor_dict and value is True:
       return [("anchor", short_anchor_dict[key])]
     if key == "at" and value in anchor_list:
       return [("at.anchor", value)]
@@ -1425,7 +1446,7 @@ class CanvasManager(object):
 
   def _set_object(self, obj, key_values):
     for key, value in key_values:
-      if value is None or value == False:
+      if value is None or value is False:
         del_if_has(obj, key)
       else:
         obj[key] = value
@@ -1525,7 +1546,8 @@ class CanvasManager(object):
           ]))
         self._after_change()
       else:
-        raise Exception("Please set exactly two marks or draw a rect in visual mode")
+        raise Exception("Please set exactly two marks "
+                        "or draw a rect in visual mode")
 
     else:
       raise Exception("Unknown object type")
@@ -1570,7 +1592,9 @@ class CanvasManager(object):
       id1, id2 = ids[i], ids[j]
       anchor1, anchor2 = anchors[i], anchors[j]
       annotate = annotates[k]
-      self._parse(f"draw {arrow} from.{id1}{anchor1} {action}.to.{id2}{anchor2} {start_out} {close_in} {annotate}")
+      self._parse(f"draw {arrow} from.{id1}{anchor1} "
+                  f"{action}.to.{id2}{anchor2} "
+                  f"{start_out} {close_in} {annotate}")
 
   def _connect_mark_with_objects_by_ids(self, mark, ids, *args):
     if mark["type"] == "coordinate":
@@ -1619,19 +1643,23 @@ class CanvasManager(object):
     for id_ in ids:
       self._ensure_name_is_id(id_)
       self._ensure_name_is_id(id_)
-      self._parse(f"draw {arrow} {start_point} {action}.to.{id_}{anchor} {start_out} {close_in} {' '.join(annotates)}")
+      self._parse(f"draw {arrow} {start_point} "
+                  f"{action}.to.{id_}{anchor} "
+                  f"{start_out} {close_in} {' '.join(annotates)}")
 
   def _connect(self, *args):
     if len(self._selected_paths) != 0:
       raise Exception("Cannot connect paths")
     if len(self._marks) == 0:
       if len(self._selected_ids) < 2:
-        raise Exception("Should select at least two objects, or set at least one mark")
+        raise Exception("Should select at least two objects, "
+                        "or set at least one mark")
       self._connect_objects_by_ids(self._selected_ids, *args)
     elif len(self._marks) == 1:
       if len(self._selected_ids) == 0:
         raise Exception("Should select at least one object")
-      self._connect_mark_with_objects_by_ids(self._marks[0], self._selected_ids, *args)
+      self._connect_mark_with_objects_by_ids(self._marks[0],
+                                             self._selected_ids, *args)
 
   def _set_grid(self, *args):
     self._show_grid = True
@@ -1841,8 +1869,8 @@ class CanvasManager(object):
         object_name = v
     if len(self._selected_ids) > 0 or len(self._selected_paths) > 0:
       data = json.dumps([obj for obj in self._context._picture
-        if get_default(obj, "id") in self._selected_ids
-        or obj in self._selected_paths])
+                         if get_default(obj, "id") in self._selected_ids
+                         or obj in self._selected_paths])
     else:
       data = json.dumps(self._context._picture)
     with open(self._get_object_path(object_name), "w") as f:
@@ -1860,7 +1888,7 @@ class CanvasManager(object):
     self._after_change()
 
   def _paste_data(self, data, check_all_relative_pos=False,
-      bounding_boxes=None, segments=None):
+                  bounding_boxes=None, segments=None):
     if len(data) == 0:
       return
     pos = get_first_absolute_coordinate(data)
@@ -1868,7 +1896,8 @@ class CanvasManager(object):
       if check_all_relative_pos:
         raise Exception("All copied objects have relative positions")
       if bounding_boxes is None or segments is None:
-        raise Exception("Must provide the bounding boxes if not check relative positions")
+        raise Exception("Must provide the bounding boxes "
+                        "if not check relative positions")
       pos = get_top_left_corner(data, bounding_boxes, segments)
     x0, y0 = pos
     x1, y1 = self._get_pointer_pos()
@@ -1887,8 +1916,8 @@ class CanvasManager(object):
           obj["at"] = create_coordinate(dx, dy)
         elif is_type(at, "coordinate"):
           assert not get_default(at, "relative", False)
-          at["x"] = num_to_dist(dist_to_num(get_default(at, "x", 0)) + dx)
-          at["y"] = num_to_dist(dist_to_num(get_default(at, "y", 0)) + dy)
+          add_to_key(at, "x", dx)
+          add_to_key(at, "y", dy)
         elif isinstance(at, str):
           to_replace.append((obj, "at"))
       elif is_type(obj, "path"):
@@ -1905,8 +1934,8 @@ class CanvasManager(object):
             to_replace.append((item, "name2"))
           elif is_type(item, "coordinate"):
             if not get_default(item, "relative", False):
-              item["x"] = num_to_dist(dist_to_num(get_default(item, "x", 0)) + dx)
-              item["y"] = num_to_dist(dist_to_num(get_default(item, "y", 0)) + dy)
+              add_to_key(item, "x", dx)
+              add_to_key(item, "y", dy)
           elif "annotates" in item:
             annotates = item["annotates"]
             for annotate in annotates:
@@ -1916,7 +1945,8 @@ class CanvasManager(object):
                 old_to_new_id_dict[id_] = new_id
                 annotate["id"] = new_id
       else:
-        raise Exception(f"Find an object that is neither object with id, nor path: {obj}")
+        raise Exception(f"Find an object that is neither object with id, "
+                        f"nor path: {obj}")
       self._context._picture.append(obj)
 
     for item, key in to_replace:
@@ -1924,20 +1954,23 @@ class CanvasManager(object):
       if old_id in old_to_new_id_dict:
         item[key] = old_to_new_id_dict[old_id]
       elif check_all_relative_pos:
-        raise Exception(f"Object {item} refers to an id {old_id} that is not copied")
+        raise Exception(f"Object {item} refers to "
+                        f"an id {old_id} that is not copied")
       elif is_type(item, "nodename"):
         """
-        We get a nodename item in a path that refers to an id that is not copied.
-        In this case, we replace it with an absolute position.
+        We get a nodename item in a path that refers to an id
+        that is not copied. In this case, we replace it with an
+        absolute position.
         """
         if bounding_boxes is None:
-          raise Exception("Must provide the bounding boxes if not check relative positions")
+          raise Exception("Must provide the bounding boxes "
+                          "if not check relative positions")
         bb = bounding_boxes[old_id]
         anchor = get_default(item, "anchor", "center")
         x, y = get_anchor_pos(bb, anchor)
         """
-        We can only modify 'item' in place, because we cannot overwrite item itself
-        without knowing where it is pointed from
+        We can only modify 'item' in place, because we cannot
+        overwrite item itself without knowing where it is pointed from
         """
         clear_dict(item)
         item["type"] = "coordinate"
@@ -1945,17 +1978,18 @@ class CanvasManager(object):
         item["y"] = num_to_dist(y + dy)
       elif is_type(item, "intersection"):
         if bounding_boxes is None:
-          raise Exception("Must provide the bounding boxes if not check relative positions")
+          raise Exception("Must provide the bounding boxes "
+                          "if not check relative positions")
         bb = bounding_boxes[old_id]
         """
-        key is "name1" or "name2", and the key for anchor is respectively "anchor1"
-        "anchor2"
+        key is "name1" or "name2", and the key for anchor is respectively
+        "anchor1" "anchor2"
         """
         anchor = get_default(item, f"anchor{key[4]}", "center")
         x, y = get_anchor_pos(bb, anchor)
         """
-        We can only modify 'item' in place, because we cannot overwrite item itself
-        without knowing where it is pointed from
+        We can only modify 'item' in place, because we cannot overwrite item
+        itself without knowing where it is pointed from
         """
         clear_dict(item)
         item["type"] = "coordinate"
@@ -1966,14 +2000,16 @@ class CanvasManager(object):
         Same as before: replace the relative position with absolute coordinate.
         """
         if bounding_boxes is None:
-          raise Exception("Must provide the bounding boxes if not check relative positions")
+          raise Exception("Must provide the bounding boxes "
+                          "if not check relative positions")
         bb = bounding_boxes[old_id]
         anchor = get_default(item, "at.anchor", "center")
         x, y = get_anchor_pos(bb, anchor)
         item["at"] = create_coordinate(x + dx, y + dy)
         del_if_has(item, "at.anchor")
       else:
-        raise Exception("This branch should not be reached at all, unless something is wrong")
+        raise Exception("This branch should not be reached at all, "
+                        "unless something is wrong")
 
   def _get_object_path(self, name):
     if not os.path.exists(self._object_path):
@@ -1985,7 +2021,7 @@ class CanvasManager(object):
     try:
       with open(path) as f:
         history = f.read()
-    except:
+    except Exception:
       return []
     return history.split("\n")
 
@@ -2000,7 +2036,8 @@ class CanvasManager(object):
     self._before_change()
     with open("/tmp/english2tikz.py") as f:
       code = f.read()
-    selected_objects = [self._find_object_by_id(id_) for id_ in self._selected_ids]
+    selected_objects = [self._find_object_by_id(id_)
+                        for id_ in self._selected_ids]
     selected_paths = self._selected_paths
     exec(code, locals())
     self._after_change()
@@ -2017,7 +2054,9 @@ class CanvasManager(object):
 
 if __name__ == "__main__":
   root = tk.Tk()
-  canvas = tk.Canvas(root, bg="white", width=screen_width, height=screen_height)
+  canvas = tk.Canvas(root, bg="white",
+                     width=screen_width,
+                     height=screen_height)
   canvas.pack()
 
   CanvasManager(root, canvas, screen_width, screen_height)

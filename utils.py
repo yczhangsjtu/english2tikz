@@ -62,6 +62,10 @@ def index_two_lists(a, b, i):
   raise IndexError(f"Expected [0, {len(a)+len(b)}), got {i}")
 
 
+def add_to_key(item, key, delta):
+  item[key] = num_to_dist(dist_to_num(get_default(item, key, 0)) + delta)
+
+
 def both(a, b):
   return a and b
 
