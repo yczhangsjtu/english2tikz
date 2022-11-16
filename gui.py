@@ -4,6 +4,7 @@ import copy
 import re
 import json
 import os
+import traceback
 from english2tikz.describe_it import DescribeIt
 from english2tikz.drawers import *
 from english2tikz.handlers import WithAttributeHandler
@@ -59,7 +60,7 @@ class CanvasManager(object):
     self._finding_candidates = None
     self._command_refershing_timer_started = True
     self._editing_refershing_timer_started = True
-    self._union_find = False
+    self._toggle_find = False
     self.filename = None
     root.bind("<Key>", self.handle_key)
     self.draw()
@@ -307,13 +308,13 @@ class CanvasManager(object):
                           f"code {self._finding_prefix}"
         self._exit_finding_mode()
       elif len(current_candidates) == 1:
-        if self._union_find:
+        if self._toggle_find:
           if isinstance(current_candidates[0], str):
-            if current_candidates[0] not in self._selected_ids:
-              self._selected_ids.append(current_candidates[0])
+            self._selected_ids = toggle_element(self._selected_ids,
+                                                current_candidates[0])
           elif is_type(current_candidates[0], "path"):
-            if current_candidates[0] not in self._selected_paths:
-              self._selected_paths.append(current_candidates[0])
+            self._selected_paths = toggle_element(self._selected_paths,
+                                                  current_candidates[0])
           else:
             raise Exception(f"Invalid finding candidate {current_candidates[0]}")
         else:
@@ -510,10 +511,17 @@ class CanvasManager(object):
                                                                            y)
     self._move_pointer_into_screen()
 
-  def _initialize_finding_mode(self, union=False):
+  def _is_in_path_position_mode(self):
+    if self._selected_path_position is not None:
+      assert len(self._selected_ids) == 0
+      assert len(self._selected_paths) == 1
+      return True
+    return False
+
+  def _initialize_finding_mode(self, toggle=False):
     self._finding_prefix = ""
     self._finding_candidates = {}
-    self._union_find = union
+    self._toggle_find = toggle
     candidate_ids, candidate_paths = self._find_all_in_screen()
     candidates_number = len(candidate_ids) + len(candidate_paths)
     if candidates_number == 0:
@@ -708,8 +716,8 @@ class CanvasManager(object):
     elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
       self._before_change()
       self._shift_path_position(self._selected_paths[0],
-          self._selected_path_position,
-          dx, dy)
+                                self._selected_path_position,
+                                dx, dy)
       self._after_change()
 
   def _shift_dist(self, obj, key, delta, empty_val=None):
@@ -958,14 +966,13 @@ class CanvasManager(object):
     if len(self._selected_paths) != 1:
       return
 
-    path = self._selected_paths[0]
-    position_items = [(i, item) for (i, item) in enumerate(path["items"])
-        if item["type"] in ["nodename", "coordinate", "intersection"]]
+    position_items = get_path_position_items(self._selected_paths[0])
 
     if len(position_items) > 0:
       self._selected_path_position_index += len(position_items)
       self._selected_path_position_index %= len(position_items)
-      self._selected_path_position = position_items[self._selected_path_position_index][0]
+      self._selected_path_position = position_items[
+          self._selected_path_position_index][0]
 
   def _get_pointer_pos(self):
     return self._pointerx * self._grid_size(), self._pointery * self._grid_size()
@@ -1089,6 +1096,7 @@ class CanvasManager(object):
       try:
         drawer.draw(c, obj, env)
       except Exception as e:
+        traceback.print_exc()
         self._error_msg = f"Error in draw: {e}"
       return
     raise Exception(f"Cannot find drawer for obj {obj}")
@@ -1399,6 +1407,8 @@ class CanvasManager(object):
       return [(key, None)]
     if key in ["width", "height", "xshift", "yshift"]:
       value = num_to_dist(value)
+    if key in ["out", "in"] and value in directions:
+      return [(key, direction_to_angle(value))]
     ret = [(key, value)]
     for s in WithAttributeHandler.mutually_exclusive:
       if key in s:
@@ -1412,7 +1422,37 @@ class CanvasManager(object):
       else:
         obj[key] = value
 
+  def _set_path_position(self, key, value):
+    items = self._selected_paths[0]["items"]
+    obj = items[self._selected_path_position]
+    key_values = self._process_key_value(key, value)
+    self._before_change()
+    if key in ["xshift", "yshift"]:
+      if is_type(obj, "nodename"):
+        self._set_object(obj, key_values)
+      else:
+        raise Exception("Can only shift node name")
+    elif key in ["x", "y"]:
+      if is_type(obj, "coordinate"):
+        self._set_object(obj, key_values)
+      else:
+        raise Exception("Can only set x, y of coordinate")
+    elif key in ["in"]:
+      obj = previous_line(items, self._selected_path_position)
+      if obj is None:
+        raise Exception("Cannot set 'in' of a position not at end of line")
+      self._set_object(obj, key_values)
+    else:
+      obj = next_line(items, self._selected_path_position)
+      if obj is None:
+        raise Exception("Cannot find setment following the position")
+      self._set_object(obj, key_values)
+    self._after_change()
+
   def _set_selected_objects(self, key, value):
+    if self._is_in_path_position_mode():
+      self._set_path_position(key, value)
+      return
     self._before_change()
     key_values = self._process_key_value(key, value)
     for id_ in self._selected_ids:

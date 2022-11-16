@@ -44,6 +44,9 @@ arrow_symbols = {
 }
 
 
+directions = ["left", "right", "up", "down"]
+
+
 counter = 0
 
 
@@ -300,6 +303,15 @@ def direction_to_num(direction):
   }[direction]
 
 
+def direction_to_angle(direction):
+  return {
+    "up": 90,
+    "down": 270,
+    "left": 180,
+    "right": 0,
+  }[direction]
+
+
 def num_to_anchor(x, y):
   return [["south.west", "south", "south.east"],
           ["west", "center", "east"],
@@ -449,13 +461,21 @@ def set_or_del(dic, key, value, empty):
     dic[key] = value
 
 
-def append_if_not_in(l, e):
-  if e not in l:
-    l.append(e)
+def append_if_not_in(ls, e):
+  if e not in ls:
+    ls.append(e)
 
 
-def remove_if_in(l, e):
-  return [a for a in l if a != e]
+def remove_if_in(ls, e):
+  return [a for a in ls if a != e]
+
+
+def toggle_element(ls, e):
+  if e not in ls:
+    ls.append(e)
+    return ls
+  else:
+    return [a for a in ls if a != e]
 
 
 def is_color(name):
@@ -542,6 +562,25 @@ def get_bounding_box(data, bounding_boxes, segments):
   if x0 is None or y0 is None or x1 is None or y1 is None:
     raise Exception("Failed to find bounding box")
   return x0, y0, x1, y1
+
+
+def get_path_position_items(path):
+  return [(i, item) for (i, item) in enumerate(path["items"])
+          if item["type"] in ["nodename", "coordinate", "intersection"]]
+
+
+def previous_line(items, position):
+  for pos in reversed(range(0, position)):
+    if is_type(items[pos], "line"):
+      return items[pos]
+  return None
+
+
+def next_line(items, position):
+  for pos in range(position, len(items)):
+    if is_type(items[pos], "line") or is_type(items[pos], "rectangle"):
+      return items[pos]
+  return None
 
 
 """

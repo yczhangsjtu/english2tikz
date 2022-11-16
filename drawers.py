@@ -506,7 +506,7 @@ class PathDrawer(Drawer):
               dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
 
               if "out" in to_draw:
-                out_degree = to_draw["out"]
+                out_degree = int(to_draw["out"])
                 dy = math.sin(out_degree / 180 * math.pi) * dist / 3
                 dx = math.cos(out_degree / 180 * math.pi) * dist / 3
                 if current_pos_clip:
@@ -521,7 +521,7 @@ class PathDrawer(Drawer):
                 points.append([x0 + dx, y0 + dy])
 
               if "in" in to_draw:
-                in_degree = to_draw["in"]
+                in_degree = int(to_draw["in"])
                 dy = math.sin(in_degree / 180 * math.pi) * dist / 3
                 dx = math.cos(in_degree / 180 * math.pi) * dist / 3
                 if new_pos_clip:
