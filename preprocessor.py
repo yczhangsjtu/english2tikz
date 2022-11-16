@@ -38,7 +38,7 @@ class CustomCommandPreprocessor(Preprocessor):
 
   def preprocess_text(self, text):
     return CustomCommandPreprocessor.process(text)
-  
+
   def define(self, command, text):
     CustomCommandPreprocessor._definitions[command] = text
 
@@ -107,7 +107,8 @@ class CustomCommandPreprocessor(Preprocessor):
           if isinstance(stack[-1], Command):
             command = stack[-1]._name
             if command in CustomCommandPreprocessor._definitions:
-              val = CustomCommandPreprocessor._definitions[command](*stack[-1]._args)
+              val = CustomCommandPreprocessor._definitions[command](
+                  *stack[-1]._args)
             else:
               val = "\\" + command + "" .join(["{%s}" % arg
                                                for arg in stack[-1]._args])
@@ -164,6 +165,7 @@ class CommentPreprocessor(Preprocessor):
   NORMAL = 0
   ACTIVE = 1
   ACTIVE_ONCE = 2
+
   def __init__(self):
     self._mode = CommentPreprocessor.NORMAL
     self._comment_start_mark = "###"

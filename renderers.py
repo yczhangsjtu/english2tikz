@@ -12,22 +12,23 @@ class Renderer(object):
 
 class BoxRenderer(Renderer):
   whitelist = set([
-    "color", "line.width", "rounded.corners", "fill", "xshift", "yshift",
-    "scale", "rotate", "circle", "inner.sep", "shape", "dashed", "font",
-    "text.width", "sloped", "align"
+      "color", "line.width", "rounded.corners", "fill", "xshift", "yshift",
+      "scale", "rotate", "circle", "inner.sep", "shape", "dashed", "font",
+      "text.width", "sloped", "align"
   ] + colors)
   directions = set([
-    "above", "below", "left", "right",
-    "below.left", "below.right",
-    "above.left", "above.right",
+      "above", "below", "left", "right",
+      "below.left", "below.right",
+      "above.left", "above.right",
   ])
   anchors = set([
-    "south", "north", "south.west", "south.east",
-    "east", "west", "north.west", "north.east", "center",
+      "south", "north", "south.west", "south.east",
+      "east", "west", "north.west", "north.east", "center",
   ])
+
   def match(self, obj):
     return "type" in obj and obj["type"] == "box"
-  
+
   def prepare_options(obj):
     ret = {name.replace(".", " "): value
            for name, value in obj.items()
@@ -37,7 +38,8 @@ class BoxRenderer(Renderer):
         if isinstance(obj[direction], str):
           if "distance" in obj:
             distance = obj["distance"].replace(".and.", " and ")
-            ret[direction.replace(".", " ")] = f"{distance} of {obj[direction]}"
+            ret[direction.replace(
+                ".", " ")] = f"{distance} of {obj[direction]}"
           else:
             ret[direction.replace(".", " ")] = f"of {obj[direction]}"
         else:
@@ -72,14 +74,14 @@ class BoxRenderer(Renderer):
     if "text.color" in obj:
       ret["text"] = obj["text.color"]
     return ret
-  
+
   def render(self, obj):
     options = BoxRenderer.prepare_options(obj)
     if len(options) > 0:
       return r"\node[draw, {options}] ({id}) {{{escaped_text}}};".format(
-        **obj,
-        escaped_text=escape_for_latex(obj["text"]),
-        options=dump_options(options),
+          **obj,
+          escaped_text=escape_for_latex(obj["text"]),
+          options=dump_options(options),
       )
     return r"\node[draw] ({id}) {{{text}}};".format(**obj)
 
@@ -87,7 +89,7 @@ class BoxRenderer(Renderer):
 class TextRenderer(Renderer):
   def match(self, obj):
     return "type" in obj and obj["type"] == "text"
-  
+
   def render(self, obj):
     if "in_path" in obj:
       prefix, postfix = "node", ""
@@ -98,11 +100,11 @@ class TextRenderer(Renderer):
       options["draw"] = obj["draw"]
     if len(options) > 0:
       return r"{prefix}[{options}] ({id}) {{{escaped_text}}}{postfix}".format(
-        **obj,
-        escaped_text=escape_for_latex(obj["text"]),
-        prefix=prefix,
-        postfix=postfix,
-        options=dump_options(options),
+          **obj,
+          escaped_text=escape_for_latex(obj["text"]),
+          prefix=prefix,
+          postfix=postfix,
+          options=dump_options(options),
       )
     return r"{prefix} ({id}) {{{escaped_text}}}{postfix}".format(
         **obj, escaped_text=escape_for_latex(obj["text"]),
@@ -112,10 +114,10 @@ class TextRenderer(Renderer):
 class PathRenderer(Renderer):
   def __init__(self, context):
     self._context = context
-    
+
   def match(self, obj):
     return "type" in obj and obj["type"] == "path"
-  
+
   def render(self, obj):
     options = BoxRenderer.prepare_options(obj)
     if "draw" in obj:
@@ -135,37 +137,37 @@ class PathRenderer(Renderer):
     if "inner.sep" not in obj and "inner sep" in options:
       del options["inner sep"]
     return r"\path[{}] {};".format(
-      dump_options(options),
-      " ".join(
-        [self._context._render(item) for item in obj["items"]]
-      )
+        dump_options(options),
+        " ".join(
+            [self._context._render(item) for item in obj["items"]]
+        )
     )
 
 
 class BraceRenderer(Renderer):
   def __init__(self, context):
     self._context = context
-    
+
   def match(self, obj):
     return "type" in obj and obj["type"] == "brace"
-  
+
   def render(self, obj):
     options = BoxRenderer.prepare_options(obj)
     options["draw"] = True
     options["decorate"] = True
     options["decoration"] = "{brace}"
     return r"\path[{}] {};".format(
-      dump_options(options),
-      " ".join(
-        [self._context._render(item) for item in obj["items"]]
-      )
+        dump_options(options),
+        " ".join(
+            [self._context._render(item) for item in obj["items"]]
+        )
     )
 
 
 class NodeNameRenderer(Renderer):
   def match(self, obj):
     return "type" in obj and obj["type"] == "nodename"
-  
+
   def render(self, obj):
     options = {}
     if "xshift" in obj:
@@ -184,18 +186,19 @@ class NodeNameRenderer(Renderer):
 
 
 class LineRenderer(Renderer):
-  annotate_positions =  set([
-    "midway", "pos",
-    "near.end", "near.start",
-    "very.near.end", "very.near.start",
-    "at.end", "at.start"
+  annotate_positions = set([
+      "midway", "pos",
+      "near.end", "near.start",
+      "very.near.end", "very.near.start",
+      "at.end", "at.start"
   ])
+
   def __init__(self, context):
     self._context = context
 
   def match(self, obj):
     return "type" in obj and obj["type"] in ["line", "to", "edge"]
-  
+
   def render(self, obj):
     options = {}
     if "out" in obj:
@@ -229,7 +232,7 @@ class VerticalHorizontalRenderer(Renderer):
 
   def match(self, obj):
     return "type" in obj and obj["type"] == "vertical.horizontal"
-  
+
   def render(self, obj):
     ret = ["|-"]
 
@@ -245,7 +248,7 @@ class HorizontalVerticalRenderer(Renderer):
 
   def match(self, obj):
     return "type" in obj and obj["type"] == "horizontal.vertical"
-  
+
   def render(self, obj):
     ret = ["-|"]
 
@@ -258,26 +261,25 @@ class HorizontalVerticalRenderer(Renderer):
 class IntersectionRenderer(Renderer):
   def match(self, obj):
     return "type" in obj and obj["type"] == "intersection"
-  
+
   def render(self, obj):
     if "anchor1" in obj:
       x = f"{obj['name1']}.{obj['anchor1'].replace('.', ' ')}"
     else:
       x = f"{obj['name1']}"
-      
+
     if "anchor2" in obj:
       y = f"{obj['name2']}.{obj['anchor2'].replace('.', ' ')}"
     else:
       y = f"{obj['name2']}"
-    
+
     return f"({x} |- {y})"
 
 
-  
 class CoordinateRenderer(Renderer):
   def match(self, obj):
     return "type" in obj and obj["type"] == "coordinate"
-  
+
   def render(self, obj):
     if 'relative' in obj and obj['relative']:
       return f"++({obj['x']},{obj['y']})"
@@ -287,7 +289,7 @@ class CoordinateRenderer(Renderer):
 class PointRenderer(Renderer):
   def match(self, obj):
     return "type" in obj and obj["type"] == "point"
-  
+
   def render(self, obj):
     options = {}
     if "midway" in obj:
