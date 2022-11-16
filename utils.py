@@ -50,6 +50,22 @@ directions = ["left", "right", "up", "down"]
 counter = 0
 
 
+def mutex(a, b, c):
+  return b if a else c
+
+
+def index_two_lists(a, b, i):
+  if i >= 0 and i < len(a):
+    return a[i]
+  if i >= len(a) and i < len(a) + len(b):
+    return b[i-len(a)]
+  raise IndexError(f"Expected [0, {len(a)+len(b)}), got {i}")
+
+
+def both(a, b):
+  return a and b
+
+
 def getid():
   global counter
   ret = f"id{counter}"
@@ -87,6 +103,7 @@ def _dist_to_num(dist):
       return float(dist[:-2])
     return float(dist)
   return float(dist)
+
 
 def dist_to_num(*dists):
   if len(dists) == 0:

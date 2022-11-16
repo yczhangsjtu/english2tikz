@@ -316,7 +316,7 @@ class CanvasManager(object):
             self._selected_paths = toggle_element(self._selected_paths,
                                                   current_candidates[0])
           else:
-            raise Exception(f"Invalid finding candidate {current_candidates[0]}")
+            raise Exception(f"Invalid candidate {current_candidates[0]}")
         else:
           if isinstance(current_candidates[0], str):
             self._selected_ids = [current_candidates[0]]
@@ -325,7 +325,7 @@ class CanvasManager(object):
             self._selected_paths = [current_candidates[0]]
             self._selected_ids = []
           else:
-            raise Exception(f"Invalid finding candidate {current_candidates[0]}")
+            raise Exception(f"Invalid candidate {current_candidates[0]}")
         self._exit_finding_mode()
     elif event.keysym == "BackSpace":
       if len(self._finding_prefix) > 1:
@@ -529,23 +529,20 @@ class CanvasManager(object):
     elif candidates_number <= 26:
       for i in range(0, candidates_number):
         c = chr(ord('A') + i)
-        self._finding_candidates[c] = \
-            candidate_ids[i] if i < len(candidate_ids) \
-            else candidate_paths[i-len(candidate_ids)]
+        self._finding_candidates[c] = index_two_lists(candidate_ids,
+                                                      candidate_paths, i)
     elif candidates_number <= 26 * 26:
       for i in range(0, candidates_number):
         c = chr(ord('A') + i // 26) + chr(ord('A') + i % 26)
-        self._finding_candidates[c] = \
-            candidate_ids[i] if i < len(candidate_ids) \
-            else candidate_paths[i-len(candidate_ids)]
+        self._finding_candidates[c] = index_two_lists(candidate_ids,
+                                                      candidate_paths, i)
     elif candidates_number <= 26 * 26 * 26:
       for i in range(0, candidates_number):
         c = chr(ord('A') + i // (26 * 26)) + \
             chr(ord('A') + (i // 26) % 26) + \
             chr(ord('A') + i % 26)
-        self._finding_candidates[c] = \
-            candidate_ids[i] if i < len(candidate_ids) \
-            else candidate_paths[i-len(candidate_ids)]
+        self._finding_candidates[c] = index_two_lists(candidate_ids,
+                                                      candidate_paths, i)
     else:
       self._error_msg = "Too many objects on screen"
 
@@ -633,7 +630,8 @@ class CanvasManager(object):
     w, h = x1 - x0, y1 - y0
     self._editing_text_pos = x0 + w/2, y0 + h/2
     x0, y0, w, h = num_to_dist(x0, y0, w, h)
-    self._parse(f"there.is.a.box at.x.{x0}.y.{y0} sized.{w}.by.{h} with.anchor=south.west")
+    self._parse(f"there.is.a.box at.x.{x0}.y.{y0} "
+                f"sized.{w}.by.{h} with.anchor=south.west")
     self._obj_to_edit_text = self._context._picture[-1]
     self._editing_text = self._obj_to_edit_text["text"]
 
@@ -664,7 +662,8 @@ class CanvasManager(object):
       return
 
     self._editing_text = self._obj_to_edit_text["text"]
-    self._editing_text_pos = get_anchor_pos(self._bounding_boxes[id_], "center")
+    self._editing_text_pos = get_anchor_pos(self._bounding_boxes[id_],
+                                            "center")
 
   def _find_object_by_id(self, id_):
     for obj in self._context._picture:
@@ -713,7 +712,8 @@ class CanvasManager(object):
       for id_ in self._selected_ids:
         self._shift_object(id_, dx, dy)
       self._after_change()
-    elif len(self._selected_paths) == 1 and self._selected_path_position is not None:
+    elif both(len(self._selected_paths) == 1,
+              self._selected_path_position is not None):
       self._before_change()
       self._shift_path_position(self._selected_paths[0],
                                 self._selected_path_position,
@@ -748,12 +748,15 @@ class CanvasManager(object):
       self._shift_dist(item, "xshift", dx)
       self._shift_dist(item, "yshift", dy)
 
-  def _find_all_in_screen(self):
+  def _screen_range(self):
     x0, y0 = reverse_map_point(0, 0, self._coordinate_system())
     x1, y1 = reverse_map_point(self._screen_width,
-        self._screen_height,
-        self._coordinate_system())
-    sel = (x0, y0, x1, y1)
+                               self._screen_height,
+                               self._coordinate_system())
+    return x0, y0, x1, y1
+
+  def _find_all_in_screen(self):
+    sel = self._screen_range()
     selected_ids, selected_paths = [], []
 
     for id_, bb in self._bounding_boxes.items():
@@ -773,7 +776,6 @@ class CanvasManager(object):
         selected_paths.append(path)
 
     return selected_ids, selected_paths
-
 
   def _select_targets(self, clear=True):
     if clear:
@@ -814,7 +816,9 @@ class CanvasManager(object):
       self._selected_paths.append(path)
     self._selected_path_position = None
 
-  def _select_line(self, bb, data, path, deselect=False, new_selected_paths=None, check_only=False):
+  def _select_line(self, bb, data, path,
+                   deselect=False, new_selected_paths=None,
+                   check_only=False):
     if rect_line_intersect(bb, data):
       if check_only:
         return True
@@ -822,7 +826,9 @@ class CanvasManager(object):
     if check_only:
       return False
 
-  def _select_rect(self, bb, data, path, deselect=False, new_selected_paths=None, check_only=False):
+  def _select_rect(self, bb, data, path,
+                   deselect=False, new_selected_paths=None,
+                   check_only=False):
     if intersect(bb, data):
       if check_only:
         return True
