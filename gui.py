@@ -1409,6 +1409,8 @@ class CanvasManager(object):
       value = num_to_dist(value)
     if key in ["out", "in"] and value in directions:
       return [(key, direction_to_angle(value))]
+    if key in ["rectangle", "line"]:
+      return [("type", key)]
     ret = [(key, value)]
     for s in WithAttributeHandler.mutually_exclusive:
       if key in s:
