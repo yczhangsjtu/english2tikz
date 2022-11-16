@@ -2065,7 +2065,9 @@ class CanvasManager(object):
     ctx._state["refered_to"] = selected_objects + self._selected_paths
     for i, id_ in enumerate(self._selected_ids):
       code = code.replace(f"{{#{i}}}", id_)
-    print(code)
+    x, y = self._get_pointer_pos_str()
+    code = code.replace(f"{{#x}}", x)
+    code = code.replace(f"{{#y}}", y)
     ctx.parse(code)
     self._after_change()
 
