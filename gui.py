@@ -5,6 +5,7 @@ import re
 import json
 import os
 import traceback
+import argparse
 from english2tikz.describe_it import DescribeIt
 from english2tikz.drawers import *
 from english2tikz.handlers import WithAttributeHandler
@@ -67,7 +68,7 @@ class CanvasManager(object):
     self.filename = None
     root.bind("<Key>", self.handle_key)
     root.after(50, self._draw_animated)
-    self.draw()
+    root.after(1, self.draw)
 
   def _register_fundamental_drawers(self):
     self.register_drawer(BoxDrawer())
@@ -137,14 +138,14 @@ class CanvasManager(object):
     self.draw()
 
   def _handle_key_in_command_mode(self, event):
-    if event.char:
-      self._command_refershing_timer_started = False
-      self._command_line = self._get_command_line() + event.char
-      self._command_history_index = None
-    elif event.keysym == "Return":
+    if event.keysym == "Return":
       self._command_refershing_timer_started = False
       self._process_command(self._get_command_line())
       self._exit_command_mode()
+    elif event.char in string.printable:
+      self._command_refershing_timer_started = False
+      self._command_line = self._get_command_line() + event.char
+      self._command_history_index = None
     elif event.keysym == "BackSpace":
       self._command_refershing_timer_started = False
       self._command_line = self._get_command_line()
@@ -202,11 +203,11 @@ class CanvasManager(object):
     self.draw()
 
   def _handle_key_in_editing_mode(self, event):
-    if event.char:
-      self._editing_text += event.char
-      self._editing_refershing_timer_started = False
-    elif event.keysym == "Return":
+    if event.keysym == "Return":
       self._editing_text += "\n"
+      self._editing_refershing_timer_started = False
+    elif event.char in string.printable:
+      self._editing_text += event.char
       self._editing_refershing_timer_started = False
     elif event.keysym == "BackSpace":
       if len(self._editing_text) > 0:
@@ -475,13 +476,13 @@ class CanvasManager(object):
       self._shift_selected_object_anchor("right")
 
   def _handle_key_in_normal_mode(self, event):
-    if event.char:
-      self._handle_printable_char_in_normal_mode(event)
-    elif event.keysym == "Return":
+    if event.keysym == "Return":
       self._error_msg = None
       if self._visual_start is not None:
         self._select_targets()
         self._visual_start = None
+    elif event.char in string.printable:
+      self._handle_printable_char_in_normal_mode(event)
     elif event.state == 4 and event.keysym in string.ascii_lowercase:
       self._handle_ctrl_key_in_normal_mode(event)
 
@@ -1294,37 +1295,37 @@ class CanvasManager(object):
     to_draw = self._get_selected_objects_common_description()
     keys = sorted(list(to_draw.keys()))
 
-    i = 0
+    y = 5
     for key in keys:
       value = to_draw[key]
       if isinstance(value, str):
-        c.create_text(15, 5 + i * 18, anchor="nw", text=key, fill="blue",
-                      font=("Helvetica", 15, "normal"))
-        c.create_text(120, 5 + i * 18, anchor="nw", text=str(value),
-                      fill="#0000aa", font=("Helvetica", 15, "normal"))
-        i += 1
+        t = c.create_text(15, y, anchor="nw", text=key, fill="blue",
+                          font=("Courier", 15, "normal"))
+        t = c.create_text(120, y, anchor="nw", text=str(value),
+                          fill="#000077", font=("Courier", 15, "normal"))
+        _, _, _, y = c.bbox(t)
       elif isinstance(value, dict):
-        c.create_text(15, 5 + i * 18, anchor="nw", text=key, fill="blue",
-                      font=("Helvetica", 15, "normal"))
+        t = c.create_text(15, y, anchor="nw", text=key, fill="blue",
+                          font=("Courier", 15, "normal"))
         for k, v in value.items():
-          c.create_text(120, 5 + i * 18, anchor="nw", text=k,
-                        fill="#0000aa", font=("Helvetica", 15, "normal"))
-          c.create_text(200, 5 + i * 18, anchor="nw", text=v,
-                        fill="#007700", font=("Helvetica", 15, "normal"))
-          i += 1
+          t = c.create_text(120, y, anchor="nw", text=k,
+                            fill="#000077", font=("Courier", 15, "normal"))
+          t = c.create_text(200, y, anchor="nw", text=v,
+                            fill="#007700", font=("Courier", 15, "normal"))
+          _, _, _, y = c.bbox(t)
       elif value is True:
-        c.create_text(15, 5 + i * 18, anchor="nw", text=key, fill="blue",
-                      font=("Helvetica", 15, "normal"))
-        i += 1
+        c.create_text(15, y, anchor="nw", text=key, fill="blue",
+                      font=("Courier", 15, "normal"))
+        _, _, _, y = c.bbox(t)
 
   def _draw_command(self, c):
     command = self._get_command_line()
     if command is not None:
-      c.create_rectangle((3, self._screen_height-15,
+      c.create_rectangle((3, self._screen_height-28,
                           self._screen_width, self._screen_height),
                          fill="white", outline="black")
       c.create_text(5, self._screen_height, text=":"+command,
-                    anchor="sw", fill="black")
+                    anchor="sw", fill="black", font=("Courier", 20, "normal"))
     elif self._error_msg is not None:
       c.create_rectangle((3, self._screen_height-15,
                           self._screen_width, self._screen_height),
@@ -2192,8 +2193,16 @@ if __name__ == "__main__":
                      width=screen_width,
                      height=screen_height)
   canvas.pack()
+  parser = argparse.ArgumentParser(prog = "vimdraw")
+  parser.add_argument('filename', nargs='?')
+  args = parser.parse_args()
 
-  CanvasManager(root, canvas, screen_width, screen_height)
+  cm = CanvasManager(root, canvas, screen_width, screen_height)
+  if args.filename is not None:
+    filename = args.filename
+    cm.filename = filename
+    if os.path.exists(filename):
+      cm._read(("command", filename))
 
   root.title("Vim Draw")
   root.minsize(screen_width, screen_height)
