@@ -9,6 +9,7 @@ import argparse
 from english2tikz.describe_it import DescribeIt
 from english2tikz.drawers import *
 from english2tikz.handlers import WithAttributeHandler
+from english2tikz.latex import tikzimage
 from english2tikz.utils import *
 
 
@@ -1477,6 +1478,8 @@ class CanvasManager(object):
         self._execute_describeit_code()
       elif cmd_name == "eeg":
         self._edit_describeit_code()
+      elif cmd_name == "dump":
+        self._dump()
       else:
         raise Exception(f"Unkown command: {cmd_name}")
     except Exception as e:
@@ -2185,6 +2188,11 @@ class CanvasManager(object):
       with open("/tmp/english2tikz.desc", "w") as f:
         f.write("### Write the describe it code here ###")
     os.system("open -a 'Sublime Text' /tmp/english2tikz.desc")
+
+  def _dump(self):
+    tikzcode = self._context.render()
+    tikzimage(tikzcode)
+    os.system("open ./view/view.png")
 
 
 if __name__ == "__main__":

@@ -28,17 +28,47 @@ def text_to_latex_image_path(text, color="black"):
 \usepackage{amssymb}
 \usepackage{xcolor}
 \begin{document}
-\Huge
 \textcolor{%s}{%s}
 \end{document}
 """ % (color, escape_for_latex(text)))
   ret = os.system("cd /tmp && pdflatex tmp.tex 1> /dev/null 2> /dev/null")
   if ret != 0:
     raise Exception(f"Error compiling latex: {text}")
-  ret = os.system("convert /tmp/tmp.pdf /tmp/tmp.png 1> /dev/null 2> /dev/null")
+  ret = os.system("convert -density 600 /tmp/tmp.pdf /tmp/tmp.png 1> /dev/null 2> /dev/null")
   if ret != 0:
     raise Exception(f"Error converting pdf to png in processing: {text}")
   ret = os.system(f"cp /tmp/tmp.png view/{code}.png")
   if ret != 0:
     raise Exception(f"Error copying png to view: {text}")
   return f"view/{code}.png"
+
+
+def tikzimage(code):
+  if not os.path.exists("view"):
+    os.mkdir("view")
+  if not os.path.isdir("view"):
+    raise Exception("view is not a directory")
+  cwd = os.getcwd()
+  with open("/tmp/tmp.tex", "w") as f:
+    f.write(r"""
+\documentclass[varwidth=\maxdimen]{standalone}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\begin{document}
+%s
+\end{document}
+""" % code)
+  ret = os.system("cd /tmp && pdflatex tmp.tex 1> /dev/null 2> /dev/null")
+  if ret != 0:
+    raise Exception(f"Error compiling latex:\n{code}")
+  ret = os.system("convert -density 600 /tmp/tmp.pdf /tmp/tmp.png 1> /dev/null 2> /dev/null")
+  if ret != 0:
+    raise Exception(f"Error converting pdf to png in processing:\n{code}")
+  ret = os.system(f"cp /tmp/tmp.png view/view.png")
+  if ret != 0:
+    raise Exception(f"Error copying png to view:\n{code}")
+  return f"view/view.png"
