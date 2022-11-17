@@ -127,6 +127,15 @@ def unindent(code):
   return "\n".join(lines)
 
 
+def common_part(dics):
+  keys = list(dics[0].keys())
+  for dic in dics[1:]:
+    keys = [key for key in keys
+            if key in dic and
+            dic[key] == dics[0][key]]
+  return {key: dics[0][key] for key in keys}
+
+
 def _dist_to_num(dist):
   if isinstance(dist, str):
     if dist.endswith("cm"):
@@ -618,6 +627,19 @@ def get_bounding_box(data, bounding_boxes, segments):
 def get_path_position_items(path):
   return [(i, item) for (i, item) in enumerate(path["items"])
           if item["type"] in ["nodename", "coordinate", "intersection"]]
+
+
+def get_path_segment_items(path):
+  return [(i, item) for (i, item) in enumerate(path["items"])
+          if item["type"] in ["line", "rectangle"]]
+
+
+def count_path_position_items(path):
+  return len(get_path_position_items(path))
+
+
+def count_path_segment_items(path):
+  return len(get_path_segment_items(path))
 
 
 def previous_line(items, position):

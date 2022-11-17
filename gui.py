@@ -569,6 +569,12 @@ class CanvasManager(object):
       ret.append(value)
     return ret
 
+  def _get_selected_id_objects(self):
+    return [self._find_object_by_id(id_) for id_ in self._selected_ids]
+
+  def _get_selected_objects(self):
+    return self._get_selected_id_objects() + self._selected_paths
+
   def _shift_object_at_anchor(self, id_, direction):
     obj = self._find_object_by_id(id_)
     if obj is None:
@@ -1254,29 +1260,38 @@ class CanvasManager(object):
       return path
     return None
 
+  def _get_object_description(self, obj):
+    keys = list(obj.keys())
+    if is_type(obj, "path"):
+      keys = remove_if_in(keys, "items")
+      desc = {key: obj[key] for key in keys}
+      desc["#items"] = str(len(obj["items"]))
+      desc["#segments"] = str(count_path_segment_items(obj))
+      desc["#positions"] = str(count_path_position_items(obj))
+    elif is_type(obj, "box"):
+      keys = remove_if_in(keys, "name")
+      desc = {key: obj[key] for key in keys}
+      desc["draw"] = True
+    elif is_type(obj, "text"):
+      keys = remove_if_in(keys, "name")
+      desc = {key: obj[key] for key in keys}
+    else:
+      desc = {key: obj[key] for key in keys}
+
+    return desc
+
+  def _get_selected_objects_common_description(self):
+    objs = self._get_selected_objects()
+    if len(objs) == 0:
+      return {}
+    descs = [self._get_object_description(obj) for obj in objs]
+    return common_part(descs)
+
   def _draw_attributes(self, c):
     if not self._show_attributes:
       return
 
-    obj = self._selected_single_object()
-    if obj is None:
-      return
-
-    keys = list(obj.keys())
-    if is_type(obj, "path"):
-      keys = remove_if_in(keys, "items")
-      to_draw = {key: obj[key] for key in keys}
-      to_draw["#items"] = len(obj["items"])
-    elif is_type(obj, "box"):
-      keys = remove_if_in(keys, "name")
-      to_draw = {key: obj[key] for key in keys}
-      to_draw["draw"] = True
-    elif is_type(obj, "text"):
-      keys = remove_if_in(keys, "name")
-      to_draw = {key: obj[key] for key in keys}
-    else:
-      to_draw = {key: obj[key] for key in keys}
-
+    to_draw = self._get_selected_objects_common_description()
     keys = sorted(list(to_draw.keys()))
 
     i = 0
