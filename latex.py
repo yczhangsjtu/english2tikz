@@ -32,10 +32,10 @@ def text_to_latex_image_path(text, color="black"):
 \textcolor{%s}{%s}
 \end{document}
 """ % (color, escape_for_latex(text)))
-  ret = os.system("cd /tmp && pdflatex tmp.tex &> /dev/null")
+  ret = os.system("cd /tmp && pdflatex tmp.tex 1> /dev/null 2> /dev/null")
   if ret != 0:
     raise Exception(f"Error compiling latex: {text}")
-  ret = os.system("convert /tmp/tmp.pdf /tmp/tmp.png &> /dev/null")
+  ret = os.system("convert /tmp/tmp.pdf /tmp/tmp.png 1> /dev/null 2> /dev/null")
   if ret != 0:
     raise Exception(f"Error converting pdf to png in processing: {text}")
   ret = os.system(f"cp /tmp/tmp.png view/{code}.png")
