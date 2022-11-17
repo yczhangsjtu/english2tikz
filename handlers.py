@@ -624,6 +624,11 @@ class WithAttributeHandler(Handler):
           "very.near.end", "very.near.start",
           "at.end", "at.start"
       ]),
+      set([
+          "stealth", "arrow",
+          "reversed.stealth", "reversed.arrow",
+          "double.stealth", "double.arrow",
+      ]),
   ]
 
   def _match(self, command):

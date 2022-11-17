@@ -1314,8 +1314,8 @@ class CanvasManager(object):
                             fill="#007700", font=("Courier", 15, "normal"))
           _, _, _, y = c.bbox(t)
       elif value is True:
-        c.create_text(15, y, anchor="nw", text=key, fill="blue",
-                      font=("Courier", 15, "normal"))
+        t = c.create_text(15, y, anchor="nw", text=key, fill="blue",
+                          font=("Courier", 15, "normal"))
         _, _, _, y = c.bbox(t)
 
   def _draw_command(self, c):
