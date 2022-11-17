@@ -28,7 +28,7 @@ class BoxDrawer(Drawer):
     """
     The LaTeX equations are smaller than expected.
     """
-    latex_scale_ratio = 0.5
+    latex_scale_ratio = 0.42
 
     if "scale" in obj:
       scale = float(obj["scale"])
