@@ -666,6 +666,8 @@ class CanvasManager(object):
   def _create_node_at_intersection(self):
     assert len(self._selected_ids) == 2
     id0, id1 = self._selected_ids
+    self._ensure_name_is_id(id0)
+    self._ensure_name_is_id(id1)
     x0, _ = self._bounding_boxes[id0].get_anchor_pos("center")
     _, y0 = self._bounding_boxes[id1].get_anchor_pos("center")
     self._editing_text_pos = x0, y0
