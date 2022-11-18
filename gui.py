@@ -318,18 +318,22 @@ class CanvasManager(object):
           if isinstance(current_candidates[0], str):
             self._selected_ids = toggle_element(self._selected_ids,
                                                 current_candidates[0])
+            self._selected_path_position = None
           elif is_type(current_candidates[0], "path"):
             self._selected_paths = toggle_element(self._selected_paths,
                                                   current_candidates[0])
+            self._selected_path_position = None
           else:
             raise Exception(f"Invalid candidate {current_candidates[0]}")
         else:
           if isinstance(current_candidates[0], str):
             self._selected_ids = [current_candidates[0]]
             self._selected_paths = []
+            self._selected_path_position = None
           elif is_type(current_candidates[0], "path"):
             self._selected_paths = [current_candidates[0]]
             self._selected_ids = []
+            self._selected_path_position = None
           else:
             raise Exception(f"Invalid candidate {current_candidates[0]}")
         self._exit_finding_mode()
@@ -428,9 +432,12 @@ class CanvasManager(object):
     elif event.keysym == "c":
       if self._visual_start is not None:
         self._visual_start = None
+      elif self._is_in_path_position_mode():
+        self._selected_path_position = None
       elif len(self._selected_ids) > 0 or len(self._selected_paths) > 0:
         self._selected_ids = []
         self._selected_paths = []
+        self._selected_path_position = None
       else:
         self._marks = []
     elif event.keysym == "g":
@@ -475,6 +482,15 @@ class CanvasManager(object):
       if self._visual_start is not None:
         pass
       self._shift_selected_object_anchor("right")
+    elif event.keysym == "m":
+      if self._is_in_path_position_mode():
+        if len(self._marks) == 1:
+          self._selected_paths[0]["items"][
+              self._selected_path_position] = self._marks[0]
+        else:
+          self._error_msg = "Can only set position to one mark"
+      else:
+        self._error_msg = "Not in path position mode"
 
   def _handle_key_in_normal_mode(self, event):
     if event.keysym == "Return":
@@ -744,7 +760,6 @@ class CanvasManager(object):
     if is_type(at, "coordinate"):
       self._shift_dist(at, "x", dx)
       self._shift_dist(at, "y", dy)
-      return
     elif get_default(obj, "in_path", False):
       self._shift_dist(obj, "xshift", dx, "0")
       self._shift_dist(obj, "yshift", dy, "0")
@@ -752,6 +767,9 @@ class CanvasManager(object):
       self._shift_dist(obj, "xshift", dx, "0")
       self._shift_dist(obj, "yshift", dy, "0")
     elif is_type(at, "intersection"):
+      self._shift_dist(obj, "xshift", dx, "0")
+      self._shift_dist(obj, "yshift", dy, "0")
+    elif get_direction_of(obj) is not None:
       self._shift_dist(obj, "xshift", dx, "0")
       self._shift_dist(obj, "yshift", dy, "0")
     else:
@@ -798,6 +816,8 @@ class CanvasManager(object):
     if self._visual_start is None:
       return
 
+    self._selected_path_position = None
+
     x0, y0 = self._visual_start
     x1, y1 = self._get_pointer_pos()
     x0, x1 = order(x0, x1)
@@ -814,6 +834,9 @@ class CanvasManager(object):
   def _deselect_targets(self):
     if self._visual_start is None:
       return
+
+    self._selected_path_position = None
+
     x0, y0 = self._visual_start
     x1, y1 = self._get_pointer_pos()
     x0, x1 = order(x0, x1)
@@ -830,6 +853,8 @@ class CanvasManager(object):
   def _intersect_select_targets(self):
     if self._visual_start is None:
       return
+    self._selected_path_position = None
+
     x0, y0 = self._visual_start
     x1, y1 = self._get_pointer_pos()
     x0, x1 = order(x0, x1)
@@ -913,7 +938,7 @@ class CanvasManager(object):
     self._reset_pointer_into_screen()
 
   def _select_path_position(self):
-    if len(self._selected_paths) != 1:
+    if len(self._selected_paths) != 1 or len(self._selected_ids) != 0:
       return
 
     position_items = get_path_position_items(self._selected_paths[0])
@@ -1100,7 +1125,13 @@ class CanvasManager(object):
         y += dist_to_num(get_default(mark, "yshift", 0))
       buffer[i] = (x, y)
       return x, y
-
+    elif is_type(mark, "intersection"):
+      bb1 = self._bounding_boxes[mark["name1"]]
+      bb2 = self._bounding_boxes[mark["name2"]]
+      x, _ = bb1.get_anchor_pos(get_default(mark, "anchor1", "center"))
+      _, y = bb2.get_anchor_pos(get_default(mark, "anchor2", "center"))
+      buffer[i] = (x, y)
+      return x, y
     elif is_type(mark, "coordinate"):
       if get_default(mark, "relative", False):
         x0, y0 = self._get_mark_pos(i-1, buffer)
@@ -1138,6 +1169,8 @@ class CanvasManager(object):
           fill, outline = "#7777ff", "blue"
         else:
           fill, outline = "#ffff77", "orange"
+      elif is_type(mark, "intersection"):
+        fill, outline = "white", "black"
       c.create_oval(x-10, y-10, x+10, y+10, fill=fill, outline=outline)
       c.create_text(x, y, text=str(i), fill="black")
 
@@ -1211,9 +1244,9 @@ class CanvasManager(object):
       return {}
     if len(objs) == 1:
       obj = objs[0]
-      if is_type(obj, "path") and self._selected_path_position is not None:
+      if is_type(obj, "path") and self._is_in_path_position_mode():
         obj = obj["items"][self._selected_path_position]
-      return obj
+      return self._get_object_description(obj)
     descs = [self._get_object_description(obj) for obj in objs]
     return common_part(descs)
 
@@ -1411,7 +1444,6 @@ class CanvasManager(object):
         raise Exception(f"Unkown command: {cmd_name}")
     except Exception as e:
       self._error_msg = f"Error in executing command: {e}"
-      traceback.print_exc()
 
   def _append_command(self, cmd):
     self._command_history.append(cmd)
@@ -1500,7 +1532,7 @@ class CanvasManager(object):
     obj = items[self._selected_path_position]
     key_values = self._process_key_value(key, value)
     self._before_change()
-    if key in ["xshift", "yshift"]:
+    if key in ["xshift", "yshift", "anchor"]:
       if is_type(obj, "nodename"):
         self._set_object(obj, key_values)
       else:
@@ -1518,7 +1550,7 @@ class CanvasManager(object):
     else:
       obj = next_line(items, self._selected_path_position)
       if obj is None:
-        raise Exception("Cannot find setment following the position")
+        raise Exception("Cannot find segment following the position")
       self._set_object(obj, key_values)
     self._after_change()
 
@@ -1724,17 +1756,33 @@ class CanvasManager(object):
     for t, v in args:
       if t == "command":
         if v in anchor_list or v in short_anchor_dict:
-          if len(self._selected_ids) > 1:
-            raise Exception("Cannot mark more than one object anchors")
+          if len(self._selected_ids) > 2:
+            raise Exception("Cannot mark more than two object anchors")
           if len(self._selected_ids) == 0:
-            raise Exception("Please select one object")
-          id_ = self._selected_ids[0]
-          self._ensure_name_is_id(id_)
-          mark = {
-              "type": "nodename",
-              "name": id_,
-              "anchor": v if v in anchor_list else short_anchor_dict[v],
-          }
+            raise Exception("Please select one or two objects")
+          if len(self._selected_ids) == 1:
+            id_ = self._selected_ids[0]
+            self._ensure_name_is_id(id_)
+            mark = {
+                "type": "nodename",
+                "name": id_,
+                "anchor": v if v in anchor_list else short_anchor_dict[v],
+            }
+          else:
+            id1, id2 = self._selected_ids
+            self._ensure_name_is_id(id1)
+            self._ensure_name_is_id(id2)
+            if is_type(mark, "coordinate"):
+              mark = {
+                  "type": "intersection",
+                  "name1": id1,
+                  "name2": id2,
+                  "anchor1": v if v in anchor_list else short_anchor_dict[v],
+              }
+            elif is_type(mark, "intersection"):
+              mark["anchor2"] = v if v in anchor_list else short_anchor_dict[v]
+            else:
+              raise Exception(f"Unexpected mark type {mark['type']}")
         elif v == "shift":
           if mark["type"] != "nodename":
             raise Exception("Please specify anchor before shift")

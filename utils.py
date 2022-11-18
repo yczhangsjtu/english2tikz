@@ -423,9 +423,11 @@ class BoundingBox(object):
     x0p, y0p = self.geometry_center()
     x1p, y1p = self.rev_rotate(x1, y1)
     if self._shape == "rectangle":
-      return self.rotate(
-          *clip_line(x0p, y0p, x1p, y1p,
-                     (self._x, self._y, self._width, self._height)))
+      cliped_point = clip_line(x0p, y0p, x1p, y1p,
+                     (self._x, self._y, self._width, self._height))
+      if cliped_point is None:
+        return None
+      return self.rotate(*cliped_point)
 
     if self._shape == "circle":
       distance = euclidean_dist((x0, y0), (x1, y1))
