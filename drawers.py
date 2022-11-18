@@ -117,8 +117,13 @@ class BoxDrawer(Drawer):
           x, y = at_bounding_box.get_anchor_pos(at_anchor)
           dx, dy = direction_to_num(direction)
           dist = get_default(obj, "distance", 1)
-          x += dist * dx
-          y += dist * dy
+          if isinstance(dist, str) and dist.find("and") >= 0:
+            disty, distx = dist_to_num(*dist.split(".and."))
+          else:
+            distx = dist_to_num(dist)
+            disty = distx
+          x += distx * dx
+          y += disty * dy
     elif isinstance(obj["at"], str):
       at_bounding_box = env["bounding box"][obj["at"]]
       x, y = at_bounding_box.get_anchor_pos(
@@ -598,7 +603,7 @@ class PathDrawer(Drawer):
               dy = math.sin(out_degree / 180 * math.pi) * dist / 3
               dx = math.cos(out_degree / 180 * math.pi) * dist / 3
               if current_pos_clip:
-                diagnal = math.diameter()
+                diagnal = current_pos_clip.diameter()
                 start_point = current_pos_clip.get_point_at_direction(
                     x0 + dx * diagnal / dist * 3,
                     y0 + dy * diagnal / dist * 3)

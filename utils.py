@@ -243,7 +243,7 @@ class BoundingBox(object):
 
   def diameter(self):
     if self._shape == "rectangle" or self._shape == "line":
-      return math.sqrt(self._width * self._width, self._height * self._height)
+      return math.sqrt(self._width * self._width + self._height * self._height)
     if self._shape == "circle":
       return self.radius() * 2
     if self._shape == "ellipse":
