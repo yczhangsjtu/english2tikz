@@ -105,56 +105,20 @@ class BoxDrawer(Drawer):
     if "at" not in obj:
       if position is not None:
         x, y = position
-      elif get_default_of_type(obj, "right", str) is not None:
-        at_bounding_box = env["bounding box"][get_default_of_type(
-            obj, "right", str)]
-        x, y = at_bounding_box.get_anchor_pos("east")
-        x += get_default(obj, "distance", 1)
-        anchor = "west"
-      elif get_default_of_type(obj, "left", str) is not None:
-        at_bounding_box = env["bounding box"][get_default_of_type(
-            obj, "left", str)]
-        x, y = at_bounding_box.get_anchor_pos("west")
-        x -= get_default(obj, "distance", 1)
-        anchor = "east"
-      elif get_default_of_type(obj, "above", str) is not None:
-        at_bounding_box = env["bounding box"][get_default_of_type(
-            obj, "above", str)]
-        x, y = at_bounding_box.get_anchor_pos("north")
-        y -= get_default(obj, "distance", 1)
-        anchor = "south"
-      elif get_default_of_type(obj, "below", str) is not None:
-        at_bounding_box = env["bounding box"][get_default_of_type(
-            obj, "below", str)]
-        x, y = at_bounding_box.get_anchor_pos("south")
-        y += get_default(obj, "distance", 1)
-        anchor = "north"
-      elif get_default_of_type(obj, "below.right", str) is not None:
-        at_bounding_box = env["bounding box"][get_default_of_type(
-            obj, "below.right", str)]
-        x, y = at_bounding_box.get_anchor_pos("south.east")
-        x += get_default(obj, "distance", 1)
-        anchor = "north.west"
-      elif get_default_of_type(obj, "below.left", str) is not None:
-        at_bounding_box = env["bounding box"][get_default_of_type(
-            obj, "below.left", str)]
-        x, y = at_bounding_box.get_anchor_pos("south.west")
-        x -= get_default(obj, "distance", 1)
-        anchor = "north.east"
-      elif get_default_of_type(obj, "above.right", str) is not None:
-        at_bounding_box = env["bounding box"][get_default_of_type(
-            obj, "above.right", str)]
-        x, y = at_bounding_box.get_anchor_pos("north.east")
-        y -= get_default(obj, "distance", 1)
-        anchor = "south.west"
-      elif get_default_of_type(obj, "above.left", str) is not None:
-        at_bounding_box = env["bounding box"][get_default_of_type(
-            obj, "above.left", str)]
-        x, y = at_bounding_box.get_anchor_pos("north.west")
-        y += get_default(obj, "distance", 1)
-        anchor = "south.east"
       else:
         x, y = 0, 0
+      if get_direction_of(obj) is not None:
+        direction = get_direction_of(obj)
+        anchor = direction_to_anchor(flipped(direction))
+        at = get_default_of_type(obj, direction, str)
+        if at is not None:
+          at_bounding_box = env["bounding box"][at]
+          at_anchor = direction_to_anchor(direction)
+          x, y = at_bounding_box.get_anchor_pos(at_anchor)
+          dx, dy = direction_to_num(direction)
+          dist = get_default(obj, "distance", 1)
+          x += dist * dx
+          y += dist * dy
     elif isinstance(obj["at"], str):
       at_bounding_box = env["bounding box"][obj["at"]]
       x, y = at_bounding_box.get_anchor_pos(
@@ -352,7 +316,7 @@ class BoxDrawer(Drawer):
             img = img.resize((int(w * scale * latex_scale_ratio),
                               int(h * scale * latex_scale_ratio)))
             if angle != 0:
-              img = img.rotate((180+angle) % 360, expand=True)
+              img = img.rotate(angle % 360, expand=True)
             image = ImageTk.PhotoImage(img)
             env["image references"][(path, scale, angle, obj["id"])] = image
           else:
@@ -510,7 +474,7 @@ class PathDrawer(Drawer):
       elif item["type"] == "point":
         id_ = item["id"]
         x, y = current_pos
-        env["bounding box"][id_] = BoundingBox.from_rect(x, y, 0, 0)
+        env["bounding box"][id_] = BoundingBox(x, y, 0, 0)
       elif item["type"] == "coordinate":
         if "relative" in item and item["relative"]:
           if current_pos is None:
@@ -521,11 +485,8 @@ class PathDrawer(Drawer):
           new_pos = (dist_to_num(item["x"]), dist_to_num(item["y"]))
       elif item["type"] == "intersection":
         name1, name2 = item["name1"], item["name2"]
-        anchor1, anchor2 = "center", "center"
-        if "anchor1" in item:
-          anchor1 = item["anchor1"]
-        if "anchor2" in item:
-          anchor2 = item["anchor2"]
+        anchor1 = get_default(item, "anchor1", "center")
+        anchor2 = get_default(item, "anchor2", "center")
         x, _ = env["bounding box"][name1].get_anchor_pos(anchor1)
         _, y = env["bounding box"][name2].get_anchor_pos(anchor2)
         new_pos = (x, y)
@@ -756,7 +717,7 @@ class PathDrawer(Drawer):
           y0, y1 = min(y0, y1), max(y0, y1)
 
           env["bounding box"][segment_id] = BoundingBox.from_rect(
-              x0, y0, x1, y1, shape="rectangle", points=curve, obj=obj)
+              x0, y0, x1, y1, shape="rectangle", obj=obj)
 
           x0p, y0p = map_point(x0, y0, cs)
           x1p, y1p = map_point(x1, y1, cs)

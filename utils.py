@@ -45,7 +45,10 @@ arrow_symbols = {
 }
 
 
-directions = ["left", "right", "up", "down"]
+directions = ["left", "right", "up", "down",
+              "below", "above",
+              "below.left", "below.right",
+              "above.left", "above.right"]
 
 
 counter = 0
@@ -419,7 +422,7 @@ class BoundingBox(object):
     x0, y0 = self.rotated_geometry_center()
     x0p, y0p = self.geometry_center()
     x1p, y1p = self.rev_rotate(x1, y1)
-    if self._shape == "rect":
+    if self._shape == "rectangle":
       return self.rotate(
           *clip_line(x0p, y0p, x1p, y1p,
                      (self._x, self._y, self._width, self._height)))
@@ -607,6 +610,18 @@ def flipped(direction):
     return "down"
   if direction == "down":
     return "up"
+  if direction == "below":
+    return "above"
+  if direction == "above":
+    return "below"
+  if direction == "below.left":
+    return "above.right"
+  if direction == "below.right":
+    return "above.left"
+  if direction == "above.left":
+    return "below.right"
+  if direction == "above.right":
+    return "below.left"
   raise Exception(f"Unrecognized direction {direction}")
 
 
@@ -636,8 +651,14 @@ def direction_to_num(direction):
   return {
       "up": (0, 1),
       "down": (0, -1),
+      "above": (0, 1),
+      "below": (0, -1),
       "left": (-1, 0),
       "right": (1, 0),
+      "above.left": (-1, 1),
+      "below.left": (-1, -1),
+      "above.right": (1, 1),
+      "below.right": (1, -1),
   }[direction]
 
 
@@ -648,6 +669,11 @@ def direction_to_angle(direction):
       "left": 180,
       "right": 0,
   }[direction]
+
+
+def direction_to_anchor(direction):
+  x, y = direction_to_num(direction)
+  return num_to_anchor(x, y)
 
 
 def num_to_anchor(x, y):
@@ -728,6 +754,13 @@ def get_default(dic, key, default=None):
   if key in dic:
     return dic[key]
   return default
+
+
+def get_direction_of(obj):
+  for direction in directions:
+    if get_default(obj, direction) is not None:
+      return direction
+  return None
 
 
 def get_default_of_type(dic, key, type_, default=None):
