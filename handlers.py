@@ -629,6 +629,9 @@ class WithAttributeHandler(Handler):
           "reversed.stealth", "reversed.arrow",
           "double.stealth", "double.arrow",
       ]),
+      set([
+          "circle", "ellipse",
+      ]),
   ]
 
   def _match(self, command):
@@ -2688,7 +2691,6 @@ class AddLayerHandler(Handler):
           b = last_layer[start_index_last_layer+i-side_objects+1]
           center_id = context.getid()
           path = {
-              "id": context.getid(),
               "type": "path",
               "items": [
                   {

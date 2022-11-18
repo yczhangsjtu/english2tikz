@@ -21,9 +21,8 @@ class BoxDrawer(Drawer):
   def draw(self, canvas, obj, env):
     BoxDrawer._draw(canvas, obj, env)
 
-  def _draw(canvas, obj, env, position=None, angle=None):
+  def _draw(canvas, obj, env, position=None, slope=None):
     assert "id" in obj
-    obj["name"] = obj["id"]
     tmptext = None
     """
     The LaTeX equations are smaller than expected.
@@ -35,11 +34,14 @@ class BoxDrawer(Drawer):
     else:
       scale = 1
 
-    if "rotate" in obj:
-      if angle is None:
-        angle = int(obj["rotate"])
-      else:
-        angle = (int(obj["rotate"]) + angle) % 360
+    cs_scale = env["coordinate system"]["scale"]
+    angle = get_default(obj, "rotate")
+
+    if slope is not None or angle is not None:
+      angle = none_or(slope, 0) + dist_to_num(none_or(angle, 0))
+
+    circle = "circle" in obj
+    ellipse = "ellipse" in obj
 
     font_size = 40
     if scale != 1:
@@ -57,10 +59,7 @@ class BoxDrawer(Drawer):
     else:
       text_color = "black"
 
-    if "width" in obj and "height" in obj:
-      width, height = dist_to_num(
-          obj["width"]) * scale, dist_to_num(obj["height"]) * scale
-    elif "text" in obj:
+    if "text" in obj:
       if need_latex(obj["text"]):
         path = text_to_latex_image_path(obj["text"], text_color)
         if (path, scale, obj["id"]) not in env["image references"]:
@@ -78,80 +77,124 @@ class BoxDrawer(Drawer):
         tmptext = canvas.create_text(
             0, 0, text=obj["text"], font=default_font(font_size))
       x0, y0, x1, y1 = canvas.bbox(tmptext)
+
       if "inner.sep" in obj:
         inner_sep = dist_to_num(obj["inner.sep"])
       else:
         inner_sep = 0.1
-      if "width" in obj:
-        width = dist_to_num(obj["width"]) * scale
-      else:
-        width = (x1 - x0) / \
-            env["coordinate system"]["scale"] + inner_sep * 2 * scale
-      if "height" in obj:
-        height = dist_to_num(obj["height"]) * scale
-      else:
-        height = (y1 - y0) / \
-            env["coordinate system"]["scale"] + inner_sep * 2 * scale
-    else:
-      if "width" in obj:
-        width = dist_to_num(obj["width"]) * scale
-      else:
-        width = scale
-      if "height" in obj:
-        height = dist_to_num(obj["height"]) * scale
-      else:
-        height = scale
+
+      width = (x1 - x0) / cs_scale + inner_sep * 2 * scale
+      height = (y1 - y0) / cs_scale + inner_sep * 2 * scale
+
+      if circle:
+        radius = math.sqrt(width*width+height*height)/2
+        width, height = radius*2, radius*2
+      elif ellipse:
+        width *= 1.414
+        height *= 1.414
+
+    width = max(dist_to_num(get_default(obj, "width", 0)) * scale, width)
+    height = max(dist_to_num(get_default(obj, "height", 0)) * scale, height)
+
+    if circle:
+      width = max(width, height)
+      height = width
+
+    anchor = get_default(obj, "anchor", "center")
 
     if "at" not in obj:
       if position is not None:
         x, y = position
+      elif get_default_of_type(obj, "right", str) is not None:
+        at_bounding_box = env["bounding box"][get_default_of_type(
+            obj, "right", str)]
+        x, y = at_bounding_box.get_anchor_pos("east")
+        x += get_default(obj, "distance", 1)
+        anchor = "west"
+      elif get_default_of_type(obj, "left", str) is not None:
+        at_bounding_box = env["bounding box"][get_default_of_type(
+            obj, "left", str)]
+        x, y = at_bounding_box.get_anchor_pos("west")
+        x -= get_default(obj, "distance", 1)
+        anchor = "east"
+      elif get_default_of_type(obj, "above", str) is not None:
+        at_bounding_box = env["bounding box"][get_default_of_type(
+            obj, "above", str)]
+        x, y = at_bounding_box.get_anchor_pos("north")
+        y -= get_default(obj, "distance", 1)
+        anchor = "south"
+      elif get_default_of_type(obj, "below", str) is not None:
+        at_bounding_box = env["bounding box"][get_default_of_type(
+            obj, "below", str)]
+        x, y = at_bounding_box.get_anchor_pos("south")
+        y += get_default(obj, "distance", 1)
+        anchor = "north"
+      elif get_default_of_type(obj, "below.right", str) is not None:
+        at_bounding_box = env["bounding box"][get_default_of_type(
+            obj, "below.right", str)]
+        x, y = at_bounding_box.get_anchor_pos("south.east")
+        x += get_default(obj, "distance", 1)
+        anchor = "north.west"
+      elif get_default_of_type(obj, "below.left", str) is not None:
+        at_bounding_box = env["bounding box"][get_default_of_type(
+            obj, "below.left", str)]
+        x, y = at_bounding_box.get_anchor_pos("south.west")
+        x -= get_default(obj, "distance", 1)
+        anchor = "north.east"
+      elif get_default_of_type(obj, "above.right", str) is not None:
+        at_bounding_box = env["bounding box"][get_default_of_type(
+            obj, "above.right", str)]
+        x, y = at_bounding_box.get_anchor_pos("north.east")
+        y -= get_default(obj, "distance", 1)
+        anchor = "south.west"
+      elif get_default_of_type(obj, "above.left", str) is not None:
+        at_bounding_box = env["bounding box"][get_default_of_type(
+            obj, "above.left", str)]
+        x, y = at_bounding_box.get_anchor_pos("north.west")
+        y += get_default(obj, "distance", 1)
+        anchor = "south.east"
       else:
         x, y = 0, 0
     elif isinstance(obj["at"], str):
       at_bounding_box = env["bounding box"][obj["at"]]
-      if "at.anchor" in obj:
-        anchor = obj["at.anchor"]
-      else:
-        anchor = "center"
-      x, y = get_anchor_pos(at_bounding_box, anchor)
+      x, y = at_bounding_box.get_anchor_pos(
+          get_default(obj, "at.anchor", "center"))
     elif obj["at"]["type"] == "coordinate":
       x = dist_to_num(obj["at"]["x"]) if "x" in obj["at"] else 0
       y = dist_to_num(obj["at"]["y"]) if "y" in obj["at"] else 0
     elif obj["at"]["type"] == "intersection":
-      x, _ = get_anchor_pos(env["bounding box"][obj["at"]["name1"]],
-                            get_default(obj["at"], "anchor1", "center"))
-      _, y = get_anchor_pos(env["bounding box"][obj["at"]["name2"]],
-                            get_default(obj["at"], "anchor2", "center"))
+      x, _ = env["bounding box"][obj["at"]["name1"]].get_anchor_pos(
+          get_default(obj["at"], "anchor1", "center"))
+      _, y = env["bounding box"][obj["at"]["name2"]].get_anchor_pos(
+          get_default(obj["at"], "anchor2", "center"))
     else:
       raise Exception(f"Unsupported at {obj['at']}")
 
-    anchor = "center"
-    if "anchor" in obj:
-      anchor = obj["anchor"]
-    elif "above" in obj:
-      anchor = "south"
-    elif "left" in obj:
-      anchor = "east"
-    elif "right" in obj:
-      anchor = "west"
-    elif "below" in obj:
-      anchor = "north"
+    # Move anchor to the specified location, then compute the
+    # coordinate of the left-up corner
     x, y = shift_by_anchor(x, y, anchor, width, height)
 
     if "xshift" in obj or "yshift" in obj:
-      if angle is None:
-        if "xshift" in obj:
-          x += dist_to_num(obj["xshift"])
-        if "yshift" in obj:
-          y += dist_to_num(obj["yshift"])
-      else:
-        dx, dy = dist_to_num(get_default(obj, "xshift", 0),
-                             get_default(obj, "yshift", 0))
-        dx, dy = rotate(dx, dy, 0, 0, (angle + 180) % 360)
-        x += dx
-        y += dy
+      dx, dy = dist_to_num(get_default(obj, "xshift", 0),
+                           get_default(obj, "yshift", 0))
+      if slope is not None:
+        dx, dy = rotate(dx, dy, 0, 0, slope % 360)
+      x += dx
+      y += dy
 
-    env["bounding box"][obj["id"]] = (x, y, width, height)
+    if circle:
+      shape = "circle"
+    elif ellipse:
+      shape = "ellipse"
+    else:
+      shape = "rectangle"
+
+    env["bounding box"][obj["id"]] = BoundingBox(
+        x, y, width, height,
+        shape=shape,
+        angle=none_or(angle, 0),
+        center=BoundingBox._get_anchor_pos((x, y, width, height), anchor),
+        obj=obj)
 
     if "fill" in obj:
       fill = obj["fill"]
@@ -175,13 +218,21 @@ class BoxDrawer(Drawer):
       rounded_corners = None
     cs = env["coordinate system"]
 
+    x0, y0 = map_point(x, y, cs)
+    x1, y1 = map_point(x + width, y + height, cs)
+    anchorx, anchory = BoundingBox._get_anchor_pos(
+        (x, y, width, height), anchor)
+    anchor_screen_x, anchor_screen_y = map_point(anchorx, anchory, cs)
     if angle is None:
-      x0, y0 = map_point(x, y, cs)
-      x1, y1 = map_point(x + width, y + height, cs)
-      anchorx, anchory = get_anchor_pos((x, y, width, height), anchor)
       r = None
       if fill or draw:
-        if rounded_corners:
+        if circle or ellipse:
+          r = canvas.create_oval((x0, y0, x1, y1),
+                                 fill=color_to_tk(fill),
+                                 outline=color_to_tk(color),
+                                 width=line_width,
+                                 dash=dash)
+        elif rounded_corners:
           r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
                                         radius=rounded_corners*cs["scale"],
                                         fill=color_to_tk(fill),
@@ -195,7 +246,8 @@ class BoxDrawer(Drawer):
                                       width=line_width,
                                       dash=dash)
       if "text" in obj and obj["text"]:
-        center_x, center_y = get_anchor_pos((x, y, width, height), "center")
+        center_x, center_y = BoundingBox._get_anchor_pos(
+            (x, y, width, height), "center")
         x, y = map_point(center_x, center_y, cs)
         if need_latex(obj["text"]):
           if tmptext is None:
@@ -227,34 +279,42 @@ class BoxDrawer(Drawer):
             if r:
               canvas.tag_lower(r, tmptext)
       if obj["id"] in env["selected ids"]:
-        if rounded_corners:
+        if circle or ellipse:
+          canvas.create_oval(x0 - 5, y0 + 5, x1 + 5, y1 - 5,
+                             fill="", outline="red", dash=2)
+        elif rounded_corners:
           BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
-                                    radius=rounded_corners*cs["scale"],
+                                    radius=rounded_corners * cs["scale"],
                                     fill="", outline="red", dash=2)
         else:
           canvas.create_rectangle(
               x0 - 5, y0 + 5, x1 + 5, y1 - 5, outline="red", dash=2, fill="")
-        x, y = map_point(anchorx, anchory, cs)
-        canvas.create_oval(x - 3, y - 3, x + 3, y + 3,
-                           fill="#77ff77", outline="green")
 
-      if env["finding prefix"] is not None:
-        candidate_code = env["get_candidate_code"](obj)
-        if candidate_code is not None:
-          candidate_code = candidate_code[len(env["finding prefix"]):]
-          ftext = canvas.create_text(
-              x0, y1, anchor="nw", text=candidate_code, fill="black")
-          fback = canvas.create_rectangle(
-              canvas.bbox(ftext), fill="yellow", outline="blue")
-          canvas.tag_lower(fback, ftext)
     else:
-      x0, y0 = map_point(x, y, cs)
-      x1, y1 = map_point(x + width, y + height, cs)
-      anchorx, anchory = get_anchor_pos((x, y, width, height), anchor)
-      anchor_screen_x, anchor_screen_y = map_point(anchorx, anchory, cs)
       r = None
       if fill or draw:
-        if rounded_corners:
+        if circle:
+          centerx, centery = (x0 + x1) / 2, (y0 + y1) / 2
+          radius = max(abs(x1 - x0), abs(y1 - y0)) / 2
+          newx, newy = rotate(centerx, centery,
+                              anchor_screen_x,
+                              anchor_screen_y,
+                              angle)
+          rx0, ry0 = newx - radius, newy - radius
+          rx1, ry1 = newx + radius, newy + radius
+          r = canvas.create_oval((rx0, ry0, rx1, ry1),
+                                 fill=color_to_tk(fill),
+                                 outline=color_to_tk(color),
+                                 width=line_width)
+        elif ellipse:
+          r = BoxDrawer.rotated_oval(canvas, x0, y0, x1, y1,
+                                     angle=angle,
+                                     rotate_center=(anchor_screen_x,
+                                                    anchor_screen_y),
+                                     fill=color_to_tk(fill),
+                                     outline=color_to_tk(color),
+                                     width=line_width)
+        elif rounded_corners:
           r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
                                         radius=rounded_corners*cs["scale"],
                                         fill=color_to_tk(fill),
@@ -273,8 +333,10 @@ class BoxDrawer(Drawer):
                                     width=line_width)
 
       if "text" in obj and obj["text"]:
-        center_x, center_y = get_anchor_pos((x, y, width, height), "center")
-        anchor_x, anchor_y = get_anchor_pos((x, y, width, height), anchor)
+        center_x, center_y = BoundingBox._get_anchor_pos(
+            (x, y, width, height), "center")
+        anchor_x, anchor_y = BoundingBox._get_anchor_pos(
+            (x, y, width, height), anchor)
         rotated_x, rotated_y = rotate(
             center_x, center_y, anchor_x, anchor_y, 360-angle)
 
@@ -301,16 +363,35 @@ class BoxDrawer(Drawer):
             canvas.create_text(x, y, text=obj["text"],
                                fill=color_to_tk(text_color),
                                font=("Times New Roman", font_size, "normal"),
-                               angle=(180+angle) % 360)
+                               angle=angle % 360)
           else:
             canvas.move(tmptext, x, y)
             canvas.itemconfig(tmptext, fill=color_to_tk(
-                text_color), angle=(180+angle) % 360)
+                text_color), angle=angle % 360)
             if r:
               canvas.tag_lower(r, tmptext)
 
       if obj["id"] in env["selected ids"]:
-        if rounded_corners:
+        if circle:
+          centerx, centery = (x0 + x1) / 2, (y0 + y1) / 2
+          radius = max(abs(x1 - x0), abs(y1 - y0)) / 2
+          newx, newy = rotate(centerx, centery,
+                              anchor_screen_x,
+                              anchor_screen_y,
+                              angle)
+          rx0, ry0 = newx - radius, newy - radius
+          rx1, ry1 = newx + radius, newy + radius
+          r = canvas.create_oval((rx0 - 5, ry0 - 5, rx1 + 5, ry1 + 5),
+                                 fill="", outline="red",
+                                 width=line_width, dash=2)
+        elif ellipse:
+          r = BoxDrawer.rotated_oval(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
+                                     angle=angle,
+                                     rotate_center=(anchor_screen_x,
+                                                    anchor_screen_y),
+                                     fill="", outline="red",
+                                     width=line_width, dash=2)
+        elif rounded_corners:
           BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
                                     radius=rounded_corners*cs["scale"],
                                     angle=angle,
@@ -329,19 +410,20 @@ class BoxDrawer(Drawer):
           canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
                                 outline="red", dash=2, fill="")
 
-        x, y = map_point(anchorx, anchory, cs)
-        canvas.create_oval(x - 3, y - 3, x + 3, y + 3,
-                           fill="#77ff77", outline="green")
+    if obj["id"] in env["selected ids"]:
+      canvas.create_oval(anchor_screen_x - 3, anchor_screen_y - 3,
+                         anchor_screen_x + 3, anchor_screen_y + 3,
+                         fill="#77ff77", outline="green")
 
-      if env["finding prefix"] is not None:
-        candidate_code = env["get_candidate_code"](obj)
-        if candidate_code is not None:
-          candidate_code = candidate_code[len(env["finding prefix"]):]
-          ftext = canvas.create_text(
-              x0, y1, anchor="nw", text=candidate_code, fill="black")
-          fback = canvas.create_rectangle(
-              canvas.bbox(ftext), fill="yellow", outline="blue")
-          canvas.tag_lower(fback, ftext)
+    if env["finding prefix"] is not None:
+      candidate_code = env["get_candidate_code"](obj)
+      if candidate_code is not None:
+        candidate_code = candidate_code[len(env["finding prefix"]):]
+        ftext = canvas.create_text(
+            x0, y1, anchor="nw", text=candidate_code, fill="black")
+        fback = canvas.create_rectangle(
+            canvas.bbox(ftext), fill="yellow", outline="blue")
+        canvas.tag_lower(fback, ftext)
 
   def round_rectangle(canvas, x1, y1, x2, y2, radius=25, angle=None,
                       rotate_center=None, **kwargs):
@@ -374,6 +456,23 @@ class BoxDrawer(Drawer):
       points = [e for x, y in points for e in (x, y)]
     return canvas.create_polygon(points, **kwargs, smooth=True)
 
+  def rotated_oval(canvas, x1, y1, x2, y2, angle=None,
+                   rotate_center=None, **kwargs):
+    x1, x2 = min(x1, x2), max(x1, x2)
+    y1, y2 = min(y1, y2), max(y1, y2)
+    centerx, centery = (x1 + x2) / 2, (y1 + y2) / 2
+    radiusx, radiusy = (x2 - x1) / 2, (y2 - y1) / 2
+    steps = max(int((radiusx + radiusy) / 0.02), 50)
+    points = [(math.cos(i*math.pi*2/steps) * radiusx + centerx,
+               math.sin(i*math.pi*2/steps) * radiusy + centery)
+              for i in range(steps)]
+
+    if angle is not None and rotate_center is not None:
+      x0, y0 = rotate_center
+      points = [rotate(x, y, x0, y0, angle) for x, y in points]
+      points = [e for x, y in points for e in (x, y)]
+    return canvas.create_polygon(points, **kwargs, smooth=True)
+
 
 class PathDrawer(Drawer):
   def match(self, obj):
@@ -391,27 +490,27 @@ class PathDrawer(Drawer):
     cs = env["coordinate system"]
     is_selected = obj in env["selected paths"]
     for index, item in enumerate(obj["items"]):
+      segment_id = f"segment_{id(obj)}_{index}"
       new_pos = None
       new_pos_clip = None
       if item["type"] == "nodename":
         name = item["name"]
-        anchor = "center"
-        if "anchor" in item:
-          anchor = item["anchor"]
-        new_pos = get_anchor_pos(env["bounding box"][name], anchor)
-        if "xshift" in item or "yshift" in item:
+        anchor = get_default(item, "anchor")
+        new_pos = env["bounding box"][name].get_anchor_pos(
+            none_or(anchor, "center"))
+        if anchor is None:
+          new_pos_clip = env["bounding box"][name]
+        elif "xshift" in item or "yshift" in item:
           x, y = new_pos
           if "xshift" in item:
             x += dist_to_num(item["xshift"])
           if "yshift" in item:
             y += dist_to_num(item["yshift"])
           new_pos = (x, y)
-        elif anchor == "center":
-          new_pos_clip = env["bounding box"][name]
       elif item["type"] == "point":
         id_ = item["id"]
         x, y = current_pos
-        env["bounding box"][id_] = (x, y, 0, 0)
+        env["bounding box"][id_] = BoundingBox.from_rect(x, y, 0, 0)
       elif item["type"] == "coordinate":
         if "relative" in item and item["relative"]:
           if current_pos is None:
@@ -427,8 +526,8 @@ class PathDrawer(Drawer):
           anchor1 = item["anchor1"]
         if "anchor2" in item:
           anchor2 = item["anchor2"]
-        x, _ = get_anchor_pos(env["bounding box"][name1], anchor1)
-        _, y = get_anchor_pos(env["bounding box"][name2], anchor2)
+        x, _ = env["bounding box"][name1].get_anchor_pos(anchor1)
+        _, y = env["bounding box"][name2].get_anchor_pos(anchor2)
         new_pos = (x, y)
       elif item["type"] == "line":
         if to_draw is not None:
@@ -445,240 +544,241 @@ class PathDrawer(Drawer):
         if to_draw["type"] == "line":
           if current_pos is None:
             raise Exception("No starting position for line")
-          if draw:
-            x0, y0 = current_pos
-            x1, y1 = new_pos
 
-            straight = "in" not in to_draw and "out" not in to_draw
+          x0, y0 = current_pos
+          x1, y1 = new_pos
 
-            if straight:
-              if current_pos_clip:
-                cliped_pos = clip_line(x0, y0, x1, y1, current_pos_clip)
-                if cliped_pos is None:
-                  to_draw = None
-                  if new_pos is not None:
-                    current_pos = new_pos
-                    current_pos_clip = new_pos_clip
-                    new_pos = None
-                  continue
-                x0, y0 = cliped_pos
+          straight = "in" not in to_draw and "out" not in to_draw
 
-              if new_pos_clip:
-                cliped_pos = clip_line(x1, y1, x0, y0, new_pos_clip)
-                if cliped_pos is None:
-                  to_draw = None
-                  if new_pos is not None:
-                    current_pos = new_pos
-                    current_pos_clip = new_pos_clip
-                    new_pos = None
-                  continue
-                x1, y1 = cliped_pos
+          if straight:
+            if current_pos_clip:
+              cliped_pos = current_pos_clip.get_point_at_direction(x1, y1)
+              if cliped_pos is None:
+                to_draw = None
+                if new_pos is not None:
+                  current_pos = new_pos
+                  current_pos_clip = new_pos_clip
+                  new_pos = None
+                continue
+              x0, y0 = cliped_pos
 
-              env["segments"].append(("line", (x0, y0, x1, y1), obj))
+            if new_pos_clip:
+              cliped_pos = new_pos_clip.get_point_at_direction(x0, y0)
+              if cliped_pos is None:
+                to_draw = None
+                if new_pos is not None:
+                  current_pos = new_pos
+                  current_pos_clip = new_pos_clip
+                  new_pos = None
+                continue
+              x1, y1 = cliped_pos
 
-              x0p, y0p = map_point(x0, y0, cs)
-              x1p, y1p = map_point(x1, y1, cs)
-
-              if "line.width" in obj:
-                width = float(obj["line.width"])
-              else:
-                width = None
-              if "color" in obj:
-                color = obj["color"]
-              else:
-                color = "black"
-              dashed = 2 if "dashed" in obj else None
-
-              if arrow:
-                arrow = tk.LAST
-              elif rarrow:
-                arrow = tk.FIRST
-              elif darrow:
-                arrow = tk.BOTH
-              else:
-                arrow = None
-
-              if is_selected:
-                canvas.create_line((x0p, y0p, x1p, y1p), fill="red", dash=6,
-                                   width=width+4 if width is not None else 4)
-              canvas.create_line((x0p, y0p, x1p, y1p), fill=color_to_tk(color),
-                                 width=width, arrow=arrow, dash=dashed)
-
-              if "annotates" in to_draw:
-                for annotate in to_draw["annotates"]:
-                  if "at.start" in annotate:
-                    t = 1
-                  elif "near.start" in annotate:
-                    t = 0.8
-                  elif "midway" in annotate:
-                    t = 0.5
-                  elif "near.end" in annotate:
-                    t = 0.2
-                  elif "at.end" in annotate:
-                    t = 0
-                  else:
-                    t = 0.5
-                  x = x0 * t + x1 * (1 - t)
-                  y = y0 * t + y1 * (1 - t)
-                  angle = None
-                  if "sloped" in annotate:
-                    angle = (get_angle(x0, y0, x1, y1) + 180) % 360
-                    if angle > 270 or angle < 90:
-                      angle = (angle + 180) % 360
-                  BoxDrawer._draw(canvas, annotate, env,
-                                  position=(x, y), angle=angle)
-            else:
-              points = [[x0, y0]]
-              dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
-
-              if "out" in to_draw:
-                out_degree = int(to_draw["out"])
-                dy = math.sin(out_degree / 180 * math.pi) * dist / 3
-                dx = math.cos(out_degree / 180 * math.pi) * dist / 3
-                if current_pos_clip:
-                  cx, cy, cw, ch = current_pos_clip
-                  diagnal = math.sqrt(cw*cw + ch*ch)
-                  start_point = clip_line(x0, y0,
-                                          x0 + dx * diagnal / dist * 3,
-                                          y0 + dy * diagnal / dist * 3,
-                                          current_pos_clip)
-                  assert start_point is not None
-                  x0, y0 = start_point
-                  points[0] = [x0, y0]
-                points.append([x0 + dx, y0 + dy])
-
-              if "in" in to_draw:
-                in_degree = int(to_draw["in"])
-                dy = math.sin(in_degree / 180 * math.pi) * dist / 3
-                dx = math.cos(in_degree / 180 * math.pi) * dist / 3
-                if new_pos_clip:
-                  cx, cy, cw, ch = new_pos_clip
-                  diagnal = math.sqrt(cw*cw + ch*ch)
-                  end_point = clip_line(x1, y1,
-                                        x1 + dx * diagnal / dist * 3,
-                                        y1 + dy * diagnal / dist * 3,
-                                        new_pos_clip)
-                  assert end_point is not None
-                  x1, y1 = end_point
-                points.append([x1 + dx, y1 + dy])
-              points.append([x1, y1])
-
-              dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
-              steps = max(int(dist / 0.01) + 1, 20)
-              curve = Bezier.generate_line_segments(*points, steps=steps)
-
-              if current_pos_clip:
-                curve = clip_curve(curve, current_pos_clip)
-                if curve is None:
-                  to_draw = None
-                  if new_pos is not None:
-                    current_pos = new_pos
-                    current_pos_clip = new_pos_clip
-                    new_pos = None
-                  continue
-
-              if new_pos_clip:
-                curve = list(
-                    reversed(clip_curve(list(reversed(curve)), new_pos_clip)))
-                if curve is None:
-                  to_draw = None
-                  if new_pos is not None:
-                    current_pos = new_pos
-                    current_pos_clip = new_pos_clip
-                    new_pos = None
-                  continue
-
-              env["segments"].append(("curve", curve, obj))
-              screen_curve = [map_point(x, y, cs) for x, y in curve]
-
-              if "line.width" in obj:
-                width = float(obj["line.width"])
-              else:
-                width = None
-              if "color" in obj:
-                color = obj["color"]
-              else:
-                color = "black"
-              dashed = 2 if "dashed" in obj else None
-
-              if arrow:
-                arrow = tk.LAST
-              elif rarrow:
-                arrow = tk.FIRST
-              elif darrow:
-                arrow = tk.BOTH
-              else:
-                arrow = None
-
-              if is_selected:
-                canvas.create_line(*[e for x, y in screen_curve
-                                     for e in (x, y)],
-                                   fill="red", dash=6,
-                                   width=width+4 if width is not None else 4)
-              canvas.create_line(*[e for x, y in screen_curve for e in (x, y)],
-                                 fill=color_to_tk(color), width=width,
-                                 arrow=arrow, dash=dashed)
-
-              if "annotates" in to_draw:
-                for annotate in to_draw["annotates"]:
-                  if "at.start" in annotate:
-                    t = 1
-                  elif "near.start" in annotate:
-                    t = 0.8
-                  elif "midway" in annotate:
-                    t = 0.5
-                  elif "near.end" in annotate:
-                    t = 0.2
-                  elif "at.end" in annotate:
-                    t = 0
-                  else:
-                    t = 0.5
-                  x, y = curve[int((len(curve)-1) * (1-t))]
-                  angle = None
-                  if "sloped" in annotate:
-                    if t == 0:
-                      x0, y0 = curve[len(curve)-2]
-                      x1, y1 = x, y
-                    else:
-                      x0, y0 = x, y
-                      x1, y1 = curve[int((len(curve)-1) * (1-t))+1]
-                    angle = (get_angle(x0, y0, x1, y1) + 180) % 360
-                    if angle > 270 or angle < 90:
-                      angle = (angle + 180) % 360
-                  BoxDrawer._draw(canvas, annotate, env,
-                                  position=(x, y), angle=angle)
-        elif to_draw["type"] == "rectangle":
-          if current_pos is None:
-            raise Exception("No starting position for rectangle")
-          if draw:
-            x0, y0 = current_pos
-            x1, y1 = new_pos
-
-            x0, x1 = min(x0, x1), max(x0, x1)
-            y0, y1 = min(y0, y1), max(y0, y1)
-
-            env["segments"].append(("rectangle", (x0, y0, x1, y1), obj))
+            env["bounding box"][segment_id] = BoundingBox.from_rect(
+                x0, y0, x1, y1, shape="line", obj=obj)
 
             x0p, y0p = map_point(x0, y0, cs)
             x1p, y1p = map_point(x1, y1, cs)
 
             if "line.width" in obj:
-              width = obj["line.width"]
+              width = float(obj["line.width"])
             else:
               width = None
             if "color" in obj:
               color = obj["color"]
             else:
               color = "black"
-            if "fill" in obj:
-              fill = obj["fill"]
-            else:
-              fill = ""
             dashed = 2 if "dashed" in obj else None
 
+            if arrow:
+              arrow = tk.LAST
+            elif rarrow:
+              arrow = tk.FIRST
+            elif darrow:
+              arrow = tk.BOTH
+            else:
+              arrow = None
+
             if is_selected:
-              canvas.create_rectangle(
-                  (x0p-5, y0p+5, x1p+5, y1p-5), fill="", outline="red", dash=4)
+              canvas.create_line((x0p, y0p, x1p, y1p), fill="red", dash=6,
+                                 width=width+4 if width is not None else 4)
+            if draw:
+              canvas.create_line((x0p, y0p, x1p, y1p), fill=color_to_tk(color),
+                                 width=width, arrow=arrow, dash=dashed)
+
+            if "annotates" in to_draw:
+              for annotate in to_draw["annotates"]:
+                if "at.start" in annotate:
+                  t = 1
+                elif "near.start" in annotate:
+                  t = 0.8
+                elif "midway" in annotate:
+                  t = 0.5
+                elif "near.end" in annotate:
+                  t = 0.2
+                elif "at.end" in annotate:
+                  t = 0
+                else:
+                  t = 0.5
+                x = x0 * t + x1 * (1 - t)
+                y = y0 * t + y1 * (1 - t)
+                angle = None
+                if "sloped" in annotate:
+                  angle = get_angle(x0, y0, x1, y1) % 360
+                  if angle < 270 and angle > 90:
+                    angle = (angle + 180) % 360
+                BoxDrawer._draw(canvas, annotate, env,
+                                position=(x, y), slope=angle)
+          else:
+            points = [[x0, y0]]
+            dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
+
+            if "out" in to_draw:
+              out_degree = int(to_draw["out"])
+              dy = math.sin(out_degree / 180 * math.pi) * dist / 3
+              dx = math.cos(out_degree / 180 * math.pi) * dist / 3
+              if current_pos_clip:
+                diagnal = math.diameter()
+                start_point = current_pos_clip.get_point_at_direction(
+                    x0 + dx * diagnal / dist * 3,
+                    y0 + dy * diagnal / dist * 3)
+                assert start_point is not None
+                x0, y0 = start_point
+                points[0] = [x0, y0]
+              points.append([x0 + dx, y0 + dy])
+
+            if "in" in to_draw:
+              in_degree = int(to_draw["in"])
+              dy = math.sin(in_degree / 180 * math.pi) * dist / 3
+              dx = math.cos(in_degree / 180 * math.pi) * dist / 3
+              if new_pos_clip:
+                diagnal = new_pos_clip.diameter()
+                end_point = new_pos_clip.get_point_at_direction(
+                    x1 + dx * diagnal / dist * 3,
+                    y1 + dy * diagnal / dist * 3)
+                assert end_point is not None
+                x1, y1 = end_point
+              points.append([x1 + dx, y1 + dy])
+            points.append([x1, y1])
+
+            dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
+            steps = max(int(dist / 0.01) + 1, 20)
+            curve = Bezier.generate_line_segments(*points, steps=steps)
+
+            if current_pos_clip:
+              curve = current_pos_clip.clip_curve(curve)
+              if curve is None:
+                to_draw = None
+                if new_pos is not None:
+                  current_pos = new_pos
+                  current_pos_clip = new_pos_clip
+                  new_pos = None
+                continue
+
+            if new_pos_clip:
+              curve = list(
+                  reversed(new_pos_clip.clip_curve(list(reversed(curve)))))
+              if curve is None:
+                to_draw = None
+                if new_pos is not None:
+                  current_pos = new_pos
+                  current_pos_clip = new_pos_clip
+                  new_pos = None
+                continue
+
+            env["bounding box"][segment_id] = BoundingBox(
+                0, 0, 0, 0, shape="curve", points=curve, obj=obj)
+            screen_curve = [map_point(x, y, cs) for x, y in curve]
+
+            if "line.width" in obj:
+              width = float(obj["line.width"])
+            else:
+              width = None
+            if "color" in obj:
+              color = obj["color"]
+            else:
+              color = "black"
+            dashed = 2 if "dashed" in obj else None
+
+            if arrow:
+              arrow = tk.LAST
+            elif rarrow:
+              arrow = tk.FIRST
+            elif darrow:
+              arrow = tk.BOTH
+            else:
+              arrow = None
+
+            if is_selected:
+              canvas.create_line(*[e for x, y in screen_curve
+                                   for e in (x, y)],
+                                 fill="red", dash=6,
+                                 width=width+4 if width is not None else 4)
+            if draw:
+              canvas.create_line(*[e for x, y in screen_curve for e in (x, y)],
+                                 fill=color_to_tk(color), width=width,
+                                 arrow=arrow, dash=dashed)
+
+            if "annotates" in to_draw:
+              for annotate in to_draw["annotates"]:
+                if "at.start" in annotate:
+                  t = 1
+                elif "near.start" in annotate:
+                  t = 0.8
+                elif "midway" in annotate:
+                  t = 0.5
+                elif "near.end" in annotate:
+                  t = 0.2
+                elif "at.end" in annotate:
+                  t = 0
+                else:
+                  t = 0.5
+                x, y = curve[int((len(curve)-1) * (1-t))]
+                angle = None
+                if "sloped" in annotate:
+                  if t == 0:
+                    x0, y0 = curve[len(curve)-2]
+                    x1, y1 = x, y
+                  else:
+                    x0, y0 = x, y
+                    x1, y1 = curve[int((len(curve)-1) * (1-t))+1]
+                  angle = get_angle(x0, y0, x1, y1) % 360
+                  if angle < 270 and angle > 90:
+                    angle = (angle + 180) % 360
+                BoxDrawer._draw(canvas, annotate, env,
+                                position=(x, y), slope=angle)
+        elif to_draw["type"] == "rectangle":
+          if current_pos is None:
+            raise Exception("No starting position for rectangle")
+          x0, y0 = current_pos
+          x1, y1 = new_pos
+
+          x0, x1 = min(x0, x1), max(x0, x1)
+          y0, y1 = min(y0, y1), max(y0, y1)
+
+          env["bounding box"][segment_id] = BoundingBox.from_rect(
+              x0, y0, x1, y1, shape="rectangle", points=curve, obj=obj)
+
+          x0p, y0p = map_point(x0, y0, cs)
+          x1p, y1p = map_point(x1, y1, cs)
+
+          if "line.width" in obj:
+            width = obj["line.width"]
+          else:
+            width = None
+          if "color" in obj:
+            color = obj["color"]
+          else:
+            color = "black"
+          if "fill" in obj:
+            fill = obj["fill"]
+          else:
+            fill = ""
+          dashed = 2 if "dashed" in obj else None
+
+          if is_selected:
+            canvas.create_rectangle(
+                (x0p-5, y0p+5, x1p+5, y1p-5), fill="", outline="red", dash=4)
+          if draw:
             canvas.create_rectangle((x0p, y0p, x1p, y1p),
                                     fill=color_to_tk(fill),
                                     outline=color_to_tk(color), width=width,

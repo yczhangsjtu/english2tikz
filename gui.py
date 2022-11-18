@@ -143,7 +143,7 @@ class CanvasManager(object):
       self._command_refershing_timer_started = False
       self._process_command(self._get_command_line())
       self._exit_command_mode()
-    elif event.char in string.printable:
+    elif event.char and event.char in string.printable:
       self._command_refershing_timer_started = False
       self._command_line = self._get_command_line() + event.char
       self._command_history_index = None
@@ -207,7 +207,7 @@ class CanvasManager(object):
     if event.keysym == "Return":
       self._editing_text += "\n"
       self._editing_refershing_timer_started = False
-    elif event.char in string.printable:
+    elif event.char and event.char in string.printable:
       self._editing_text += event.char
       self._editing_refershing_timer_started = False
     elif event.keysym == "BackSpace":
@@ -482,7 +482,7 @@ class CanvasManager(object):
       if self._visual_start is not None:
         self._select_targets()
         self._visual_start = None
-    elif event.char in string.printable:
+    elif event.char and event.char in string.printable:
       self._handle_printable_char_in_normal_mode(event)
     elif event.state == 4 and event.keysym in string.ascii_lowercase:
       self._handle_ctrl_key_in_normal_mode(event)
@@ -650,8 +650,8 @@ class CanvasManager(object):
   def _create_node_at_intersection(self):
     assert len(self._selected_ids) == 2
     id0, id1 = self._selected_ids
-    x0, _ = get_anchor_pos(self._bounding_boxes[id0], "center")
-    _, y0 = get_anchor_pos(self._bounding_boxes[id1], "center")
+    x0, _ = self._bounding_boxes[id0].get_anchor_pos("center")
+    _, y0 = self._bounding_boxes[id1].get_anchor_pos("center")
     self._editing_text_pos = x0, y0
     self._parse(f"there.is.text at.intersection.of.{id0}.and.{id1}")
     self._obj_to_edit_text = self._context._picture[-1]
@@ -674,8 +674,7 @@ class CanvasManager(object):
       return
 
     self._editing_text = self._obj_to_edit_text["text"]
-    self._editing_text_pos = get_anchor_pos(self._bounding_boxes[id_],
-                                            "center")
+    self._editing_text_pos = self._bounding_boxes[id_].get_anchor_pos("center")
 
   def _find_object_by_id(self, id_):
     for obj in self._context._picture:
@@ -713,8 +712,7 @@ class CanvasManager(object):
     self._parse(f"there.is.text '' with.{anchor}.at.{at_anchor}.of.{id_}")
     self._obj_to_edit_text = self._context._picture[-1]
     self._editing_text = ""
-    self._editing_text_pos = get_anchor_pos(
-        self._bounding_boxes[self._selected_ids[0]],
+    self._editing_text_pos = self._bounding_boxes[id_].get_anchor_pos(
         at_anchor)
     self._selected_ids = [self._obj_to_edit_text["id"]]
 
@@ -747,8 +745,21 @@ class CanvasManager(object):
       self._shift_dist(at, "x", dx)
       self._shift_dist(at, "y", dy)
       return
-    self._shift_dist(obj, "xshift", dx, "0")
-    self._shift_dist(obj, "yshift", dy, "0")
+    elif get_default(obj, "in_path", False):
+      self._shift_dist(obj, "xshift", dx, "0")
+      self._shift_dist(obj, "yshift", dy, "0")
+    elif isinstance(at, str):
+      self._shift_dist(obj, "xshift", dx, "0")
+      self._shift_dist(obj, "yshift", dy, "0")
+    elif is_type(at, "intersection"):
+      self._shift_dist(obj, "xshift", dx, "0")
+      self._shift_dist(obj, "yshift", dy, "0")
+    else:
+      obj["at"] = {
+          "type": "coordinate",
+          "x": dx,
+          "y": dy,
+      }
 
   def _shift_path_position(self, path, index, dx, dy):
     item = path["items"][index]
@@ -772,20 +783,11 @@ class CanvasManager(object):
     selected_ids, selected_paths = [], []
 
     for id_, bb in self._bounding_boxes.items():
-      x, y, width, height = bb
-      if intersect(sel, (x, y, x+width, y+height)):
-        selected_ids.append(id_)
-
-    for type_, data, path in self._segments:
-      selector = get_default({
-          "line": self._select_line,
-          "rectangle": self._select_rect,
-          "curve": self._select_curve,
-      }, type_)
-      if selector is None:
-        raise Exception(f"Unknown segment type: {type_}")
-      if selector(sel, data, path, check_only=True):
-        selected_paths.append(path)
+      if bb.intersect_rect(sel):
+        if id_.startswith("segment_"):
+          append_if_not_in(selected_paths, bb._obj)
+        else:
+          append_if_not_in(selected_ids, id_)
 
     return selected_ids, selected_paths
 
@@ -803,65 +805,11 @@ class CanvasManager(object):
     sel = (x0, y0, x1, y1)
 
     for id_, bb in self._bounding_boxes.items():
-      x, y, width, height = bb
-      if intersect(sel, (x, y, x+width, y+height)):
-        append_if_not_in(self._selected_ids, id_)
-
-    for type_, data, path in self._segments:
-      if path in self._selected_paths:
-        continue
-      selector = get_default({
-          "line": self._select_line,
-          "rectangle": self._select_rect,
-          "curve": self._select_curve,
-      }, type_)
-      if selector is None:
-        raise Exception(f"Unknown segment type: {type_}")
-      selector(sel, data, path)
-
-  def _select_path(self, path, deselect=False, new_selected_paths=None):
-    if new_selected_paths is not None:
-      new_selected_paths.append(path)
-    elif deselect:
-      self._selected_paths = remove_if_in(self._selected_paths, path)
-    else:
-      self._selected_paths.append(path)
-    self._selected_path_position = None
-
-  def _select_line(self, bb, data, path,
-                   deselect=False, new_selected_paths=None,
-                   check_only=False):
-    if rect_line_intersect(bb, data):
-      if check_only:
-        return True
-      self._select_path(path, deselect, new_selected_paths)
-    if check_only:
-      return False
-
-  def _select_rect(self, bb, data, path,
-                   deselect=False, new_selected_paths=None,
-                   check_only=False):
-    if intersect(bb, data):
-      if check_only:
-        return True
-      self._select_path(path, deselect, new_selected_paths)
-    if check_only:
-      return False
-
-  def _select_curve(self, bb, data, path,
-                    deselect=False, new_selected_paths=None,
-                    check_only=False):
-    eps = 0.1
-    x0, y0, x1, y1 = bb
-    for x, y in data:
-      if both(is_bound_by(x, x0 - eps, x1 + eps),
-              is_bound_by(y, y0 - eps, y1 + eps)):
-        if check_only:
-          return True
-        self._select_path(path, deselect, new_selected_paths)
-        return
-    if check_only:
-      return False
+      if bb.intersect_rect(sel):
+        if id_.startswith("segment_"):
+          append_if_not_in(self._selected_paths, bb._obj)
+        else:
+          append_if_not_in(self._selected_ids, id_)
 
   def _deselect_targets(self):
     if self._visual_start is None:
@@ -873,22 +821,11 @@ class CanvasManager(object):
     sel = (x0, y0, x1, y1)
 
     for id_, bb in self._bounding_boxes.items():
-      x, y, width, height = bb
-      if both(id_ in self._selected_ids,
-              intersect((x0, y0, x1, y1), (x, y, x+width, y+height))):
-        self._selected_ids = remove_if_in(self._selected_ids, id_)
-
-    for type_, data, path in self._segments:
-      if path not in self._selected_paths:
-        continue
-      selector = get_default({
-          "line": self._select_line,
-          "rectangle": self._select_rect,
-          "curve": self._select_curve,
-      }, type_)
-      if selector is None:
-        raise Exception(f"Unknown segment type: {type_}")
-      selector(sel, data, path, deselect=True)
+      if bb.intersect_rect(sel):
+        if id_.startswith("segment_"):
+          self._selected_paths = remove_if_in(self._selected_paths, bb._obj)
+        else:
+          self._selected_ids = remove_if_in(self._selected_ids, id_)
 
   def _intersect_select_targets(self):
     if self._visual_start is None:
@@ -899,27 +836,15 @@ class CanvasManager(object):
     y0, y1 = order(y0, y1)
     sel = (x0, y0, x1, y1)
 
-    new_selected_ids = []
+    new_selected_ids, new_selected_paths = [], []
     for id_, bb in self._bounding_boxes.items():
-      x, y, width, height = bb
-      if both(id_ in self._selected_ids,
-              intersect((x0, y0, x1, y1), (x, y, x+width, y+height))):
-        new_selected_ids.append(id_)
-    self._selected_ids = new_selected_ids
+      if bb.intersect_rect(sel):
+        if id_ in self._selected_ids:
+          new_selected_ids.append(id_)
+        elif bb._obj in self._selected_paths:
+          new_selected_paths.append(bb._obj)
 
-    new_selected_paths = []
-    for type_, data, path in self._segments:
-      if path not in self._selected_paths:
-        continue
-      selector = get_default({
-          "line": self._select_line,
-          "rectangle": self._select_rect,
-          "curve": self._select_curve,
-      }, type_)
-      if selector is None:
-        raise Exception(f"Unknown segment type: {type_}")
-      selector(sel, data, path,
-               deselect=True, new_selected_paths=new_selected_paths)
+    self._selected_ids = new_selected_ids
     self._selected_paths = new_selected_paths
 
   def _delete_objects_related_to_id(self, id_, deleted_ids=[]):
@@ -974,7 +899,7 @@ class CanvasManager(object):
       return
     self._before_change()
     self._paste_data(copy.deepcopy(self._clipboard), False,
-                     self._bounding_boxes, self._segments)
+                     self._bounding_boxes)
     self._after_change()
 
   def _jump_to_select(self):
@@ -982,7 +907,7 @@ class CanvasManager(object):
     if id_ not in self._bounding_boxes:
       return
     bb = self._bounding_boxes[id_]
-    x, y = get_anchor_pos(bb, "center")
+    x, y = bb.get_anchor_pos("center")
     self._pointerx = round(x / self._grid_size())
     self._pointery = round(y / self._grid_size())
     self._reset_pointer_into_screen()
@@ -1122,7 +1047,6 @@ class CanvasManager(object):
   def _draw_picture(self, c, ctx):
     env = {
         "bounding box": {},
-        "segments": [],
         "coordinate system": self._coordinate_system(),
         "selected ids": self._selected_ids,
         "selected paths": self._selected_paths,
@@ -1134,7 +1058,6 @@ class CanvasManager(object):
     for obj in ctx._picture:
       self._draw_obj(c, obj, env)
     self._bounding_boxes = env["bounding box"]
-    self._segments = env["segments"]
 
   def _draw_obj(self, c, obj, env):
     for drawer in self._drawers:
@@ -1167,7 +1090,7 @@ class CanvasManager(object):
 
     if is_type(mark, "nodename"):
       bb = self._bounding_boxes[mark["name"]]
-      x, y = get_anchor_pos(bb, get_default(mark, "anchor", "center"))
+      x, y = bb.get_anchor_pos(get_default(mark, "anchor", "center"))
       if "anchor" in mark:
         """
         It's useless in tikz to shift a node name coordinate without specifying
@@ -1286,6 +1209,11 @@ class CanvasManager(object):
     objs = self._get_selected_objects()
     if len(objs) == 0:
       return {}
+    if len(objs) == 1:
+      obj = objs[0]
+      if is_type(obj, "path") and self._selected_path_position is not None:
+        obj = obj["items"][self._selected_path_position]
+      return obj
     descs = [self._get_object_description(obj) for obj in objs]
     return common_part(descs)
 
@@ -1396,8 +1324,7 @@ class CanvasManager(object):
       x0, y0, x1, y1 = 0, 0, 0, 0
     else:
       x0, y0, x1, y1 = get_bounding_box(self._context._picture,
-                                        self._bounding_boxes,
-                                        self._segments)
+                                        self._bounding_boxes)
     return {
         "picture": self._context._picture,
         "nextid": get_default(self._context._state, "nextid", 0),
@@ -1484,6 +1411,7 @@ class CanvasManager(object):
         raise Exception(f"Unkown command: {cmd_name}")
     except Exception as e:
       self._error_msg = f"Error in executing command: {e}"
+      traceback.print_exc()
 
   def _append_command(self, cmd):
     self._command_history.append(cmd)
@@ -1813,7 +1741,7 @@ class CanvasManager(object):
           anchor = mark["anchor"]
           bb = self._bounding_boxes[mark["name"]]
           pointerx, pointery = self._get_pointer_pos()
-          anchorx, anchory = get_anchor_pos(bb, anchor)
+          anchorx, anchory = bb.get_anchor_pos(anchor)
           xshift = pointerx - anchorx
           yshift = pointery - anchory
           if xshift != 0:
@@ -2004,17 +1932,17 @@ class CanvasManager(object):
     self._after_change()
 
   def _paste_data(self, data, check_all_relative_pos=False,
-                  bounding_boxes=None, segments=None):
+                  bounding_boxes=None):
     if len(data) == 0:
       return
     pos = get_first_absolute_coordinate(data)
     if pos is None:
       if check_all_relative_pos:
         raise Exception("All copied objects have relative positions")
-      if bounding_boxes is None or segments is None:
+      if bounding_boxes is None:
         raise Exception("Must provide the bounding boxes "
                         "if not check relative positions")
-      pos = get_top_left_corner(data, bounding_boxes, segments)
+      pos = get_top_left_corner(data, bounding_boxes)
     x0, y0 = pos
     x1, y1 = self._get_pointer_pos()
     dx, dy = x1 - x0, y1 - y0
@@ -2036,6 +1964,10 @@ class CanvasManager(object):
           add_to_key(at, "y", dy)
         elif isinstance(at, str):
           to_replace.append((obj, "at"))
+        elif is_type(at, "intersection"):
+          assert "name1" in at and "name2" in at
+          to_replace.append((at, "name1"))
+          to_replace.append((at, "name2"))
       elif is_type(obj, "path"):
         for item in obj["items"]:
           id_ = get_default(item, "id")
@@ -2066,6 +1998,11 @@ class CanvasManager(object):
       self._context._picture.append(obj)
 
     for item, key in to_replace:
+      if key not in item:
+        """
+        This is possible because this object might have been modified
+        """
+        continue
       old_id = item[key]
       if old_id in old_to_new_id_dict:
         item[key] = old_to_new_id_dict[old_id]
@@ -2083,7 +2020,7 @@ class CanvasManager(object):
                           "if not check relative positions")
         bb = bounding_boxes[old_id]
         anchor = get_default(item, "anchor", "center")
-        x, y = get_anchor_pos(bb, anchor)
+        x, y = bb.get_anchor_pos(anchor)
         """
         We can only modify 'item' in place, because we cannot
         overwrite item itself without knowing where it is pointed from
@@ -2102,7 +2039,7 @@ class CanvasManager(object):
         "anchor1" "anchor2"
         """
         anchor = get_default(item, f"anchor{key[4]}", "center")
-        x, y = get_anchor_pos(bb, anchor)
+        x, y = bb.get_anchor_pos(anchor)
         """
         We can only modify 'item' in place, because we cannot overwrite item
         itself without knowing where it is pointed from
@@ -2120,7 +2057,7 @@ class CanvasManager(object):
                           "if not check relative positions")
         bb = bounding_boxes[old_id]
         anchor = get_default(item, "at.anchor", "center")
-        x, y = get_anchor_pos(bb, anchor)
+        x, y = bb.get_anchor_pos(anchor)
         item["at"] = create_coordinate(x + dx, y + dy)
         del_if_has(item, "at.anchor")
       else:
@@ -2201,7 +2138,7 @@ if __name__ == "__main__":
                      width=screen_width,
                      height=screen_height)
   canvas.pack()
-  parser = argparse.ArgumentParser(prog = "vimdraw")
+  parser = argparse.ArgumentParser(prog="vimdraw")
   parser.add_argument('filename', nargs='?')
   args = parser.parse_args()
 

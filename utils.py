@@ -59,6 +59,12 @@ def mutex(a, b, c):
   return b if a else c
 
 
+def none_or(a, default):
+  if a is None:
+    return default
+  return a
+
+
 def index_two_lists(a, b, i):
   if i >= 0 and i < len(a):
     return a[i]
@@ -175,32 +181,306 @@ def num_to_dist(*nums):
 
 
 def shift_by_anchor(x, y, anchor, width, height):
-  anchor_x, anchor_y = get_anchor_pos((x, y, width, height), anchor)
+  anchor_x, anchor_y = BoundingBox._get_anchor_pos(
+      (x, y, width, height), anchor)
   return 2 * x - anchor_x, 2 * y - anchor_y
 
 
-def get_anchor_pos(bb, anchor):
-  x, y, w, h = bb
-  if anchor == "center":
-    return x + w/2, y + h/2
-  elif anchor == "west":
-    return x, y + h/2
-  elif anchor == "east":
-    return x + w, y + h/2
-  elif anchor == "south":
-    return x + w/2, y
-  elif anchor == "north":
-    return x + w/2, y + h
-  elif anchor == "north.east":
-    return x + w, y + h
-  elif anchor == "north.west":
-    return x, y + h
-  elif anchor == "south.east":
-    return x + w, y
-  elif anchor == "south.west":
+class BoundingBox(object):
+  def __init__(self, x, y, width, height, shape="rectangle", angle=0,
+               center=None, obj=None, points=None):
+    self._x = x
+    self._y = y
+    self._width = width
+    self._height = height
+    self._angle = angle
+    self._shape = shape
+    self._obj = obj
+    self._points = points
+    if center is None:
+      self._centerx = x + width/2
+      self._centery = y + width/2
+    else:
+      self._centerx, self._centery = center
+
+    if shape == "rectangle" or shape == "circle" or shape == "ellipse":
+      assert self._width >= 0
+      assert self._height >= 0
+
+    if shape == "circle":
+      assert self._width == self._height
+
+    if shape == "curve":
+      assert points is not None
+
+  def from_rect(x0, y0, x1, y1, shape="rectangle",
+                angle=0, center=None, obj=None):
+    if shape != "line":
+      x0, x1 = min(x0, x1), max(x0, x1)
+      y0, y1 = min(y0, y1), max(y0, y1)
+    return BoundingBox(x0, y0, x1-x0, y1-y0, shape, angle, center, obj)
+
+  def get_bound(self):
+    if self._shape == "circle":
+      x, y = self.rotated_geometry_center()
+      r = self.radius()
+      return x - r, y - r, x + r, y + r
+
+    if self._shape == "ellipse":
+      bb = BoundingBox.from_rect(*self.rect(),
+                                 angle=self._angle,
+                                 center=(self._centerx, self._centery))
+      return bb.get_bound()
+
+    points = self.rotated_vertices()
+    x0, y0, x1, y1 = None, None, None, None
+    for x, y in points:
+      x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x, y)
+    return x0, y0, x1, y1
+
+  def diameter(self):
+    if self._shape == "rectangle" or self._shape == "line":
+      return math.sqrt(self._width * self._width, self._height * self._height)
+    if self._shape == "circle":
+      return self.radius() * 2
+    if self._shape == "ellipse":
+      return max(*self.radius()) * 2
+    raise Exception(f"Cannot compute diameter of shape {self._shape}")
+
+  def _get_anchor_pos(bb, anchor):
+    x, y, w, h = bb
+    if anchor == "center":
+      return x + w/2, y + h/2
+    elif anchor == "west":
+      return x, y + h/2
+    elif anchor == "east":
+      return x + w, y + h/2
+    elif anchor == "south":
+      return x + w/2, y
+    elif anchor == "north":
+      return x + w/2, y + h
+    elif anchor == "north.east":
+      return x + w, y + h
+    elif anchor == "north.west":
+      return x, y + h
+    elif anchor == "south.east":
+      return x + w, y
+    elif anchor == "south.west":
+      return x, y
+    else:
+      raise Exception(f"Unsupported anchor: {anchor}")
+
+  def get_anchor_pos(self, anchor):
+    assert self._shape in ["rectangle", "circle", "ellipse"]
+    x, y = BoundingBox._get_anchor_pos(
+        (self._x, self._y, self._width, self._height), anchor)
+    x, y = rotate(x, y, self._centerx, self._centery, -self._angle)
     return x, y
+
+  def rect(self):
+    assert self._shape in ["rectangle", "circle", "ellipse"]
+    return self._x, self._y, self._x + self._width, self._y + self._height
+
+  def radius(self):
+    if self._shape == "circle":
+      return self._width / 2
+    if self._shape == "ellipse":
+      return self._width / 2, self._height / 2
+    raise Exception("Cannot compute radius of non-oval")
+
+  def rotate(self, x, y):
+    return rotate(x, y, self._centerx, self._centery, -self._angle)
+
+  def rev_rotate(self, x, y):
+    return rotate(x, y, self._centerx, self._centery, self._angle)
+
+  def geometry_center(self):
+    assert self._shape in ["rectangle", "circle", "ellipse", "line"]
+    return self._x + self._width / 2, self._y + self._height / 2
+
+  def rotated_geometry_center(self):
+    x, y = self.geometry_center()
+    return self.rotate(x, y)
+
+  def vertices(self):
+    if self._shape == "rectangle":
+      return [(self._x, self._y),
+              (self._x + self._width, self._y),
+              (self._x + self._width, self._y + self._height),
+              (self._x, self._y + self._height)]
+    if self._shape == "line":
+      return [(self._x, self._y),
+              (self._x + self._width, self._y + self._height)]
+    if self._shape == "curve":
+      return self._points
+    raise Exception(f"Shape {self._shape} does not have vertices")
+
+  def rotated_vertices(self):
+    points = self.vertices()
+    return [self.rotate(x, y) for x, y in points]
+
+  def segments(self):
+    points = self.vertices()
+    if self._shape == "line":
+      return [(points[0][0], points[0][1], points[1][0], points[1][1])]
+    if self._shape == "curve":
+      return [(points[i][0], points[i][1],
+               points[i+1][0], points[i+1][1])
+              for i in range(len(points)-1)]
+    assert self._shape == "rectangle"
+    return [(points[i][0], points[i][1],
+             points[(i+1) % 4][0], points[(i+1) % 4][1])
+            for i in range(4)]
+
+  def rotated_segments(self):
+    points = self.rotated_vertices()
+    if self._shape == "line":
+      return [(points[0][0], points[0][1], points[1][0], points[1][1])]
+    if self._shape == "curve":
+      return [(points[i][0], points[i][1],
+               points[i+1][0], points[i+1][1])
+              for i in range(len(points)-1)]
+    assert self._shape == "rectangle"
+    return [(points[i][0], points[i][1],
+             points[(i+1) % 4][0], points[(i+1) % 4][1])
+            for i in range(4)]
+
+  def contain_point(self, x, y, strict=False):
+    x, y = self.rev_rotate(x, y)
+    if self._shape == "rectangle":
+      return point_in_rect(x, y, self.rect(), strict)
+    if self._shape == "circle":
+      if strict:
+        return euclidean_dist((x, y), self.geometry_center()) < self.radius()
+      else:
+        return euclidean_dist((x, y), self.geometry_center()) <= self.radius()
+    if self._shape == "ellipse":
+      x0, y0 = self.geometry_center()
+      a, b = self.radius()
+      if strict:
+        return (x-x0)*(x-x0)/(a*a) + (y-y0)*(y-y0)/(b*b) < 1
+      else:
+        return (x-x0)*(x-x0)/(a*a) + (y-y0)*(y-y0)/(b*b) <= 1
+    return False
+
+  def intersect_rect(self, rect):
+    bb = BoundingBox.from_rect(*rect)
+    if self._shape == "rectangle":
+      if point_in_rect(*self.rotated_geometry_center(), rect):
+        return True
+      if point_in_rect(*self.rev_rotate(*bb.geometry_center()), self.rect()):
+        return True
+      segs1 = self.rotated_segments()
+      segs2 = bb.segments()
+      for i in range(4):
+        for j in range(4):
+          if line_line_intersect(segs1[i], segs2[j]):
+            return True
+      return False
+
+    if self._shape == "circle":
+      x, y = self.rotated_geometry_center()
+      segs = bb.segments()
+      if bb.contain_point(x, y):
+        return True
+      for seg in segs:
+        if point_line_dist(x, y, seg) < self.radius():
+          return True
+      return False
+
+    if self._shape == "ellipse":
+      """
+      In this case, we rotate the line segments of the other rect,
+      and scale it simultaneously with this bounding box,
+      such that this bounding box becomes a unit circle
+      """
+      cx, cy = self.geometry_center()
+      a, b = self.radius()
+      segs = bb.segments()
+      segs = [(*self.rev_rotate(x0, y0), *self.rev_rotate(x1, y1))
+              for x0, y0, x1, y1 in segs]
+      segs = [((x0-cx)/a+cx, (y0-cy)/b+cy, (x1-cx)/a+cx, (y1-cy)/b+cy)
+              for x0, y0, x1, y1 in segs]
+      for seg in segs:
+        if point_line_dist(cx, cy, seg) < 1:
+          return True
+
+    if self._shape == "line" or self._shape == "curve":
+      segs = self.rotated_segments()
+      for seg in segs:
+        if rect_line_intersect(bb.rect(), seg):
+          return True
+      return False
+
+    raise Exception("Cannot compute intersection between "
+                    f"shape {self._shape} and rect")
+
+  def get_point_at_direction(self, x1, y1):
+    x0, y0 = self.rotated_geometry_center()
+    x0p, y0p = self.geometry_center()
+    x1p, y1p = self.rev_rotate(x1, y1)
+    if self._shape == "rect":
+      return self.rotate(
+          *clip_line(x0p, y0p, x1p, y1p,
+                     (self._x, self._y, self._width, self._height)))
+
+    if self._shape == "circle":
+      distance = euclidean_dist((x0, y0), (x1, y1))
+      r = self.radius()
+      return (x1 - x0) / distance * r + x0, (y1 - y0) / distance * r + y0
+
+    if self._shape == "ellipse":
+      a, b = self.radius()
+      sx1p = (x1p - x0p) / a + x0p
+      sy1p = (y1p - y0p) / b + y0p
+      distance = euclidean_dist((x0p, y0p), (sx1p, sy1p))
+      sx1p = (x1p - x0p) / distance * a + x0p
+      sy1p = (y1p - y0p) / distance * b + y0p
+      return self.rotate(sx1p, sy1p)
+
+    raise Exception(f"Cannot compute direction from a shape: {self._shape}")
+
+  def clip_curve(self, curve):
+    for i in range(len(curve)):
+      if not self.contain_point(*curve[i], strict=True):
+        return curve[i:]
+    return None
+
+
+def euclidean_dist(a, b):
+  x0, y0 = a
+  x1, y1 = b
+  return math.sqrt((x0 - x1) * (x0 - x1) + (y0 - y1) * (y0 - y1))
+
+
+def point_line_dist(x, y, line):
+  x1, y1, x2, y2 = line
+  # Copied from
+  # https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
+  A = x - x1
+  B = y - y1
+  C = x2 - x1
+  D = y2 - y1
+
+  dot = A * C + B * D
+  len_sq = C * C + D * D
+  param = -1
+  if len_sq != 0:  # in case of 0 length line
+    param = dot / len_sq
+
+  if param < 0:
+    xx = x1
+    yy = y1
+  elif param > 1:
+    xx = x2
+    yy = y2
   else:
-    raise Exception(f"Unsupported anchor: {anchor}")
+    xx = x1 + param * C
+    yy = y1 + param * D
+
+  dx = x - xx
+  dy = y - yy
+  return math.sqrt(dx * dx + dy * dy)
 
 
 def map_point(x, y, cs):
@@ -230,11 +510,11 @@ def rect_line_intersect(rect, line):
   x0, y0, x1, y1 = rect
   x2, y2, x3, y3 = line
   return point_in_rect(x2, y2, rect) or \
-    point_in_rect(x3, y3, rect) or \
-    line_line_intersect((x0, y0, x1, y0), line) or \
-    line_line_intersect((x0, y0, x0, y1), line) or \
-    line_line_intersect((x1, y1, x0, y1), line) or \
-    line_line_intersect((x1, y1, x0, y1), line)
+      point_in_rect(x3, y3, rect) or \
+      line_line_intersect((x0, y0, x1, y0), line) or \
+      line_line_intersect((x0, y0, x0, y1), line) or \
+      line_line_intersect((x1, y1, x0, y1), line) or \
+      line_line_intersect((x1, y1, x0, y1), line)
 
 
 def point_in_rect(x, y, rect, strict=False):
@@ -401,7 +681,7 @@ def clip_curve(curve, clip):
 def rotate(x, y, x0, y0, angle):
   rad = angle / 180 * math.pi
   a, b, c, d = math.cos(rad), math.sin(rad), -math.sin(rad), math.cos(rad)
-  dx, dy = x0 - x, y0 - y
+  dx, dy = x - x0, y - y0
   dx, dy = a * dx + b * dy, c * dx + d * dy
   return x0 + dx, y0 + dy
 
@@ -572,8 +852,8 @@ def get_first_absolute_coordinate(data):
   return None
 
 
-def get_top_left_corner(data, bounding_boxes, segments):
-  x0, y0, x1, y1 = get_bounding_box(data, bounding_boxes, segments)
+def get_top_left_corner(data, bounding_boxes):
+  x0, y0, x1, y1 = get_bounding_box(data, bounding_boxes)
   return x0, y0
 
 
@@ -589,38 +869,32 @@ def enlarge_bound_box(x0, y0, x1, y1, x, y):
   return x0, y0, x1, y1
 
 
-def get_bounding_box(data, bounding_boxes, segments):
+def get_bounding_box(data, bounding_boxes):
   x0, y0, x1, y1 = None, None, None, None
   for obj in data:
     id_ = get_default(obj, "id")
     if id_ is not None:
-      x, y, w, h = bounding_boxes[id_]
-      x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x, y)
-      x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x+w, y+h)
+      id_ = get_default(obj, "id")
+      bb = bounding_boxes[id_]
+      x2, y2, x3, y3 = bb.get_bound()
+      x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x2, y2)
+      x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x3, y3)
+    else:
+      for id_, bb in bounding_boxes.items():
+        if obj == bb._obj:
+          x2, y2, x3, y3 = bb.get_bound()
+          x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x2, y2)
+          x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x3, y3)
     if "items" in obj:
       for item in obj["items"]:
         if "annotates" in item:
           for annotate in item["annotates"]:
             id_ = get_default(annotate, "id")
             if id_ is not None:
-              x, y, w, h = bounding_boxes[id_]
-              x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x, y)
-              x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x+w, y+h)
-  for type_, segment_data, path in segments:
-    if path in data:
-      if type_ == "line" or type_ == "rectangle":
-        x, y, xp, yp = segment_data
-        x, xp = order(x, xp)
-        y, yp = order(y, yp)
-        x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x, y)
-        x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, xp, yp)
-      elif type_ == "curve":
-        for x, y in segment_data:
-          x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x, y)
-      else:
-        raise Exception(f"Unrecognized segment type {type_}")
-  if x0 is None or y0 is None or x1 is None or y1 is None:
-    raise Exception("Failed to find bounding box")
+              bb = bounding_boxes[id_]
+              x2, y2, x3, y3 = bb.get_bound()
+              x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x2, y2)
+              x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x3, y3)
   return x0, y0, x1, y1
 
 
