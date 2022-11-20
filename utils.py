@@ -424,7 +424,7 @@ class BoundingBox(object):
     x1p, y1p = self.rev_rotate(x1, y1)
     if self._shape == "rectangle":
       cliped_point = clip_line(x0p, y0p, x1p, y1p,
-                     (self._x, self._y, self._width, self._height))
+                               (self._x, self._y, self._width, self._height))
       if cliped_point is None:
         return None
       return self.rotate(*cliped_point)
@@ -514,12 +514,12 @@ def intersect_interval(interval1, interval2):
 def rect_line_intersect(rect, line):
   x0, y0, x1, y1 = rect
   x2, y2, x3, y3 = line
-  return point_in_rect(x2, y2, rect) or \
-      point_in_rect(x3, y3, rect) or \
-      line_line_intersect((x0, y0, x1, y0), line) or \
-      line_line_intersect((x0, y0, x0, y1), line) or \
-      line_line_intersect((x1, y1, x0, y1), line) or \
-      line_line_intersect((x1, y1, x0, y1), line)
+  return (point_in_rect(x2, y2, rect) or
+          point_in_rect(x3, y3, rect) or
+          line_line_intersect((x0, y0, x1, y0), line) or
+          line_line_intersect((x0, y0, x0, y1), line) or
+          line_line_intersect((x1, y1, x0, y1), line) or
+          line_line_intersect((x1, y1, x0, y1), line))
 
 
 def point_in_rect(x, y, rect, strict=False):
@@ -756,6 +756,13 @@ def get_default(dic, key, default=None):
   if key in dic:
     return dic[key]
   return default
+
+
+def ensure_key(dic, key, default):
+  if key not in dic:
+    dic[key] = default
+    return default
+  return dic[key]
 
 
 def get_direction_of(obj):

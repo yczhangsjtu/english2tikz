@@ -249,6 +249,7 @@ class DescribeIt(object):
     self.register_renderer(LineRenderer(self))
     self.register_renderer(IntersectionRenderer())
     self.register_renderer(CoordinateRenderer())
+    self.register_renderer(CycleRenderer())
     self.register_renderer(PointRenderer())
     self.register_renderer(RectangleRenderer())
     self.register_renderer(BraceRenderer(self))

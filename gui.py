@@ -284,8 +284,12 @@ class CanvasManager(object):
       self._selected_ids = []
       self._selected_path_position = None
     elif event.char == 'm':
-      x, y = self._get_pointer_pos()
-      self._marks.append(create_coordinate(x, y))
+      if self._is_in_path_position_mode():
+        self._marks.append(copy.deepcopy(
+            self._selected_paths[0]["items"][self._selected_path_position]))
+      else:
+        x, y = self._get_pointer_pos()
+        self._marks.append(create_coordinate(x, y))
     elif event.char == 'y':
       self._clipboard = [copy.deepcopy(obj) for obj in self._context._picture
                          if get_default(obj, "id") in self._selected_ids
@@ -412,6 +416,8 @@ class CanvasManager(object):
         self._create_node_at_intersection()
       elif len(self._selected_ids) == 1:
         self._start_edit_text(self._selected_ids[0])
+      elif len(self._selected_paths) == 1:
+        self._create_annotate(self._selected_paths[0])
       else:
         self._start_edit_text()
     elif event.char == "v":
@@ -602,7 +608,7 @@ class CanvasManager(object):
       obj["at.anchor"] = shift_anchor(
           get_default(obj, "at.anchor", "center"),
           direction)
-    elif is_type(obj["at"], "intersection"):
+    elif "at" in obj and is_type(obj["at"], "intersection"):
       if direction == "left" or direction == "right":
         obj["at"]["anchor1"] = shift_anchor(
             get_default(obj["at"], "anchor1", "center"),
@@ -674,6 +680,30 @@ class CanvasManager(object):
     self._parse(f"there.is.text at.intersection.of.{id0}.and.{id1}")
     self._obj_to_edit_text = self._context._picture[-1]
     self._editing_text = self._obj_to_edit_text["text"]
+
+  def _create_annotate(self, path):
+    lines = [item for item in path["items"] if item["type"] == "line"]
+    if len(lines) == 0:
+      self._error_msg = "Selected path has no segment"
+      return
+    elif len(lines) > 1:
+      self._error_msg = "Selected path has multiple segments"
+      return
+    annotates = ensure_key(lines[0], "annotates", [])
+    annotate = {
+        "id": self._context.getid(),
+        "type": "text",
+        "in_path": True,
+        "text": "",
+        "midway": True,
+        "above": True,
+        "sloped": True,
+        "scale": "0.7",
+    }
+    annotates.append(annotate)
+    self._obj_to_edit_text = annotate
+    self._editing_text_pos = self._get_pointer_pos()
+    self._editing_text = ""
 
   def _start_edit_text(self, id_=None):
     if id_ is None:
@@ -1058,9 +1088,9 @@ class CanvasManager(object):
 
   def _draw_axes(self, c):
     c.create_line((0, self._centery, self._screen_width, self._centery),
-                  fill="blue", width=1.5)
+                  fill="#888888", width=1.5)
     c.create_line((self._centerx, 0, self._centerx, self._screen_height),
-                  fill="blue", width=1.5)
+                  fill="#888888", width=1.5)
 
   def _coordinate_system(self):
     return {
@@ -1143,6 +1173,9 @@ class CanvasManager(object):
         x, y = dist_to_num(mark["x"], mark["y"])
       buffer[i] = (x, y)
       return x, y
+    elif is_type(mark, "cycle"):
+      buffer[i] = buffer[0]
+      return buffer[i]
     else:
       raise Exception(f"Unknown mark type {mark['type']}")
 
@@ -1161,6 +1194,7 @@ class CanvasManager(object):
         return
 
       x, y = map_point(x, y, self._coordinate_system())
+      radius = 10
       if is_type(mark, "coordinate"):
         if get_default(mark, "relative", False):
           fill, outline = "#ff7777", "red"
@@ -1173,7 +1207,10 @@ class CanvasManager(object):
           fill, outline = "#ffff77", "orange"
       elif is_type(mark, "intersection"):
         fill, outline = "white", "black"
-      c.create_oval(x-10, y-10, x+10, y+10, fill=fill, outline=outline)
+      elif is_type(mark, "cycle"):
+        fill, outline, radius = "red", "black", 12
+      c.create_oval(x-radius, y-radius, x+radius, y + radius,
+                    fill=fill, outline=outline)
       c.create_text(x, y, text=str(i), fill="black")
 
   def _draw_editing_text(self, c):
@@ -1819,6 +1856,10 @@ class CanvasManager(object):
           to_del = int(v)
           if to_del >= len(self._marks):
             raise Exception("Index too large")
+        elif v == "cycle":
+          if len(self._marks) == 0:
+            raise Exception("No marks set yet")
+          mark = {"type": "cycle"}
         else:
           raise Exception(f"Unknown argument {v}")
     if to_del is not None:

@@ -286,6 +286,14 @@ class CoordinateRenderer(Renderer):
     return f"({obj['x']},{obj['y']})"
 
 
+class CycleRenderer(Renderer):
+  def match(self, obj):
+    return "type" in obj and obj["type"] == "cycle"
+
+  def render(self, obj):
+    return 'cycle'
+
+
 class PointRenderer(Renderer):
   def match(self, obj):
     return "type" in obj and obj["type"] == "point"

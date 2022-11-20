@@ -6,6 +6,9 @@ from .utils import *
 from .latex import text_to_latex_image_path
 
 
+line_width_ratio = 2.5
+
+
 class Drawer(object):
   def match(self, obj):
     raise Exception("Cannot invoke match method from base class Drawer")
@@ -158,12 +161,13 @@ class BoxDrawer(Drawer):
     else:
       shape = "rectangle"
 
-    env["bounding box"][obj["id"]] = BoundingBox(
+    bb = BoundingBox(
         x, y, width, height,
         shape=shape,
         angle=none_or(angle, 0),
         center=BoundingBox._get_anchor_pos((x, y, width, height), anchor),
         obj=obj)
+    env["bounding box"][obj["id"]] = bb
 
     if "fill" in obj:
       fill = obj["fill"]
@@ -199,20 +203,23 @@ class BoxDrawer(Drawer):
           r = canvas.create_oval((x0, y0, x1, y1),
                                  fill=color_to_tk(fill),
                                  outline=color_to_tk(color),
-                                 width=line_width,
+                                 width=line_width * line_width_ratio
+                                 if line_width is not None else None,
                                  dash=dash)
         elif rounded_corners:
           r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
                                         radius=rounded_corners*cs["scale"],
                                         fill=color_to_tk(fill),
                                         outline=color_to_tk(color),
-                                        width=line_width,
+                                        width=line_width * line_width_ratio
+                                        if line_width is not None else None,
                                         dash=dash)
         else:
           r = canvas.create_rectangle((x0, y0, x1, y1),
                                       fill=color_to_tk(fill),
                                       outline=color_to_tk(color),
-                                      width=line_width,
+                                      width=line_width * line_width_ratio
+                                      if line_width is not None else None,
                                       dash=dash)
       if "text" in obj and obj["text"]:
         center_x, center_y = BoundingBox._get_anchor_pos(
@@ -274,7 +281,7 @@ class BoxDrawer(Drawer):
           r = canvas.create_oval((rx0, ry0, rx1, ry1),
                                  fill=color_to_tk(fill),
                                  outline=color_to_tk(color),
-                                 width=line_width)
+                                 width=line_width * line_width_ratio)
         elif ellipse:
           r = BoxDrawer.rotated_oval(canvas, x0, y0, x1, y1,
                                      angle=angle,
@@ -282,13 +289,14 @@ class BoxDrawer(Drawer):
                                                     anchor_screen_y),
                                      fill=color_to_tk(fill),
                                      outline=color_to_tk(color),
-                                     width=line_width)
+                                     width=line_width * line_width_ratio)
         elif rounded_corners:
           r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
                                         radius=rounded_corners*cs["scale"],
                                         fill=color_to_tk(fill),
                                         outline=color_to_tk(color),
-                                        width=line_width, angle=angle,
+                                        width=line_width * line_width_ratio,
+                                        angle=angle,
                                         rotate_center=(anchor_screen_x,
                                                        anchor_screen_y))
         else:
@@ -299,7 +307,7 @@ class BoxDrawer(Drawer):
           r = canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
                                     fill=color_to_tk(fill),
                                     outline=color_to_tk(color),
-                                    width=line_width)
+                                    width=line_width * line_width_ratio)
 
       if "text" in obj and obj["text"]:
         center_x, center_y = BoundingBox._get_anchor_pos(
@@ -351,15 +359,13 @@ class BoxDrawer(Drawer):
           rx0, ry0 = newx - radius, newy - radius
           rx1, ry1 = newx + radius, newy + radius
           r = canvas.create_oval((rx0 - 5, ry0 - 5, rx1 + 5, ry1 + 5),
-                                 fill="", outline="red",
-                                 width=line_width, dash=2)
+                                 fill="", outline="red", dash=2)
         elif ellipse:
           r = BoxDrawer.rotated_oval(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
                                      angle=angle,
                                      rotate_center=(anchor_screen_x,
                                                     anchor_screen_y),
-                                     fill="", outline="red",
-                                     width=line_width, dash=2)
+                                     fill="", outline="red", dash=2)
         elif rounded_corners:
           BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
                                     radius=rounded_corners*cs["scale"],
@@ -388,8 +394,9 @@ class BoxDrawer(Drawer):
       candidate_code = env["get_candidate_code"](obj)
       if candidate_code is not None:
         candidate_code = candidate_code[len(env["finding prefix"]):]
+        label_pos = map_point(*bb.get_anchor_pos("north.west"), cs)
         ftext = canvas.create_text(
-            x0, y1, anchor="nw", text=candidate_code, fill="black")
+            label_pos, anchor="nw", text=candidate_code, fill="black")
         fback = canvas.create_rectangle(
             canvas.bbox(ftext), fill="yellow", outline="blue")
         canvas.tag_lower(fback, ftext)
@@ -449,13 +456,17 @@ class PathDrawer(Drawer):
 
   def draw(self, canvas, obj, env):
     draw = "draw" in obj
+    fill = "fill" in obj
+    fill_polygon = []
     arrow = "stealth" in obj or "arrow" in obj
     rarrow = "reversed.stealth" in obj or "reversed.arrow" in obj
     darrow = "double.stealth" in obj or "double.arrow" in obj
+    starting_pos = None
     current_pos = None
     current_pos_clip = None
     position_number = 0
     to_draw = None
+    first_segment = None
     cs = env["coordinate system"]
     is_selected = obj in env["selected paths"]
     for index, item in enumerate(obj["items"]):
@@ -495,6 +506,10 @@ class PathDrawer(Drawer):
         x, _ = env["bounding box"][name1].get_anchor_pos(anchor1)
         _, y = env["bounding box"][name2].get_anchor_pos(anchor2)
         new_pos = (x, y)
+      elif item["type"] == "cycle":
+        if starting_pos is None:
+          raise Exception("Starting position not set yet")
+        new_pos = starting_pos
       elif item["type"] == "line":
         if to_draw is not None:
           raise Exception(f"Expected position, got line")
@@ -566,10 +581,17 @@ class PathDrawer(Drawer):
 
             if is_selected:
               canvas.create_line((x0p, y0p, x1p, y1p), fill="red", dash=6,
-                                 width=width+4 if width is not None else 4)
+                                 width=(width+4) * line_width_ratio
+                                 if width is not None
+                                 else 4 * line_width_ratio)
             if draw:
-              canvas.create_line((x0p, y0p, x1p, y1p), fill=color_to_tk(color),
-                                 width=width, arrow=arrow, dash=dashed)
+              h = canvas.create_line((x0p, y0p, x1p, y1p),
+                                     fill=color_to_tk(color),
+                                     width=width * line_width_ratio
+                                     if width is not None else None,
+                                     arrow=arrow, dash=dashed)
+              if first_segment is None:
+                first_segment = h
 
             if "annotates" in to_draw:
               for annotate in to_draw["annotates"]:
@@ -678,11 +700,18 @@ class PathDrawer(Drawer):
               canvas.create_line(*[e for x, y in screen_curve
                                    for e in (x, y)],
                                  fill="red", dash=6,
-                                 width=width+4 if width is not None else 4)
+                                 width=(width+4) * line_width_ratio
+                                 if width is not None
+                                 else 4 * line_width_ratio)
             if draw:
-              canvas.create_line(*[e for x, y in screen_curve for e in (x, y)],
-                                 fill=color_to_tk(color), width=width,
-                                 arrow=arrow, dash=dashed)
+              h = canvas.create_line(*[e for x, y in screen_curve
+                                       for e in (x, y)],
+                                     fill=color_to_tk(color),
+                                     width=width * line_width_ratio
+                                     if width is not None else None,
+                                     arrow=arrow, dash=dashed)
+              if first_segment is None:
+                first_segment = h
 
             if "annotates" in to_draw:
               for annotate in to_draw["annotates"]:
@@ -745,10 +774,13 @@ class PathDrawer(Drawer):
             canvas.create_rectangle(
                 (x0p-5, y0p+5, x1p+5, y1p-5), fill="", outline="red", dash=4)
           if draw:
-            canvas.create_rectangle((x0p, y0p, x1p, y1p),
-                                    fill=color_to_tk(fill),
-                                    outline=color_to_tk(color), width=width,
-                                    dash=dashed)
+            h = canvas.create_rectangle((x0p, y0p, x1p, y1p),
+                                        fill=color_to_tk(fill),
+                                        outline=color_to_tk(color),
+                                        width=width * line_width_ratio,
+                                        dash=dashed)
+            if first_segment is None:
+              first_segment = h
 
         to_draw = None
 
@@ -770,12 +802,19 @@ class PathDrawer(Drawer):
         if current_pos is None:
           starting_pos = new_pos
         current_pos = new_pos
+        fill_polygon.append(new_pos)
         current_pos_clip = new_pos_clip
         position_number += 1
         new_pos = None
 
     if to_draw is not None:
       raise Exception(f"Undrawn item {to_draw}")
+
+    if fill and len(fill_polygon) > 2:
+      fill_polygon = [e for x, y in fill_polygon for e in map_point(x, y, cs)]
+      p = canvas.create_polygon(fill_polygon, fill=color_to_tk(obj["fill"]),
+                                outline="")
+      canvas.tag_lower(p, first_segment)
 
     if env["finding prefix"] is not None:
       candidate_code = env["get_candidate_code"](obj)
