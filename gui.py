@@ -597,7 +597,9 @@ class CanvasManager(object):
     return [self._find_object_by_id(id_) for id_ in self._selected_ids]
 
   def _get_selected_objects(self):
-    return self._get_selected_id_objects() + self._selected_paths
+    ret = self._get_selected_id_objects() + self._selected_paths
+    ret = [obj for obj in ret if obj is not None]
+    return ret
 
   def _shift_object_at_anchor(self, id_, direction):
     obj = self._find_object_by_id(id_)
