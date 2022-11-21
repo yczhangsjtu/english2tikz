@@ -250,6 +250,10 @@ class CanvasManager(object):
     self.register_key("finding", "BackSpace", self._finding_back)
     self.register_key("finding", "Ctrl-c", self._exit_finding_mode)
 
+  def handle_key(self, event):
+    self._keyboard_managers[self._get_mode()].handle_key(event)
+    self.draw()
+
   def _scroll(self, dx, dy):
     self._centerx += dx
     self._centery += dy
@@ -629,10 +633,6 @@ class CanvasManager(object):
   def _exit_finding_mode(self):
     self._finding_prefix = None
     self._finding_candidates = None
-
-  def handle_key(self, event):
-    self._keyboard_managers[self._get_mode()].handle_key(event)
-    self.draw()
 
   def _clear(self):
     self._visual_start = None
