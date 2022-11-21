@@ -12,7 +12,6 @@ from english2tikz.handlers import WithAttributeHandler
 from english2tikz.latex import tikzimage
 from english2tikz.utils import *
 from english2tikz.gui.keyboard import KeyboardManager
-from english2tikz.gui.text_editor import TextEditor
 
 
 class CanvasManager(object):
@@ -101,8 +100,6 @@ class CanvasManager(object):
     self.register_key("editing", "Ctrl-c", self._exit_editing_mode)
     self.register_key("editing", "Ctrl-Return", self._exit_editing_mode)
     self.register_key("editing", "Ctrl-o", self._external_editor_for_editing)
-    self.register_key("editing", "Left", partial(self._move_edit_carret, -1))
-    self.register_key("editing", "Right", partial(self._move_edit_carret, 1))
     self.register_key("command", "Printable", self._insert_char_to_command)
     self.register_key("command", "BackSpace", self._delete_char_from_command)
     self.register_key("command", "Ctrl-c", self._exit_command_mode)
@@ -254,9 +251,6 @@ class CanvasManager(object):
     self._editing_text.insert(c)
     self._editing_refershing_timer_started = False
 
-  def _move_edit_carret(self, offset):
-    self._editing_text.move_carret(offset)
-
   def _insert_char_to_command(self, c):
     self._command_line += c
     self._command_refershing_timer_started = False
@@ -337,7 +331,7 @@ class CanvasManager(object):
                         with.align=left""")
     else:
       self._before_change()
-      self._obj_to_edit_text["text"] = str(self._editing_text)
+      self._obj_to_edit_text["text"] = self._editing_text
       self._after_change()
     self._editing_text = None
 
@@ -728,7 +722,7 @@ class CanvasManager(object):
     self._parse(f"there.is.a.box at.x.{x0}.y.{y0} "
                 f"sized.{w}.by.{h} with.anchor=south.west")
     self._obj_to_edit_text = self._context._picture[-1]
-    self._editing_text = TextEditor(self._obj_to_edit_text["text"])
+    self._editing_text.set(self._obj_to_edit_text["text"])
 
   def _create_node_at_intersection(self):
     assert len(self._selected_ids) == 2
@@ -740,7 +734,7 @@ class CanvasManager(object):
     self._editing_text_pos = x0, y0
     self._parse(f"there.is.text at.intersection.of.{id0}.and.{id1}")
     self._obj_to_edit_text = self._context._picture[-1]
-    self._editing_text = TextEditor(self._obj_to_edit_text["text"])
+    self._editing_text = self._obj_to_edit_text["text"]
 
   def _create_annotate(self, path):
     lines = [item for item in path["items"] if item["type"] == "line"]
@@ -764,11 +758,11 @@ class CanvasManager(object):
     annotates.append(annotate)
     self._obj_to_edit_text = annotate
     self._editing_text_pos = self._get_pointer_pos()
-    self._editing_text = TextEditor()
+    self._editing_text = ""
 
   def _start_edit_text(self, id_=None):
     if id_ is None:
-      self._editing_text = TextEditor()
+      self._editing_text = ""
       self._obj_to_edit_text = None
       self._editing_text_pos = self._get_pointer_pos()
       return
@@ -782,7 +776,7 @@ class CanvasManager(object):
       self._error_msg = f"The selected object {id_} does not support text."
       return
 
-    self._editing_text = TextEditor(self._obj_to_edit_text["text"])
+    self._editing_text = self._obj_to_edit_text["text"]
     self._editing_text_pos = self._bounding_boxes[id_].get_anchor_pos("center")
 
   def _find_object_by_id(self, id_):
@@ -820,7 +814,7 @@ class CanvasManager(object):
     self._ensure_name_is_id(id_)
     self._parse(f"there.is.text '' with.{anchor}.at.{at_anchor}.of.{id_}")
     self._obj_to_edit_text = self._context._picture[-1]
-    self._editing_text = TextEditor()
+    self._editing_text = ""
     self._editing_text_pos = self._bounding_boxes[id_].get_anchor_pos(
         at_anchor)
     self._selected_ids = [self._obj_to_edit_text["id"]]
@@ -1298,9 +1292,12 @@ class CanvasManager(object):
 
   def _draw_editing_text(self, c):
     x, y = map_point(*self._editing_text_pos, self._coordinate_system())
-    t = c.create_text(x, y, text=self._editing_text.view(), fill="black")
-    bg = c.create_rectangle(c.bbox(t), fill="white", outline="blue")
-    c.tag_lower(bg, t)
+    if len(self._editing_text.strip()) == 0:
+      c.create_line((x, y-10, x, y+10), fill="black", width=3)
+    else:
+      t = c.create_text(x, y, text=self._editing_text, fill="black")
+      bg = c.create_rectangle(c.bbox(t), fill="white", outline="blue")
+      c.tag_lower(bg, t)
 
   def _elapsed(self):
     return now() - self._start_time
