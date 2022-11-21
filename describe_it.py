@@ -287,3 +287,18 @@ class DescribeIt(object):
   def replace_command_and_text(self, pattern, repl, regexp=True):
     self._replace_preprocessor.add_replace_command_and_text(
         pattern, repl, regexp)
+
+  def find_object_by_id(self, id_):
+    for obj in self._picture:
+      if get_default(obj, "id") == id_:
+        return obj
+      if "items" in obj:
+        items = obj["items"]
+        for item in items:
+          if get_default(item, "id") == id_:
+            return item
+          if "annotates" in item:
+            for annotate in item["annotates"]:
+              if "id" in annotate and annotate["id"] == id_:
+                return annotate
+    return None
