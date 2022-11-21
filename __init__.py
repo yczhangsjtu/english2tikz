@@ -1,5 +1,5 @@
 from .describe_it import DescribeIt
-from .gui import CanvasManager
+from .gui.canvas_manager import CanvasManager
 from .handlers import *
 from .renderers import *
 from .object_handlers import ObjectHandler

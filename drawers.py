@@ -307,7 +307,8 @@ class BoxDrawer(Drawer):
           r = canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
                                     fill=color_to_tk(fill),
                                     outline=color_to_tk(color),
-                                    width=line_width * line_width_ratio)
+                                    width=line_width * line_width_ratio
+                                    if line_width is not None else None)
 
       if "text" in obj and obj["text"]:
         center_x, center_y = BoundingBox._get_anchor_pos(
@@ -777,7 +778,8 @@ class PathDrawer(Drawer):
             h = canvas.create_rectangle((x0p, y0p, x1p, y1p),
                                         fill=color_to_tk(fill),
                                         outline=color_to_tk(color),
-                                        width=width * line_width_ratio,
+                                        width=width * line_width_ratio
+                                        if width is not None else None,
                                         dash=dashed)
             if first_segment is None:
               first_segment = h
