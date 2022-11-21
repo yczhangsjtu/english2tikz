@@ -101,8 +101,16 @@ class CanvasManager(object):
     self.register_key("editing", "Ctrl-c", self._exit_editing_mode)
     self.register_key("editing", "Ctrl-Return", self._exit_editing_mode)
     self.register_key("editing", "Ctrl-o", self._external_editor_for_editing)
-    self.register_key("editing", "Left", partial(self._move_edit_carret, -1))
-    self.register_key("editing", "Right", partial(self._move_edit_carret, 1))
+    self.register_key("editing", "Left", partial(self._move_edit_cursor, -1))
+    self.register_key("editing", "Right", partial(self._move_edit_cursor, 1))
+    self.register_key("editing", "Ctrl-6", self._move_edit_cursor_sol)
+    self.register_key("editing", "Ctrl-0", self._move_edit_cursor_start)
+    self.register_key("editing", "Ctrl-4", self._move_edit_cursor_eol)
+    self.register_key("editing", "Ctrl-g", self._move_edit_cursor_end)
+    self.register_key("editing", "Ctrl-j", self._move_edit_cursor_down)
+    self.register_key("editing", "Ctrl-k", self._move_edit_cursor_up)
+    self.register_key("editing", "Ctrl-h", self._move_edit_cursor_left)
+    self.register_key("editing", "Ctrl-l", self._move_edit_cursor_right)
     self.register_key("command", "Printable", self._insert_char_to_command)
     self.register_key("command", "BackSpace", self._delete_char_from_command)
     self.register_key("command", "Ctrl-c", self._exit_command_mode)
@@ -254,8 +262,32 @@ class CanvasManager(object):
     self._editing_text.insert(c)
     self._editing_refershing_timer_started = False
 
-  def _move_edit_carret(self, offset):
-    self._editing_text.move_carret(offset)
+  def _move_edit_cursor(self, offset):
+    self._editing_text.move_cursor(offset)
+
+  def _move_edit_cursor_start(self):
+    self._editing_text.move_to_start()
+
+  def _move_edit_cursor_sol(self):
+    self._editing_text.move_to_sol()
+
+  def _move_edit_cursor_end(self):
+    self._editing_text.move_to_end()
+
+  def _move_edit_cursor_eol(self):
+    self._editing_text.move_to_eol()
+
+  def _move_edit_cursor_up(self):
+    self._editing_text.move_up()
+
+  def _move_edit_cursor_down(self):
+    self._editing_text.move_down()
+
+  def _move_edit_cursor_left(self):
+    self._editing_text.move_left()
+
+  def _move_edit_cursor_right(self):
+    self._editing_text.move_right()
 
   def _insert_char_to_command(self, c):
     self._command_line += c
@@ -1298,7 +1330,8 @@ class CanvasManager(object):
 
   def _draw_editing_text(self, c):
     x, y = map_point(*self._editing_text_pos, self._coordinate_system())
-    t = c.create_text(x, y, text=self._editing_text.view(), fill="black")
+    t = c.create_text(x, y, text=self._editing_text.view(),
+                      fill="black", font=("Courier", 20, "normal"))
     bg = c.create_rectangle(c.bbox(t), fill="white", outline="blue")
     c.tag_lower(bg, t)
 
