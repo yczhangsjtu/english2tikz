@@ -35,6 +35,7 @@ class CanvasManager(object):
     self._pointery = 0
     self._scale = 100
     self._command_line = None
+    self._command_line_buffer = None
     self._command_history_index = None
     self._command_history = self._read_command_history()
     self._error_msg = None
@@ -118,6 +119,12 @@ class CanvasManager(object):
     self.register_key("command", "Up", self._fetch_previous_command)
     self.register_key("command", "Down", self._fetch_next_command)
     self.register_key("command", "Ctrl-o", self._external_editor_for_command)
+    self.register_key("command", "Left",
+                      partial(self._move_command_cursor, -1))
+    self.register_key("command", "Right",
+                      partial(self._move_command_cursor, 1))
+    self.register_key("command", "Ctrl-0", self._move_command_cursor_start)
+    self.register_key("command", "Ctrl-g", self._move_command_cursor_end)
     self.register_key("normal", "i", self._enter_edit_mode_without_visual)
     self.register_key("normal", "a",
                       partial(self._append_to_selected_object, "right"))
@@ -290,8 +297,9 @@ class CanvasManager(object):
     self._editing_text.move_right()
 
   def _insert_char_to_command(self, c):
-    self._command_line += c
     self._command_refershing_timer_started = False
+    self._command_line.insert(c)
+    self._command_line_buffer = str(self._command_line)
     self._command_history_index = None
 
   def _delete_char_from_edit(self):
@@ -300,12 +308,21 @@ class CanvasManager(object):
 
   def _delete_char_from_command(self):
     self._command_refershing_timer_started = False
-    self._command_line = self._get_command_line()
     self._command_history_index = None
     if len(self._command_line) > 0:
-      self._command_line = self._command_line[:-1]
+      self._command_line.delete()
+      self._command_line_buffer = str(self._command_line)
     else:
       self._exit_command_mode()
+
+  def _move_command_cursor(self, offset):
+    self._command_line.move_cursor(offset)
+
+  def _move_command_cursor_start(self):
+    self._command_line.move_to_start()
+
+  def _move_command_cursor_end(self):
+    self._command_line.move_to_end()
 
   def _is_in_command_mode(self):
     return self._command_line is not None
@@ -374,20 +391,23 @@ class CanvasManager(object):
     self._editing_text = None
 
   def _enter_command_mode(self):
-    self._command_line = ""
+    self._command_line = TextEditor()
+    self._command_line_buffer = ""
     self._clear_error_message()
 
   def _enter_command_mode_and_search(self):
-    self._command_line = "search"
+    self._command_line = TextEditor("search")
+    self._command_line_buffer = str(self._command_line)
     self._clear_error_message()
 
   def _exit_command_mode(self):
     self._command_line = None
+    self._command_line_buffer = None
     self._command_history_index = None
     self._command_refershing_timer_started = False
 
   def _execute_command(self):
-    self._process_command(self._get_command_line())
+    self._process_command(str(self._command_line))
     self._exit_command_mode()
 
   def _fetch_previous_command(self):
@@ -397,6 +417,8 @@ class CanvasManager(object):
         self._command_history_index = len(self._command_history) - 1
     else:
       self._command_history_index = max(0, self._command_history_index - 1)
+    self._command_line.set(self._command_history[self._command_history_index])
+    self._command_line.move_to_end()
 
   def _fetch_next_command(self):
     self._command_refershing_timer_started = False
@@ -404,6 +426,11 @@ class CanvasManager(object):
       self._command_history_index += 1
       if self._command_history_index >= len(self._command_history):
         self._command_history_index = None
+        self._command_line.set(self._command_line_buffer)
+      else:
+        self._command_line.set(
+            self._command_history[self._command_history_index])
+      self._command_line.move_to_end()
 
   def _external_editor_for_command(self):
     """
@@ -414,7 +441,7 @@ class CanvasManager(object):
     if not self._command_refershing_timer_started:
       self._start_timer_for_refreshing_command()
     with open("/tmp/command", "w") as f:
-      f.write(self._command_line)
+      f.write(str(self._command_line))
     os.system(f"open -a 'Sublime Text' /tmp/command")
 
   def _external_editor_for_editing(self):
@@ -523,11 +550,6 @@ class CanvasManager(object):
   def _grid_size(self):
     return self._grid_sizes[self._grid_size_index]
 
-  def _get_command_line(self):
-    if self._command_history_index is None:
-      return self._command_line
-    return self._command_history[self._command_history_index]
-
   def _start_timer_for_refreshing_command(self):
     self._command_refershing_timer_started = True
     self._root.after(100, self._refresh_command)
@@ -540,7 +562,7 @@ class CanvasManager(object):
       return
     try:
       with open("/tmp/command") as f:
-        self._command_line = f.read()
+        self._command_line.set(f.read())
     except Exception as e:
       self._error_msg = f"Failed to refresh command: {e}"
     self._root.after(100, self._refresh_command)
@@ -1433,12 +1455,11 @@ class CanvasManager(object):
         _, _, _, y = c.bbox(t)
 
   def _draw_command(self, c):
-    command = self._get_command_line()
-    if command is not None:
+    if self._is_in_command_mode():
       c.create_rectangle((3, self._screen_height-28,
                           self._screen_width, self._screen_height),
                          fill="white", outline="black")
-      c.create_text(5, self._screen_height, text=":"+command,
+      c.create_text(5, self._screen_height, text=":"+self._command_line.view(),
                     anchor="sw", fill="black", font=("Courier", 20, "normal"))
     elif self._error_msg is not None:
       c.create_rectangle((3, self._screen_height-15,
