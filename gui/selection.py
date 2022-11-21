@@ -157,6 +157,10 @@ class Selection(object):
     assert is_type(obj_or_id, "path")
     return self.selected_path(obj_or_id)
 
+  def selected_position(self, index):
+    return (self.is_in_path_position_mode() and
+            self._selected_path_position == index)
+
   def selected_id(self, id_):
     return id_ in self._selected_ids
 
@@ -164,16 +168,8 @@ class Selection(object):
     return path in self._selected_paths
 
   def select(self, *items):
-    self._clear()
-    for item in items:
-      if isinstance(item, str):
-        self._selected_ids = [item]
-      elif is_type(item, "box") or is_type(item, "text"):
-        self._selected_ids = [item["id"]]
-      elif is_type(item, "path"):
-        self._selected_paths = [item]
-      else:
-        raise Exception(f"Invalid item {item}")
+    self.clear()
+    self.include(*items)
 
   def toggle(self, *items):
     for item in items:

@@ -7,12 +7,13 @@ import os
 import traceback
 from functools import partial
 from english2tikz.describe_it import DescribeIt
-from english2tikz.drawers import *
 from english2tikz.handlers import WithAttributeHandler
 from english2tikz.latex import tikzimage
 from english2tikz.utils import *
+from english2tikz.gui.drawers import *
 from english2tikz.gui.keyboard import KeyboardManager
 from english2tikz.gui.text_editor import TextEditor
+from english2tikz.gui.selection import Selection
 
 
 class CanvasManager(object):
@@ -194,7 +195,8 @@ class CanvasManager(object):
                       partial(self._select_and_exit_visual_mode, "clear"))
     self.register_key("visual", "-",
                       partial(self._select_and_exit_visual_mode, "exclude"))
-    self.register_key("visual", "^", self._intersect_and_exit_visual_mode)
+    self.register_key("visual", "^",
+                      partial(self._select_and_exit_visual_mode, "intersect"))
     self.register_key("visual", "Ctrl-c", self._exit_visual_mode)
     self.register_key("visual", "j", partial(self._move_pointer, 0, -1))
     self.register_key("visual", "k", partial(self._move_pointer, 0, 1))
@@ -909,15 +911,15 @@ class CanvasManager(object):
           items.append(id_)
 
     if mode == "clear":
-      self._selection.select(items)
+      self._selection.select(*items)
     elif mode == "exclude":
-      self._selection.exclude(items)
+      self._selection.exclude(*items)
     elif mode == "intersect":
-      self._selection.intersect(items)
+      self._selection.intersect(*items)
     elif mode == "toggle":
-      self._selection.toggle(items)
+      self._selection.toggle(*items)
     elif mode == "merge":
-      self._selection.include(items)
+      self._selection.include(*items)
 
   def _delete_objects_related_to_id(self, id_, deleted_ids=[]):
     to_removes = [obj for obj in self._context._picture

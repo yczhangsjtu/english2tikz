@@ -2,8 +2,8 @@ import tkinter as tk
 import math
 from PIL import Image
 from PIL import ImageTk
-from .utils import *
-from .latex import text_to_latex_image_path
+from english2tikz.utils import *
+from english2tikz.latex import text_to_latex_image_path
 
 
 line_width_ratio = 2.5
@@ -26,6 +26,7 @@ class BoxDrawer(Drawer):
 
   def _draw(canvas, obj, env, position=None, slope=None):
     assert "id" in obj
+    selection = env["selection"]
     tmptext = None
     """
     The LaTeX equations are smaller than expected.
@@ -263,7 +264,7 @@ class BoxDrawer(Drawer):
             canvas.itemconfig(tmptext, fill=color_to_tk(text_color))
             if r:
               canvas.tag_lower(r, tmptext)
-      if obj["id"] in env["selected ids"]:
+      if selection.selected(obj):
         if circle or ellipse:
           canvas.create_oval(x0 - 5, y0 + 5, x1 + 5, y1 - 5,
                              fill="", outline="red", dash=2)
@@ -362,7 +363,7 @@ class BoxDrawer(Drawer):
             if r:
               canvas.tag_lower(r, tmptext)
 
-      if obj["id"] in env["selected ids"]:
+      if selection.selected(obj):
         if circle:
           centerx, centery = (x0 + x1) / 2, (y0 + y1) / 2
           radius = max(abs(x1 - x0), abs(y1 - y0)) / 2
@@ -399,7 +400,7 @@ class BoxDrawer(Drawer):
           canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
                                 outline="red", dash=2, fill="")
 
-    if obj["id"] in env["selected ids"]:
+    if selection.selected(obj):
       canvas.create_oval(anchor_screen_x - 3, anchor_screen_y - 3,
                          anchor_screen_x + 3, anchor_screen_y + 3,
                          fill="#77ff77", outline="green")
@@ -482,7 +483,8 @@ class PathDrawer(Drawer):
     to_draw = None
     first_segment = None
     cs = env["coordinate system"]
-    is_selected = obj in env["selected paths"]
+    selection = env["selection"]
+    is_selected = selection.selected(obj)
     for index, item in enumerate(obj["items"]):
       segment_id = f"segment_{id(obj)}_{index}"
       new_pos = None
@@ -807,7 +809,7 @@ class PathDrawer(Drawer):
             width = 5 + float(obj["line.width"])
           else:
             width = 5
-          if index == env["selected path position"]:
+          if selection.selected_position(index):
             canvas.create_oval(x-width-2, y-width-2, x+width+2,
                                y+width+2, outline="black", fill="yellow")
             canvas.create_text(x, y, text=str(position_number), fill="blue")
