@@ -562,7 +562,7 @@ class CanvasManager(object):
       self._exit_finding_mode()
 
   def _finding_back(self):
-    if len(self._finding_prefix) > 1:
+    if len(self._finding_prefix) > 0:
       self._finding_prefix = self._finding_prefix[:-1]
     else:
       self._exit_finding_mode()
