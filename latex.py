@@ -7,10 +7,12 @@ def escape_for_latex(text):
   return text
 
 
-def text_to_latex_image_path(text, color="black"):
+def text_to_latex_image_path(text, color="black", text_width=None):
   code = sha256(bytes(text, "utf8")).hexdigest()
   if color != "black":
     code = sha256(bytes(code + color, "utf8")).hexdigest()
+  if text_width is not None:
+    code = sha256(bytes(code + text_width, "utf8")).hexdigest()
   if not os.path.exists("view"):
     os.mkdir("view")
   if not os.path.isdir("view"):
@@ -22,7 +24,7 @@ def text_to_latex_image_path(text, color="black"):
     color = "black"
   with open("/tmp/tmp.tex", "w") as f:
     f.write(r"""
-\documentclass[varwidth=\maxdimen]{standalone}
+\documentclass[varwidth=%s]{standalone}
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
@@ -30,11 +32,14 @@ def text_to_latex_image_path(text, color="black"):
 \begin{document}
 \textcolor{%s}{%s}
 \end{document}
-""" % (color, escape_for_latex(text)))
+""" % (r"\maxdimen" if text_width is None else text_width,
+       color, escape_for_latex(text)))
   ret = os.system("cd /tmp && pdflatex tmp.tex 1> /dev/null 2> /dev/null")
   if ret != 0:
     raise Exception(f"Error compiling latex: {text}")
-  ret = os.system("convert -density 600 /tmp/tmp.pdf /tmp/tmp.png 1> /dev/null 2> /dev/null")
+  ret = os.system(
+      r"convert -density 600 /tmp/tmp.pdf /tmp/tmp.png "
+      r"1> /dev/null 2> /dev/null")
   if ret != 0:
     raise Exception(f"Error converting pdf to png in processing: {text}")
   ret = os.system(f"cp /tmp/tmp.png view/{code}.png")
@@ -65,7 +70,9 @@ def tikzimage(code):
   ret = os.system("cd /tmp && pdflatex tmp.tex 1> /dev/null 2> /dev/null")
   if ret != 0:
     raise Exception(f"Error compiling latex:\n{code}")
-  ret = os.system("convert -density 600 /tmp/tmp.pdf /tmp/tmp.png 1> /dev/null 2> /dev/null")
+  ret = os.system(
+      r"convert -density 600 /tmp/tmp.pdf /tmp/tmp.png "
+      r"1> /dev/null 2> /dev/null")
   if ret != 0:
     raise Exception(f"Error converting pdf to png in processing:\n{code}")
   ret = os.system(f"cp /tmp/tmp.png view/view.png")

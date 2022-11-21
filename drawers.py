@@ -63,8 +63,9 @@ class BoxDrawer(Drawer):
       text_color = "black"
 
     if "text" in obj:
+      text_width = get_default(obj, "text.width")
       if need_latex(obj["text"]):
-        path = text_to_latex_image_path(obj["text"], text_color)
+        path = text_to_latex_image_path(obj["text"], text_color, text_width)
         if (path, scale, obj["id"]) not in env["image references"]:
           img = Image.open(path)
           img = img.convert("RGBA")
@@ -78,7 +79,10 @@ class BoxDrawer(Drawer):
         tmptext = canvas.create_image(0, 0, image=image)
       else:
         tmptext = canvas.create_text(
-            0, 0, text=obj["text"], font=default_font(font_size))
+            0, 0, text=obj["text"],
+            font=default_font(font_size),
+            width=dist_to_num(text_width) * scale * cs_scale
+            if text_width is not None else None)
       x0, y0, x1, y1 = canvas.bbox(tmptext)
 
       if "inner.sep" in obj:
@@ -222,12 +226,14 @@ class BoxDrawer(Drawer):
                                       if line_width is not None else None,
                                       dash=dash)
       if "text" in obj and obj["text"]:
+        text_width = get_default(obj, "text.width")
         center_x, center_y = BoundingBox._get_anchor_pos(
             (x, y, width, height), "center")
         x, y = map_point(center_x, center_y, cs)
         if need_latex(obj["text"]):
           if tmptext is None:
-            path = text_to_latex_image_path(obj["text"], text_color)
+            path = text_to_latex_image_path(
+                obj["text"], text_color, text_width)
             if (path, scale, obj["id"]) not in env["image references"]:
               img = Image.open(path)
               img = img.convert("RGBA")
@@ -246,9 +252,12 @@ class BoxDrawer(Drawer):
               canvas.tag_lower(r, tmptext)
         else:
           if tmptext is None:
-            canvas.create_text(x, y, text=obj["text"],
-                               fill=color_to_tk(text_color),
-                               font=default_font(font_size))
+            canvas.create_text(
+                x, y, text=obj["text"],
+                fill=color_to_tk(text_color),
+                font=default_font(font_size),
+                width=dist_to_num(text_width) * scale * cs_scale
+                if text_width is not None else None)
           else:
             canvas.move(tmptext, x, y)
             canvas.itemconfig(tmptext, fill=color_to_tk(text_color))
@@ -311,6 +320,7 @@ class BoxDrawer(Drawer):
                                     if line_width is not None else None)
 
       if "text" in obj and obj["text"]:
+        text_width = get_default(obj, "text.width")
         center_x, center_y = BoundingBox._get_anchor_pos(
             (x, y, width, height), "center")
         anchor_x, anchor_y = BoundingBox._get_anchor_pos(
@@ -322,7 +332,7 @@ class BoxDrawer(Drawer):
         if need_latex(obj["text"]):
           if tmptext is not None:
             canvas.delete(tmptext)
-          path = text_to_latex_image_path(obj["text"], text_color)
+          path = text_to_latex_image_path(obj["text"], text_color, text_width)
           if (path, scale, angle, obj["id"]) not in env["image references"]:
             img = Image.open(path)
             img = img.convert("RGBA")
@@ -338,10 +348,13 @@ class BoxDrawer(Drawer):
           canvas.create_image(x, y, image=image)
         else:
           if tmptext is None:
-            canvas.create_text(x, y, text=obj["text"],
-                               fill=color_to_tk(text_color),
-                               font=("Times New Roman", font_size, "normal"),
-                               angle=angle % 360)
+            canvas.create_text(
+                x, y, text=obj["text"],
+                fill=color_to_tk(text_color),
+                font=("Times New Roman", font_size, "normal"),
+                width=dist_to_num(text_width) * scale * cs_scale
+                if text_width is not None else None,
+                angle=angle % 360)
           else:
             canvas.move(tmptext, x, y)
             canvas.itemconfig(tmptext, fill=color_to_tk(
