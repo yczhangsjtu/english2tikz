@@ -39,7 +39,7 @@ class BoxDrawer(Drawer):
     else:
       scale = 1
 
-    cs_scale = env["coordinate system"]["scale"]
+    cs_scale = env["coordinate system"]._scale
     angle = get_default(obj, "rotate")
 
     if slope is not None or angle is not None:
@@ -197,11 +197,11 @@ class BoxDrawer(Drawer):
       rounded_corners = None
     cs = env["coordinate system"]
 
-    x0, y0 = map_point(x, y, cs)
-    x1, y1 = map_point(x + width, y + height, cs)
+    x0, y0 = cs.map_point(x, y)
+    x1, y1 = cs.map_point(x + width, y + height)
     anchorx, anchory = BoundingBox._get_anchor_pos(
         (x, y, width, height), anchor)
-    anchor_screen_x, anchor_screen_y = map_point(anchorx, anchory, cs)
+    anchor_screen_x, anchor_screen_y = cs.map_point(anchorx, anchory)
     if angle is None:
       r = None
       if fill or draw:
@@ -214,7 +214,7 @@ class BoxDrawer(Drawer):
                                  dash=dash)
         elif rounded_corners:
           r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
-                                        radius=rounded_corners*cs["scale"],
+                                        radius=rounded_corners*cs._scale,
                                         fill=color_to_tk(fill),
                                         outline=color_to_tk(color),
                                         width=line_width * line_width_ratio
@@ -231,7 +231,7 @@ class BoxDrawer(Drawer):
         text_width = get_default(obj, "text.width")
         center_x, center_y = BoundingBox._get_anchor_pos(
             (x, y, width, height), "center")
-        x, y = map_point(center_x, center_y, cs)
+        x, y = cs.map_point(center_x, center_y)
         if need_latex(obj["text"]):
           if tmptext is None:
             path = text_to_latex_image_path(
@@ -271,7 +271,7 @@ class BoxDrawer(Drawer):
                              fill="", outline="red", dash=2)
         elif rounded_corners:
           BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
-                                    radius=rounded_corners * cs["scale"],
+                                    radius=rounded_corners * cs._scale,
                                     fill="", outline="red", dash=2)
         else:
           canvas.create_rectangle(
@@ -303,7 +303,7 @@ class BoxDrawer(Drawer):
                                      width=line_width * line_width_ratio)
         elif rounded_corners:
           r = BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
-                                        radius=rounded_corners*cs["scale"],
+                                        radius=rounded_corners*cs._scale,
                                         fill=color_to_tk(fill),
                                         outline=color_to_tk(color),
                                         width=line_width * line_width_ratio,
@@ -330,7 +330,7 @@ class BoxDrawer(Drawer):
         rotated_x, rotated_y = rotate(
             center_x, center_y, anchor_x, anchor_y, 360-angle)
 
-        x, y = map_point(rotated_x, rotated_y, cs)
+        x, y = cs.map_point(rotated_x, rotated_y)
         if need_latex(obj["text"]):
           if tmptext is not None:
             canvas.delete(tmptext)
@@ -384,7 +384,7 @@ class BoxDrawer(Drawer):
                                      fill="", outline="red", dash=2)
         elif rounded_corners:
           BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
-                                    radius=rounded_corners*cs["scale"],
+                                    radius=rounded_corners*cs._scale,
                                     angle=angle,
                                     rotate_center=(anchor_screen_x,
                                                    anchor_screen_y),
@@ -409,7 +409,7 @@ class BoxDrawer(Drawer):
     if finding is not None:
       candidate_code = finding.get_chopped_code(obj)
       if candidate_code is not None:
-        label_pos = map_point(*bb.get_anchor_pos("north.west"), cs)
+        label_pos = cs.map_point(*bb.get_anchor_pos("north.west"))
         ftext = canvas.create_text(
             label_pos, anchor="nw", text=candidate_code, fill="black")
         fback = canvas.create_rectangle(
@@ -574,8 +574,8 @@ class PathDrawer(Drawer):
             env["bounding box"][segment_id] = BoundingBox.from_rect(
                 x0, y0, x1, y1, shape="line", obj=obj)
 
-            x0p, y0p = map_point(x0, y0, cs)
-            x1p, y1p = map_point(x1, y1, cs)
+            x0p, y0p = cs.map_point(x0, y0)
+            x1p, y1p = cs.map_point(x1, y1)
 
             if "line.width" in obj:
               width = float(obj["line.width"])
@@ -692,7 +692,7 @@ class PathDrawer(Drawer):
 
             env["bounding box"][segment_id] = BoundingBox(
                 0, 0, 0, 0, shape="curve", points=curve, obj=obj)
-            screen_curve = [map_point(x, y, cs) for x, y in curve]
+            screen_curve = [cs.map_point(x, y) for x, y in curve]
 
             if "line.width" in obj:
               width = float(obj["line.width"])
@@ -770,8 +770,8 @@ class PathDrawer(Drawer):
           env["bounding box"][segment_id] = BoundingBox.from_rect(
               x0, y0, x1, y1, shape="rectangle", obj=obj)
 
-          x0p, y0p = map_point(x0, y0, cs)
-          x1p, y1p = map_point(x1, y1, cs)
+          x0p, y0p = cs.map_point(x0, y0)
+          x1p, y1p = cs.map_point(x1, y1)
 
           if "line.width" in obj:
             width = obj["line.width"]
@@ -805,7 +805,7 @@ class PathDrawer(Drawer):
       if new_pos is not None:
         if is_selected:
           x, y = new_pos
-          x, y = map_point(x, y, cs)
+          x, y = cs.map_point(x, y)
           if "line.width" in obj:
             width = 5 + float(obj["line.width"])
           else:
@@ -829,7 +829,7 @@ class PathDrawer(Drawer):
       raise Exception(f"Undrawn item {to_draw}")
 
     if fill and len(fill_polygon) > 2:
-      fill_polygon = [e for x, y in fill_polygon for e in map_point(x, y, cs)]
+      fill_polygon = [e for x, y in fill_polygon for e in cs.map_point(x, y)]
       p = canvas.create_polygon(fill_polygon, fill=color_to_tk(obj["fill"]),
                                 outline="")
       canvas.tag_lower(p, first_segment)
@@ -837,7 +837,7 @@ class PathDrawer(Drawer):
     if finding is not None:
       candidate_code = finding.get_chopped_code(obj)
       if candidate_code is not None:
-        x0, y0 = map_point(*starting_pos, cs)
+        x0, y0 = cs.map_point(*starting_pos)
         ftext = canvas.create_text(
             x0, y0, anchor="nw", text=candidate_code, fill="black")
         fback = canvas.create_rectangle(

@@ -16,6 +16,7 @@ from english2tikz.gui.text_editor import TextEditor
 from english2tikz.gui.selection import Selection
 from english2tikz.gui.finding import Finding
 from english2tikz.gui.grid import Grid
+from english2tikz.gui.coordinate_system import CoordinateSystem
 
 
 class CanvasManager(object):
@@ -30,11 +31,8 @@ class CanvasManager(object):
     self._end = False
     self._drawers = []
     self._register_fundamental_drawers()
-    self._centerx = screen_width / 2
-    self._centery = screen_height / 2
-    self._screen_width = screen_width
-    self._screen_height = screen_height
-    self._scale = 100
+    self._coordinate_system = CoordinateSystem(screen_width,
+                                               screen_height, 100)
     self._command_line = None
     self._command_line_buffer = None
     self._command_history_index = None
@@ -253,8 +251,7 @@ class CanvasManager(object):
     self.draw()
 
   def _scroll(self, dx, dy):
-    self._centerx += dx
-    self._centery += dy
+    self._coordinate_system.scroll(dx, dy)
     self._reset_pointer_into_screen()
 
   def _set_position_to_mark(self):
@@ -673,8 +670,7 @@ class CanvasManager(object):
   def _reset_pointer_to_origin(self):
     self._pointerx = 0
     self._pointery = 0
-    self._centerx = self._screen_width / 2
-    self._centery = self._screen_height / 2
+    self._coordinate_system.reset()
 
   def _create_node_at_visual(self):
     x0, y0 = self._get_pointer_pos()
@@ -831,11 +827,7 @@ class CanvasManager(object):
       self._shift_dist(item, "yshift", dy)
 
   def _screen_range(self):
-    x0, y0 = reverse_map_point(0, 0, self._coordinate_system())
-    x1, y1 = reverse_map_point(self._screen_width,
-                               self._screen_height,
-                               self._coordinate_system())
-    return x0, y0, x1, y1
+    return self._coordinate_system.view_range()
 
   def _find_all_in_screen(self):
     sel = self._screen_range()
@@ -951,7 +943,7 @@ class CanvasManager(object):
 
   def _get_pointer_screen_pos(self):
     x, y = self._get_pointer_pos()
-    return map_point(x, y, self._coordinate_system())
+    return self._coordinate_system.map_point(x, y)
 
   def _move_pointer(self, x, y):
     self._pointerx += x
@@ -964,14 +956,7 @@ class CanvasManager(object):
 
   def _move_pointer_into_screen(self):
     screenx, screeny = self._get_pointer_screen_pos()
-    if screenx < 0:
-      self._centerx -= screenx
-    elif screenx >= self._screen_width:
-      self._centerx += self._screen_width - screenx
-    if screeny < 0:
-      self._centery -= screeny
-    elif screeny >= self._screen_height:
-      self._centery += self._screen_height - screeny
+    self._coordinate_system.shift_to_include(screenx, screeny)
 
   def _move_pointer_to_screen_boundary(self, direction):
     upper, lower, left, right = self._boundary_grids()
@@ -988,24 +973,13 @@ class CanvasManager(object):
     self._move_pointer_into_screen()
 
   def _reset_pointer_into_screen(self):
-    screenx, screeny = self._get_pointer_screen_pos()
-    screenx = bound_by(screenx, self._scale - 10,
-                       self._screen_width - self._scale + 10)
-    screeny = bound_by(screeny, self._scale - 10,
-                       self._screen_height - self._scale + 10)
+    screenx, screeny = self._coordinate_system.closest_in_view(
+        *self._get_pointer_screen_pos())
     self._pointerx, self._pointery = self._grid.closest_int_coord(
-        *reverse_map_point(screenx, screeny, self._coordinate_system()))
+        *self._coordinate_system.reverse_map_point(screenx, screeny))
 
   def _boundary_grids(self):
-    x0, y0 = reverse_map_point(0, 0, self._coordinate_system())
-    x1, y1 = reverse_map_point(self._screen_width,
-                               self._screen_height,
-                               self._coordinate_system())
-    step_upper = int(y0 / self._grid.size())
-    step_lower = int(y1 / self._grid.size())
-    step_left = int(x0 / self._grid.size())
-    step_right = int(x1 / self._grid.size())
-    return step_upper, step_lower, step_left, step_right
+    return self._grid.rect_boundary(*self._coordinate_system.view_range())
 
   def draw(self):
     if self._end:
@@ -1040,45 +1014,38 @@ class CanvasManager(object):
     step_upper, step_lower, step_left, step_right = self._boundary_grids()
     step = round(1 / self._grid.size())
     for i in range(step_lower, step_upper+1):
-      x, y = map_point(0, self._grid.size() * i, self._coordinate_system())
-      c.create_line((0, y, self._screen_width, y), fill="gray", dash=2)
+      x, y = self._coordinate_system.map_point(0, self._grid.size() * i)
+      c.create_line(self._coordinate_system.horizontal_line(y),
+                    fill="gray", dash=2)
       draw_text = i == self._pointery or i % step == 0
       color = "red" if i == self._pointery else "gray"
       if draw_text:
         text = "%g" % (i * self._grid.size())
         c.create_text(5, y, text=text, anchor="sw", fill=color)
-        c.create_text(self._screen_width-3, y,
+        c.create_text(self._coordinate_system.right_boundary()-3, y,
                       text=text, anchor="se", fill=color)
     for i in range(step_left, step_right+1):
-      x, y = map_point(self._grid.size() * i, 0, self._coordinate_system())
-      c.create_line((x, 0, x, self._screen_height), fill="gray", dash=2)
+      x, y = self._coordinate_system.map_point(self._grid.size() * i, 0)
+      c.create_line(self._coordinate_system.vertical_line(x),
+                    fill="gray", dash=2)
       draw_text = i == self._pointerx or i % step == 0
       color = "red" if i == self._pointerx else "gray"
       if draw_text:
         text = "%g" % (i * self._grid.size())
         c.create_text(x, 0, text=text, anchor="nw", fill=color)
-        c.create_text(x, self._screen_height,
+        c.create_text(x, self._coordinate_system.bottom_boundary(),
                       text=text, anchor="sw", fill=color)
 
   def _draw_axes(self, c):
-    c.create_line((0, self._centery, self._screen_width, self._centery),
+    c.create_line(self._coordinate_system.center_horizontal_line(),
                   fill="#888888", width=1.5)
-    c.create_line((self._centerx, 0, self._centerx, self._screen_height),
+    c.create_line(self._coordinate_system.center_vertical_line(),
                   fill="#888888", width=1.5)
-
-  def _coordinate_system(self):
-    return {
-        "width": self._screen_width,
-        "height": self._screen_height,
-        "center_x": self._centerx,
-        "center_y": self._centery,
-        "scale": self._scale,
-    }
 
   def _draw_picture(self, c, ctx):
     env = {
         "bounding box": {},
-        "coordinate system": self._coordinate_system(),
+        "coordinate system": self._coordinate_system,
         "selection": self._selection,
         "image references": self._image_references,
         "finding": self._finding,
@@ -1103,7 +1070,7 @@ class CanvasManager(object):
     if self._visual_start is None:
       return
     x, y = self._visual_start
-    x0, y0 = map_point(x, y, self._coordinate_system())
+    x0, y0 = self._coordinate_system.map_point(x, y)
     x1, y1 = self._get_pointer_screen_pos()
     c.create_rectangle((x0, y0, x1, y1), outline="red", width=4, dash=8)
 
@@ -1164,7 +1131,7 @@ class CanvasManager(object):
         self._marks = self._marks[:i]
         return
 
-      x, y = map_point(x, y, self._coordinate_system())
+      x, y = self._coordinate_system.map_point(x, y)
       radius = 10
       if is_type(mark, "coordinate"):
         if get_default(mark, "relative", False):
@@ -1185,7 +1152,7 @@ class CanvasManager(object):
       c.create_text(x, y, text=str(i), fill="black")
 
   def _draw_editing_text(self, c):
-    x, y = map_point(*self._editing_text_pos, self._coordinate_system())
+    x, y = self._coordinate_system.map_point(*self._editing_text_pos)
     t = c.create_text(x, y, text=self._editing_text.view(),
                       fill="black", font=("Courier", 20, "normal"))
     bg = c.create_rectangle(c.bbox(t), fill="white", outline="blue")
@@ -1195,17 +1162,15 @@ class CanvasManager(object):
     return now() - self._start_time
 
   def _draw_pointer_indicator(self, c):
-    x, y = map_point(self._pointerx * self._grid.size(),
-                     self._pointery * self._grid.size(),
-                     self._coordinate_system())
-    c.create_line((0, y, self._screen_width, y), fill="red", width=1)
-    c.create_line((x, 0, x, self._screen_height), fill="red", width=1)
+    x, y = self._get_pointer_screen_pos()
+    c.create_line(self._coordinate_system.horizontal_line(y),
+                  fill="red", width=1)
+    c.create_line(self._coordinate_system.vertical_line(x),
+                  fill="red", width=1)
 
   def _draw_pointer(self, c):
     ret = []
-    x, y = map_point(self._pointerx * self._grid.size(),
-                     self._pointery * self._grid.size(),
-                     self._coordinate_system())
+    x, y = self._get_pointer_screen_pos()
     angle = int((self._elapsed() / 5)) % 360
     rad = angle / 180 * math.pi
     dx1, dy1 = 10 * math.cos(rad), 10 * math.sin(rad)
@@ -1251,17 +1216,20 @@ class CanvasManager(object):
 
   def _draw_command(self, c):
     if self._is_in_command_mode():
-      c.create_rectangle((3, self._screen_height-28,
-                          self._screen_width, self._screen_height),
+      c.create_rectangle((3, self._coordinate_system.bottom_boundary()-28,
+                          self._coordinate_system.right_boundary(),
+                          self._coordinate_system.bottom_boundary()),
                          fill="white", outline="black")
-      c.create_text(5, self._screen_height, text=":"+self._command_line.view(),
+      c.create_text(5, self._coordinate_system.bottom_boundary(),
+                    text=":"+self._command_line.view(),
                     anchor="sw", fill="black", font=("Courier", 20, "normal"))
     elif self._error_msg is not None:
-      c.create_rectangle((3, self._screen_height-15,
-                          self._screen_width, self._screen_height),
+      c.create_rectangle((3, self._coordinate_system.bottom_boundary()-15,
+                          self._coordinate_system.right_boundary(),
+                          self._coordinate_system.bottom_boundary()),
                          fill="white", outline="black")
-      c.create_text(5, self._screen_height, text=self._error_msg,
-                    anchor="sw", fill="red")
+      c.create_text(5, self._coordinate_system.bottom_boundary(),
+                    text=self._error_msg, anchor="sw", fill="red")
 
   def _tokenize(self, code):
     code = code.strip()

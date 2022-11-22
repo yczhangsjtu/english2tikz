@@ -18,3 +18,10 @@ class Grid(object):
   def closest_coord(self, x, y):
     return (round(x / self.size()) * self.size(),
             round(y / self.size()) * self.size())
+
+  def rect_boundary(self, x0, y0, x1, y1):
+    upper = int(y0 / self.size())
+    lower = int(y1 / self.size())
+    left = int(x0 / self.size())
+    right = int(x1 / self.size())
+    return upper, lower, left, right

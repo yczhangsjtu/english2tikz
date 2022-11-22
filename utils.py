@@ -488,14 +488,6 @@ def point_line_dist(x, y, line):
   return math.sqrt(dx * dx + dy * dy)
 
 
-def map_point(x, y, cs):
-  return cs["center_x"] + x * cs["scale"], cs["center_y"] - y * cs["scale"]
-
-
-def reverse_map_point(x, y, cs):
-  return (x - cs["center_x"]) / cs["scale"], (cs["center_y"] - y) / cs["scale"]
-
-
 def intersect(rect1, rect2):
   x0, y0, x1, y1 = rect1
   x2, y2, x3, y3 = rect2
