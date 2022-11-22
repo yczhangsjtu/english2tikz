@@ -57,11 +57,9 @@ class Selection(object):
       desc["#segments"] = str(count_path_segment_items(obj))
       desc["#positions"] = str(count_path_position_items(obj))
     elif is_type(obj, "box"):
-      keys = remove_if_in(keys, "name")
       desc = {key: obj[key] for key in keys}
       desc["draw"] = True
     elif is_type(obj, "text"):
-      keys = remove_if_in(keys, "name")
       desc = {key: obj[key] for key in keys}
     else:
       desc = {key: obj[key] for key in keys}
@@ -261,7 +259,7 @@ class Selection(object):
       self._selected_path_position = position_items[
           self._selected_path_position_index][0]
 
-  def _search(self, *args):
+  def search(self, *args):
     self.clear()
     filters = []
     for t, v in args:

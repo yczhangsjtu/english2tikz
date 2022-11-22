@@ -261,7 +261,9 @@ class CanvasManager(object):
   def _set_position_to_mark(self):
     if self._is_in_path_position_mode():
       if len(self._marks) == 1:
+        self._before_change()
         self._selection.set_selected_path_item(self._marks[0])
+        self._after_change()
       else:
         self._error_msg = "Can only set position to one mark"
     else:
@@ -398,7 +400,7 @@ class CanvasManager(object):
     self._clear_error_message()
 
   def _enter_command_mode_and_search(self):
-    self._command_line = TextEditor("search")
+    self._command_line = TextEditor("search ")
     self._command_line_buffer = str(self._command_line)
     self._clear_error_message()
 
@@ -715,7 +717,7 @@ class CanvasManager(object):
       self._shift_object_anchor(id_, direction)
 
   def _jump_to_next_selected(self, by):
-    if self._selection.jump_to_next_selected():
+    if self._selection.jump_to_next_selected(by):
       self._jump_to_select()
 
   def _reset_pointer_to_origin(self):
@@ -797,6 +799,9 @@ class CanvasManager(object):
     obj = self._find_object_by_id(id_)
     if obj is not None:
       obj["name"] = id_
+    else:
+      self._error_msg = f"Cannot find object with id {id_}"
+      traceback.print_exc()
 
   def _insert_text_following_id(self, id_, direction):
     if direction == "right":
@@ -1390,7 +1395,14 @@ class CanvasManager(object):
     if "nextid" in data:
       self._context._state["nextid"] = data["nextid"]
     self._history = [self._context._picture]
+    self._fix_id_and_names()
     self.draw()
+
+  def _fix_id_and_names(self):
+    for item in self._context._picture:
+      id_ = get_default(item, "id")
+      if id_ is not None:
+        item["name"] = id_
 
   def _process_command(self, cmd):
     self._append_command(cmd)
