@@ -434,10 +434,10 @@ class Editor(object):
     if self._selection.has_id():
       deleted_ids = []
       for id_ in self._selection.ids():
-        self._delete_objects_related_to_id(id_, deleted_ids)
+        self._context.delete_objects_related_to_id(id_, deleted_ids)
     if self._selection.has_path():
       for path in self._selection.paths():
-        self._delete_path(path)
+        self._context.delete_path(path)
     self._after_change()
     self._selection.clear()
 
@@ -721,7 +721,7 @@ class Editor(object):
       self._after_change()
     elif self._selection.is_in_path_position_mode():
       self._before_change()
-      shift_path_position(self.get_path_position(), dx, dy,
+      shift_path_position(self._selection.get_path_position(), dx, dy,
                           self._pointer.grid_size())
       self._after_change()
 
@@ -752,53 +752,6 @@ class Editor(object):
         else:
           items.append(id_)
     self._selection.update(mode, *items)
-
-  def _delete_objects_related_to_id(self, id_, deleted_ids=[]):
-    to_removes = [obj for obj in self._context._picture
-                  if self._related_to(obj, id_)]
-    deleted_ids.append(id_)
-    related_ids = [item["id"] for item in to_removes
-                   if "id" in item and item["id"] not in deleted_ids]
-    self._context._picture = [obj for obj in self._context._picture
-                              if not self._related_to(obj, id_)]
-
-    for obj in self._context._picture:
-      if "items" in obj:
-        for item in obj["items"]:
-          if "annotates" in item:
-            item["annotates"] = [annotate for annotate in item["annotates"]
-                                 if "id" not in annotate
-                                 or annotate["id"] != id_]
-    for id_ in related_ids:
-      self._delete_objects_related_to_id(id_, deleted_ids)
-
-  def _related_to(self, obj, id_):
-    if "id" in obj and obj["id"] == id_:
-      return True
-    if "at" in obj and obj["at"] == id_:
-      return True
-    if "items" in obj:
-      for item in obj["items"]:
-        if "type" in item and item["type"] == "nodename":
-          if item["name"] == id_:
-            return True
-    return False
-
-  def _delete_path(self, path):
-    affected_ids = []
-    for item in path["items"]:
-      if "annotates" in item:
-        for annotate in item["annotates"]:
-          if "id" in annotate and "id" not in affected_ids:
-            affected_ids.append(annotate["id"])
-    for i in range(len(self._context._picture)):
-      if self._context._picture[i] == path:
-        del self._context._picture[i]
-        break
-
-    deleted_ids = []
-    for id_ in affected_ids:
-      self._delete_objects_related_to_id(id_, deleted_ids)
 
   def _paste(self):
     if len(self._clipboard) == 0:

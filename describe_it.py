@@ -1,12 +1,12 @@
 import json
 import re
 from functools import partial
-from .handlers import *
-from .renderers import *
-from .object_handlers import SupportMultipleHandler
-from .object_renderers import SupportMultipleRenderer
-from .preprocessor import *
-from .utils import *
+from english2tikz.handlers import *
+from english2tikz.renderers import *
+from english2tikz.object_handlers import SupportMultipleHandler
+from english2tikz.object_renderers import SupportMultipleRenderer
+from english2tikz.preprocessor import *
+from english2tikz.utils import *
 
 
 class DescribeIt(object):
@@ -302,3 +302,36 @@ class DescribeIt(object):
               if "id" in annotate and annotate["id"] == id_:
                 return annotate
     return None
+
+  def delete_objects_related_to_id(self, id_, deleted_ids=[]):
+    to_removes = [obj for obj in self._picture if related_to(obj, id_)]
+    deleted_ids.append(id_)
+    related_ids = [item["id"] for item in to_removes
+                   if "id" in item and item["id"] not in deleted_ids]
+    self._picture = [obj for obj in self._picture if not related_to(obj, id_)]
+
+    for obj in self._picture:
+      if "items" in obj:
+        for item in obj["items"]:
+          if "annotates" in item:
+            item["annotates"] = [annotate for annotate in item["annotates"]
+                                 if "id" not in annotate
+                                 or annotate["id"] != id_]
+    for id_ in related_ids:
+      self.delete_objects_related_to_id(id_, deleted_ids)
+
+  def delete_path(self, path):
+    affected_ids = []
+    for item in path["items"]:
+      if "annotates" in item:
+        for annotate in item["annotates"]:
+          if "id" in annotate and "id" not in affected_ids:
+            affected_ids.append(annotate["id"])
+    for i in range(len(self._picture)):
+      if self._picture[i] == path:
+        del self._picture[i]
+        break
+
+    deleted_ids = []
+    for id_ in affected_ids:
+      self.delete_objects_related_to_id(id_, deleted_ids)

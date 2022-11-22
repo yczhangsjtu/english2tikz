@@ -224,7 +224,7 @@ def shift_object(obj, dx, dy, round_by=None):
     }
 
 
-def _shift_path_position(item, dx, dy, round_by=None):
+def shift_path_position(item, dx, dy, round_by=None):
   if is_type(item, "coordinate"):
     shift_dist(item, "x", dx, round_by)
     shift_dist(item, "y", dy, round_by)
@@ -232,6 +232,22 @@ def _shift_path_position(item, dx, dy, round_by=None):
   if is_type(item, "nodename"):
     shift_dist(item, "xshift", dx, round_by, empty_val="0")
     shift_dist(item, "yshift", dy, round_by, empty_val="0")
+
+
+def related_to(obj, id_):
+  if "id" in obj and obj["id"] == id_:
+    return True
+  if "at" in obj and obj["at"] == id_:
+    return True
+  if "items" in obj:
+    for item in obj["items"]:
+      if is_type(item, "nodename"):
+        if item["name"] == id_:
+          return True
+      elif is_type(item, "intersection"):
+        if item["name1"] == id_ or item["name2"] == id_:
+          return True
+  return False
 
 
 class BoundingBox(object):

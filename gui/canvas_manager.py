@@ -137,7 +137,7 @@ class CanvasManager(object):
         drawer.draw(c, obj, env)
       except Exception as e:
         traceback.print_exc()
-        self._editor._error_msg = f"Error in draw: {e}"
+        self._editor._error_msg = f"Error in drawing {obj}: {e}"
       return
     raise Exception(f"Cannot find drawer for obj {obj}")
 
