@@ -716,8 +716,8 @@ class Editor(object):
     if self._selection.has_id():
       self._before_change()
       for id_ in self._selection.ids():
-        obj = self._find_object_by_id(id_)
-        shift_object(obj, dx, dy, self._pointer.grid_size())
+        shift_object(self._find_object_by_id(id_),
+                     dx, dy, self._pointer.grid_size())
       self._after_change()
     elif self._selection.is_in_path_position_mode():
       self._before_change()
@@ -751,17 +751,7 @@ class Editor(object):
           items.append(bb._obj)
         else:
           items.append(id_)
-
-    if mode == "clear":
-      self._selection.select(*items)
-    elif mode == "exclude":
-      self._selection.exclude(*items)
-    elif mode == "intersect":
-      self._selection.intersect(*items)
-    elif mode == "toggle":
-      self._selection.toggle(*items)
-    elif mode == "merge":
-      self._selection.include(*items)
+    self._selection.update(mode, *items)
 
   def _delete_objects_related_to_id(self, id_, deleted_ids=[]):
     to_removes = [obj for obj in self._context._picture

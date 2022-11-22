@@ -164,6 +164,20 @@ class Selection(object):
 
   def selected_path(self, path):
     return path in self._selected_paths
+  
+  def update(self, mode, *items):
+    if mode == "clear":
+      self.select(*items)
+    elif mode == "exclude":
+      self.exclude(*items)
+    elif mode == "intersect":
+      self.intersect(*items)
+    elif mode == "toggle":
+      self.toggle(*items)
+    elif mode == "merge":
+      self.include(*items)
+    else:
+      raise Exception(f"Unknown mode {mode}")
 
   def select(self, *items):
     self.clear()
