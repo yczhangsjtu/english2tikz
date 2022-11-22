@@ -60,7 +60,7 @@ class Pointer(object):
     self.move_into_view()
 
   def move_by_inverse_grid_size(self, x, y):
-    self._move_by(round(x/self._grid.size()), round(y/self._grid.size()))
+    self.move_by(round(x/self._grid.size()), round(y/self._grid.size()))
 
   def boundary_grids(self):
     return self._grid.rect_boundary(*self._cs.view_range())

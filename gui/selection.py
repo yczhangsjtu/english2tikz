@@ -259,30 +259,26 @@ class Selection(object):
       self._selected_path_position = position_items[
           self._selected_path_position_index][0]
 
-  def search(self, *args):
+  def search(self, positionals=[], **kwargs):
     self.clear()
     filters = []
-    for t, v in args:
-      if t == "command":
-        index = v.find("=")
-        if index >= 0:
-          key, value = v[:index], v[index+1:]
-          if len(key) == 0:
-            raise Exception("Does not support empty search key")
-          if len(value) == 0:
-            """
-            In this case, the value is not filtered. This is a key filter,
-            i.e., find objects with the given key
-            """
-            value = None
-          filters.append((key, value))
-        else:
-          """
-          In this case, the key is not filtered
-          """
-          filters.append((None, v))
-      elif t == "text":
-        filters.append(("text", v))
+    for v in positionals:
+      filters.append(("text", v))
+
+    for key, value in kwargs.items():
+      if len(key) == 0:
+        raise Exception("Does not support empty search key")
+      if value is True:
+        filters.append((None, key))
+      elif len(value) == 0:
+        """
+        In this case, the value is not filtered. This is a key filter,
+        i.e., find objects with the given key
+        """
+        filters.append((key, None))
+      else:
+        filters.append((key, value))
+
     if len(filters) == 0:
       raise Exception("No filter given")
 

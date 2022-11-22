@@ -21,6 +21,7 @@ from english2tikz.gui.command_line import CommandLine
 from english2tikz.gui.pointer import Pointer
 from english2tikz.gui.mark import MarkManager
 from english2tikz.gui.visual import Visual
+from english2tikz.gui.command_parse import Parser
 
 
 class Editor(object):
@@ -874,63 +875,6 @@ class Editor(object):
   def _move_pointer_to_screen_boundary(self, direction):
     self._pointer.move_to_boundary(direction)
 
-  def _tokenize(self, code):
-    code = code.strip()
-    tokens = []
-    while len(code) > 0:
-      if code.startswith("'''") or code.startswith('"""'):
-        escaped, text = False, None
-        for i in range(1, len(code)):
-          if escaped:
-            escaped = False
-            continue
-          if code[i] == '\\':
-            escaped = True
-            continue
-          if i + 3 <= len(code) and code[i:i+3] == code[0] * 3:
-            text = code[0:i+3]
-            code = code[i+3:].strip()
-            break
-        if text:
-          tokens.append(("text", text[3:-3]))
-          continue
-        else:
-          raise Exception(f"Unended quote: {code}")
-      if code.startswith("'") or code.startswith('"'):
-        escaped, text = False, None
-        for i in range(1, len(code)):
-          if escaped:
-            escaped = False
-            continue
-          if code[i] == '\\':
-            escaped = True
-            continue
-          if code[i] == code[0]:
-            text = code[0:i+1]
-            code = code[i+1:].strip()
-            break
-        if text:
-          tokens.append(("text", text[1:-1]))
-          continue
-        else:
-          raise Exception(f"Unended quote: {code}")
-      if code.startswith("python{{{"):
-        end = code.find("python}}}")
-        if end < 0:
-          raise Exception(f"Unended python code: {code}")
-        python_code = code[9:end]
-        code = code[end+9:].strip()
-        tokens.append(("python", code))
-        continue
-      match = re.search(r'[\n\s]+', code)
-      if match:
-        tokens.append(("command", code[0:match.span()[0]]))
-        code = code[match.span()[1]:].strip()
-        continue
-      tokens.append(("command", code))
-      break
-    return tokens
-
   def _save(self):
     if len(self._context._picture) == 0:
       x0, y0, x1, y1 = 0, 0, 0, 0
@@ -963,44 +907,39 @@ class Editor(object):
   def _process_command(self, cmd):
     self._command_line.append(cmd)
     try:
-      tokens = self._tokenize(cmd)
-      if len(tokens) == 0:
-        raise Exception("Empty command")
-      if tokens[0][0] != "command":
-        raise Exception("Command does not start with command name")
-      cmd_name = tokens[0][1]
+      cmd_name, code = Parser.split_name_args(cmd)
       if cmd_name == "set":
-        self._set(*tokens[1:])
+        self._set(code)
       elif cmd_name == "unset" or cmd_name == "un":
-        self._unset(*tokens[1:])
+        self._unset(code)
       elif cmd_name == "fill" or cmd_name == "f":
-        self._set_fill(*tokens[1:])
+        self._set_fill(code)
       elif cmd_name in anchor_list:
-        self._set(("command", cmd_name))
+        self._set(cmd_name)
       elif cmd_name == "make" or cmd_name == "mk":
-        self._make(*tokens[1:])
+        self._make(code)
       elif cmd_name == "rect":
-        self._make(("command", "rect"), *tokens[1:])
+        self._make(f"rect {code}")
       elif cmd_name == "path":
-        self._make(("command", "path"), *tokens[1:])
+        self._make(f"path {code}")
       elif cmd_name == "cn" or cmd_name == "connect":
-        self._connect(*tokens[1:])
+        self._connect(code)
       elif cmd_name == "grid" or cmd_name == "g":
-        self._set_grid(*tokens[1:])
+        self._set_grid(code)
       elif cmd_name == "axes" or cmd_name == "a":
-        self._set_axes(*tokens[1:])
+        self._set_axes(code)
       elif cmd_name == "mark" or cmd_name == "m":
-        self._add_mark(*tokens[1:])
+        self._add_mark(code)
       elif cmd_name == "attr":
         self._show_attributes = not self._show_attributes
       elif cmd_name == "ann" or cmd_name == "annotate":
-        self._annotate(*tokens[1:])
+        self._annotate(code)
       elif cmd_name == "ch" or cmd_name == "chain":
-        self._chain(*tokens[1:])
+        self._chain(code)
       elif cmd_name == "search":
-        self._search(*tokens[1:])
+        self._search(code)
       elif cmd_name == "read":
-        self._read(*tokens[1:])
+        self._read(code)
       elif cmd_name == "w":
         if self.filename is None:
           print("%%drawjson\n"+json.dumps(self._save()))
@@ -1009,9 +948,9 @@ class Editor(object):
           with open(self.filename, "w") as f:
             f.write(data)
       elif cmd_name == "sao":
-        self._save_as_object(*tokens[1:])
+        self._save_as_object(code)
       elif cmd_name == "ro":
-        self._read_object(*tokens[1:])
+        self._read_object(code)
       elif cmd_name == "q":
         self._canvas_manager._end = True
         self._root.after(100, self._root.destroy())
@@ -1030,40 +969,21 @@ class Editor(object):
     except Exception as e:
       self._error_msg = f"Error in executing command: {e}"
 
-  def _set(self, *args):
+  def _set(self, code):
     if self._selection.empty():
       raise Exception("No object selected")
-    key = None
-    for t, v in args:
-      if t == "command":
-        if key is not None:
-          self._set_selected_objects(key, True)
-        eq = v.find("=")
-        if eq >= 0:
-          self._set_selected_objects(v[:eq], v[eq+1:])
-          continue
-        key = v
-      elif t == "text":
-        if key is None:
-          raise Exception(f"Unexpected text: [{v}]")
-        self._set_selected_objects(key, v)
-        key = None
-      elif t == "python":
-        if key is None:
-          raise Exception(f"Unexpected text: [{v}]")
-        self._set_selected_objects(key, eval(v))
-        key = None
-      else:
-        raise Exception(f"Unrecognized token type: [{t}]")
-    if key is not None:
-      self._set_selected_objects(key, True)
+    parser = Parser()
+    args = parser.parse(code)
+    for key, value in args.items():
+      self._set_selected_objects(key, value)
 
-  def _unset(self, *args):
+  def _unset(self, code):
     if self._selection.empty():
       raise Exception("No object selected")
-    for t, v in args:
-      if t == "command":
-        self._set_selected_objects(v, False)
+    parser = Parser()
+    args = parser.parse(code)
+    for key, _ in args.items():
+      self._set_selected_objects(key, False)
 
   def _process_key_value(self, key, value):
     """
@@ -1134,7 +1054,7 @@ class Editor(object):
     self._after_change()
 
   def _set_selected_objects(self, key, value):
-    if self.is_in_path_position_mode():
+    if self._selection.is_in_path_position_mode():
       self._set_path_position(key, value)
       return
     self._before_change()
@@ -1143,28 +1063,30 @@ class Editor(object):
       self._set_object(obj, key_values)
     self._after_change()
 
-  def _set_fill(self, *args):
-    color = None
-    for t, v in args:
-      if t == "command":
-        color = v
+  def _set_fill(self, code):
+    parser = Parser()
+    parser.positional("color")
+    args = parser.parse(code)
+    color = get_default(args, "color", None)
+    if color is None:
+      raise Exception("Expected a color name")
     self._set_selected_objects("fill", color)
 
-  def _make(self, *args):
+  def _make(self, code):
+    parser = Parser()
+    parser.flag_group("rect", ["rect", "r"])
+    parser.flag_group("path", ["path", "p"])
+    parser.flag_group("arrow", ["stealth", "->", "reversed.stealth", "<-",
+                                "double.stealth", "<->"])
+    args = parser.parse(code)
+
     obj = "path"
-    arrow = None
-    for t, v in args:
-      if t == "command":
-        if v == "rect" or v == "r":
-          obj = "rect"
-        elif v == "path" or v == "p":
-          obj = "path"
-        elif v == "->":
-          arrow = "stealth"
-        elif v == "<-":
-          arrow = "reversed.stealth"
-        elif v == "<->":
-          arrow = "double.stealth"
+    if "rect" in args:
+      obj = "rect"
+    elif "path" in args:
+      obj = "path"
+
+    arrow = get_default(args, "arrow", [None])[0]
 
     if obj == "path":
       self._before_change()
@@ -1176,7 +1098,7 @@ class Editor(object):
         self._before_change()
         self._context._picture.append(self._visual.create_path())
         self._after_change()
-      elif len(self._marks) == 2:
+      elif self._marks.size() == 2:
         self._before_change()
         self._context._picture.append(self._marks.create_rectangle())
         self._after_change()
@@ -1186,39 +1108,53 @@ class Editor(object):
     else:
       raise Exception("Unknown object type")
 
-  def _connect_objects_by_ids(self, ids, *args):
+  def _connect_objects_by_ids(self, ids, code):
     assert len(ids) >= 2
-    arrow, annotates = "", [""] * (len(ids) - 1)
-    anchors = [""] * len(ids)
-    pairs = [(0, i) for i in range(1, len(ids))]
+
+    parser = Parser()
+    parser.flag_group("arrow", list(arrow_symbols.keys()))
+    parser.flag("h")
+    parser.flag("v")
+    parser.flag("chain")
+    parser.flag_group("anchor", anchor_list + list(short_anchor_dict.keys()))
+    args = parser.parse(code)
+
+    arrow = get_default(args, "arrow", [""])[0]
+    if arrow:
+      arrow = f"with.{arrow_symbols[arrow]}"
+
     action = "line"
+    if "h" in args:
+      action = "line.horizontal"
+    elif "v" in args:
+      action = "line.vertical"
+
+    if "chain" in args:
+      pairs = [(i-1, i) for i in range(1, len(ids))]
+    else:
+      pairs = [(0, i) for i in range(1, len(ids))]
+
+    anchors = get_default(args, "anchor", [])
+    anchors = [short_anchor_dict[anchor]
+               if anchor in short_anchor_dict else anchor
+               for anchor in anchors]
+    anchors = [f".{anchor}" for anchor in anchors]
+    while len(anchors) < len(ids):
+      anchors.append("")
+
+    out = get_default(args, "out", None)
+    in_ = get_default(args, "in", None)
     start_out, close_in = "", ""
-    for t, v in args:
-      if t == "command":
-        if v in arrow_symbols:
-          arrow = f"with.{arrow_symbols[v]}"
-        elif v == "h":
-          action = "line.horizontal"
-        elif v == "v":
-          action = "line.vertical"
-        elif v == "chain":
-          pairs = [(i-1, i) for i in range(1, len(ids))]
-        elif v in anchor_list or v in short_anchor_dict:
-          if v in short_anchor_dict:
-            v = short_anchor_dict[v]
-          for j in range(len(anchors)):
-            if anchors[j] == "":
-              anchors[j] = f".{v}"
-              break
-        elif v.startswith("out="):
-          start_out = f"start.out.{v[4:]}"
-        elif v.startswith("in="):
-          close_in = f"close.in.{v[3:]}"
-      elif t == "text" and len(v) > 0:
-        for j in range(len(annotates)):
-          if annotates[j] == "":
-            annotates[j] = f"with.annotate '{v}'"
-            break
+    if out is not None:
+      start_out = f"start.out.{out}"
+    if in_ is not None:
+      close_in = f"close.in.{in_}"
+
+    annotates = get_default(args, "positionals", [])
+    annotates = [f"with.annotate '{v}'" for v in annotates]
+    while len(annotates) < len(ids):
+      annotates.append("")
+
     for id_ in ids:
       self._ensure_name_is_id(id_)
     for k, pair in enumerate(pairs):
@@ -1230,7 +1166,7 @@ class Editor(object):
                   f"{action}.to.{id2}{anchor2} "
                   f"{start_out} {close_in} {annotate}")
 
-  def _connect_mark_with_objects_by_ids(self, mark, ids, *args):
+  def _connect_mark_with_objects_by_ids(self, mark, ids, code):
     if mark["type"] == "coordinate":
       start_point = f"x.{mark['x']}.y.{mark['y']}"
     elif mark["type"] == "nodename":
@@ -1252,100 +1188,133 @@ class Editor(object):
     else:
       raise Exception(f"Unknown mark type: {mark['type']}")
 
-    action, anchor = "line", ""
+    parser = Parser()
+    parser.flag_group("arrow", list(arrow_symbols.keys()))
+    parser.flag("h")
+    parser.flag("v")
+    parser.flag_group("anchor", anchor_list + list(short_anchor_dict.keys()))
+    args = parser.parse(code)
+
+    arrow = get_default(args, "arrow", [""])[0]
+    if arrow:
+      arrow = f"with.{arrow_symbols[arrow]}"
+
+    action = "line"
+    if "h" in args:
+      action = "line.horizontal"
+    elif "v" in args:
+      action = "line.vertical"
+
+    anchor = get_default(args, "anchor", [""])[0]
+    anchor = (short_anchor_dict[anchor]
+              if anchor in short_anchor_dict else anchor)
+    anchor = f".{anchor}"
+    while len(anchors) < len(ids):
+      anchors.append("")
+
+    out = get_default(args, "out", None)
+    in_ = get_default(args, "in", None)
     start_out, close_in = "", ""
-    arrow = ""
-    annotates = []
-    for t, v in args:
-      if t == "command":
-        if v in arrow_symbols:
-          arrow = f"with.{arrow_symbols[v]}"
-        elif v == "h":
-          action = "line.horizontal"
-        elif v == "v":
-          action = "line.vertical"
-        elif v in anchor_list:
-          anchor = f".{v}"
-        elif v in short_anchor_dict:
-          anchor = f".{short_anchor_dict[v]}"
-        elif v.startswith("out="):
-          start_out = f"start.out.{v[4:]}"
-        elif v.startswith("in="):
-          close_in = f"close.in.{v[3:]}"
-      elif t == "text" and len(v) > 0:
-        annotates.append(f"with.annotate '{v}'")
-    for id_ in ids:
+    if out is not None:
+      start_out = f"start.out.{out}"
+    if in_ is not None:
+      close_in = f"close.in.{in_}"
+
+    annotates = get_default(args, "positionals", [])
+    annotates = [f"with.annotate '{v}'" for v in annotates]
+    while len(annotates) < len(ids):
+      annotates.append("")
+
+    for id_, annotate in zip(ids, annotates):
       self._ensure_name_is_id(id_)
       self._ensure_name_is_id(id_)
       self._parse(f"draw {arrow} {start_point} "
                   f"{action}.to.{id_}{anchor} "
-                  f"{start_out} {close_in} {' '.join(annotates)}")
+                  f"{start_out} {close_in} {annotate}")
 
-  def _connect(self, *args):
+  def _connect(self, code):
     if self._selection.has_path():
       raise Exception("Cannot connect paths")
     if self._marks.empty():
       if self._selection.num_ids() < 2:
         raise Exception("Should select at least two objects, "
                         "or set at least one mark")
-      self._connect_objects_by_ids(self._selection.ids(), *args)
+      self._connect_objects_by_ids(self._selection.ids(), code)
     elif self._marks.single():
       if not self._selection.has_id():
         raise Exception("Should select at least one object")
       self._connect_mark_with_objects_by_ids(self.get_single(),
                                              self._selection.ids(),
-                                             *args)
+                                             code)
 
-  def _set_grid(self, *args):
-    self._show_grid = True
-    for t, v in args:
-      if v == "off":
-        self._show_grid = False
+  def _set_grid(self, code):
+    parser = Parser()
+    parser.flag("off")
+    parser.flag("on")
+    args = parser.parse(code)
+    if "off" in args:
+      self._canvas_manager._show_grid = False
+    elif "on" in args:
+      self._canvas_manager._show_grid = True
+    else:
+      self._canvas_manager._show_grid = not self._canvas_manager._show_grid
 
-  def _set_axes(self, *args):
-    self._show_axes = True
-    for t, v in args:
-      if v == "off":
-        self._show_axes = False
+  def _set_axes(self, code):
+    parser = Parser()
+    parser.flag("off")
+    parser.flag("on")
+    args = parser.parse(code)
+    if "off" in args:
+      self._canvas_manager._show_axes = False
+    elif "on" in args:
+      self._canvas_manager._show_axes = True
+    else:
+      self._canvas_manager._show_axes = not self._canvas_manager._show_axes
 
-  def _add_mark(self, *args):
+  def _add_mark(self, code):
     x, y = self._pointer.pos()
-    mark = create_coordinate(x, y)
     to_del = None
-    for t, v in args:
-      if t == "command":
-        if v in anchor_list or v in short_anchor_dict:
-          if self._selection.num_ids() > 2:
-            raise Exception("Cannot mark more than two object anchors")
-          if not self._selection.has_id():
-            raise Exception("Please select one or two objects")
-          if self._selection.single_id():
-            id_ = self._selection.get_single_id()
-            self._ensure_name_is_id(id_)
-            mark = {
-                "type": "nodename",
-                "name": id_,
-                "anchor": v if v in anchor_list else short_anchor_dict[v],
-            }
-          else:
-            id1, id2 = self.get_two_ids()
-            self._ensure_name_is_id(id1)
-            self._ensure_name_is_id(id2)
-            if is_type(mark, "coordinate"):
-              mark = {
-                  "type": "intersection",
-                  "name1": id1,
-                  "name2": id2,
-                  "anchor1": v if v in anchor_list else short_anchor_dict[v],
-              }
-            elif is_type(mark, "intersection"):
-              mark["anchor2"] = v if v in anchor_list else short_anchor_dict[v]
-            else:
-              raise Exception(f"Unexpected mark type {mark['type']}")
-        elif v == "shift":
-          if mark["type"] != "nodename":
-            raise Exception("Please specify anchor before shift")
-          anchor = mark["anchor"]
+    parser = Parser()
+    parser.flag_group("anchor", anchor_list + list(short_anchor_dict.keys()))
+    parser.flag("shift")
+    parser.flag_group("rel", ["relative", "rel"])
+    parser.flag("clear")
+    parser.flag("cycle")
+    parser.require_arg("del", 1)
+
+    args = parser.parse(code)
+    anchors = get_default(args, "anchor", [])
+    if len(anchors) > 2:
+      raise Exception("Too many anchors. Expect no more than two.")
+    elif len(anchors) > 0:
+      if self._selection.num_ids() > 2:
+        raise Exception("Cannot mark more than two object anchors")
+      elif not self._selection.has_id():
+        raise Exception("Please select one or two objects")
+      if self._selection.num_ids() == 2:
+        id1, id2 = self._selection.ids()
+        mark = {
+            "type": "intersection",
+            "name1": id1,
+            "name2": id2,
+            "anchor1": anchors[0] if anchors[0] in anchor_list
+            else short_anchor_dict[anchors[0]],
+        }
+        if len(anchors) > 1:
+          mark["anchor2"] = (anchors[1] if anchors[1] in anchor_list
+                             else short_anchor_dict[anchors[1]])
+      else:
+        if len(anchors) == 2:
+          raise Exception("Too many anchors. Expect no more than one.")
+        anchor = anchors[0]
+        if anchor in short_anchor_dict:
+          anchor = short_anchor_dict[anchor]
+        mark = {
+            "type": "nodename",
+            "name": self._selection.get_single_id(),
+            "anchor": anchor,
+        }
+        if "shift" in args:
           bb = self._canvas_manager._bounding_boxes[mark["name"]]
           pointerx, pointery = self._pointer.pos()
           anchorx, anchory = bb.get_anchor_pos(anchor)
@@ -1355,67 +1324,63 @@ class Editor(object):
             mark["xshift"] = num_to_dist(xshift)
           if yshift != 0:
             mark["yshift"] = num_to_dist(yshift)
-        elif v == "relative" or v == "rel":
-          if mark["type"] != "coordinate":
-            raise Exception("Do not specify anchor")
-          x0, y0 = self._marks.get_last_pos(
-              self._canvas_manager._bounding_boxes)
-          pointerx, pointery = self._pointer.pos()
-          xshift = pointerx - x0
-          yshift = pointery - y0
-          mark["x"] = num_to_dist(xshift)
-          mark["y"] = num_to_dist(yshift)
-          mark["relative"] = True
-        elif v == "clear":
-          self._marks.clear()
-          return
-        elif v == "del":
-          to_del = self._marks.size() - 1
-        elif re.match(r"\d+$", v):
-          if to_del is None:
-            raise Exception("Add del command before specifying the index")
-          to_del = int(v)
-          if to_del >= self._marks.size():
-            raise Exception("Index too large")
-        elif v == "cycle":
-          if self._marks.empty():
-            raise Exception("No marks set yet")
-          mark = {"type": "cycle"}
-        else:
-          raise Exception(f"Unknown argument {v}")
-    if to_del is not None:
-      self._marks.delete(to_del)
+    elif "rel" in args:
+      x0, y0 = self._marks.get_last_pos(
+          self._canvas_manager._bounding_boxes)
+      pointerx, pointery = self._pointer.pos()
+      xshift = pointerx - x0
+      yshift = pointery - y0
+      mark = create_coordinate(xshift, yshift)
+      mark["relative"] = True
+    elif "clear" in args:
+      self._marks.clear()
+      return
+    elif "del" in args:
+      index = int(arg["del"][0])
+      if index >= self._marks.size():
+        raise Exception("Index too large")
+      self._marks.delete(index)
+      return
+    elif "cycle" in args:
+      if self._marks.empty():
+        raise Exception("No marks set yet")
+      mark = {"type": "cycle"}
     else:
-      self._marks.add(mark)
+      mark = create_coordinate(x, y)
 
-  def _annotate(self, *args):
+    self._marks.add(mark)
+
+  def _annotate(self, code):
     if self._selection.num_paths() > 1:
       raise Exception("Cannot annotate more than one paths")
     if not self._selection.has_path():
       raise Exception("Please select one path")
-    path = self.get_single_path()
+    path = self._selection.get_single_path()
     lines = [item for item in path["items"] if item["type"] == "line"]
     if len(lines) == 0:
       raise Exception("Selected path does not have any lines")
-    index, text = 0, ""
-    for t, v in args:
-      if t == "command":
-        if re.match(r"\d+$", v):
-          index = int(v)
-          if index >= len(lines):
-            raise Exception("Line index exceeds the maximal number")
-      elif t == "text":
-        text = v
+    if len(lines) > 1:
+      if self._selection.is_in_path_position_mode():
+        line = self._selection.next_line()
+        if line is None:
+          raise Exception("Selected position is not followed by line")
+        if not is_type(line, "line"):
+          raise Exception("Selected position is not followed by line")
+      else:
+        raise Exception("Selected path has multiple lines")
+    else:
+      line = lines[0]
 
-    line = lines[index]
+    parser = Parser()
+    args = parser.parse(code)
+    text = get_default(args, "positionals", [""])[0]
     self._before_change()
-    if "annotates" not in line:
-      line["annotates"] = []
+    ensure_key(line, "annotates", [])
     line["annotates"].append({
         "id": self._context.getid(),
         "type": "text",
         "in_path": True,
-        "text": v,
+        "text": text,
         "midway": True,
         "above": True,
         "sloped": True,
@@ -1423,28 +1388,33 @@ class Editor(object):
     })
     self._after_change()
 
-  def _chain(self, *args):
+  def _chain(self, code):
     if self._selection.num_ids() < 2:
       raise Exception("Please select at least two objects")
 
     direction = "horizontal"
 
-    for t, v in args:
-      if t == "command":
-        if v == "h":
-          direction = "horizontal"
-        elif v == "v":
-          direction = "vertical"
-        elif v == "\\":
-          direction = "down right"
-        elif v == "/":
-          direction = "down left"
+    parser = Parser()
+    parser.flag("h")
+    parser.flag("v")
+    parser.flag("\\")
+    parser.flag("/")
+    args = parser.parse(code)
+
+    if "h" in args:
+      direction = "horizontal"
+    elif "v" in args:
+      direction = "vertical"
+    elif "\\" in args:
+      direction = "down right"
+    elif "/" in args:
+      direction = "down left"
 
     self._before_change()
     for i in range(1, self._selection.num_ids()):
       id_ = self._selection.get_id(i)
       obj = self._find_object_by_id(id_)
-      obj["at"] = self_selection.get_id(i-1)
+      obj["at"] = self._selection.get_id(i-1)
       if direction == "horizontal":
         obj["at.anchor"] = "east"
         obj["anchor"] = "west"
@@ -1459,14 +1429,13 @@ class Editor(object):
         obj["anchor"] = "north.east"
     self._after_change()
 
-  def _search(self, *args):
-    self._selection.search(*args)
+  def _search(self, code):
+    parser = Parser()
+    args = parser.parse(code)
+    self._selection.search(**args)
 
-  def _read(self, *args):
-    filename = None
-    for t, v in args:
-      if t == "command":
-        filename = v
+  def _read(self, code):
+    filename = code
     with open(filename) as f:
       data = json.loads(f.read())
 
@@ -1477,11 +1446,8 @@ class Editor(object):
       self._context._state["nextid"] = data["nextid"]
     self._after_change()
 
-  def _save_as_object(self, *args):
-    object_name = None
-    for t, v in args:
-      if t == "command":
-        object_name = v
+  def _save_as_object(self, code):
+    object_name = code
     if self._selection.nonempty():
       data = json.dumps([obj for obj in self._context._picture
                          if self._selection.selected(obj)])
@@ -1490,11 +1456,8 @@ class Editor(object):
     with open(self._get_object_path(object_name), "w") as f:
       f.write(data)
 
-  def _read_object(self, *args):
-    object_name = None
-    for t, v in args:
-      if t == "command":
-        object_name = v
+  def _read_object(self, code):
+    object_name = code
     with open(self._get_object_path(object_name)) as f:
       data = json.loads(f.read())
     self._before_change()
