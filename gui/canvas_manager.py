@@ -19,6 +19,7 @@ from english2tikz.gui.grid import Grid
 from english2tikz.gui.coordinate_system import CoordinateSystem
 from english2tikz.gui.command_line import CommandLine
 from english2tikz.gui.pointer import Pointer
+from english2tikz.gui.mark import MarkManager
 
 
 class CanvasManager(object):
@@ -48,7 +49,7 @@ class CanvasManager(object):
     self._history_index = 0
     self._visual_start = None
     self._bounding_boxes = {}
-    self._marks = []
+    self._marks = MarkManager()
     self._image_references = {}
     self._clipboard = []
     self._finding = None
@@ -248,9 +249,9 @@ class CanvasManager(object):
 
   def _set_position_to_mark(self):
     if self._is_in_path_position_mode():
-      if len(self._marks) == 1:
+      if self._marks.single():
         self._before_change()
-        self._selection.set_selected_path_item(self._marks[0])
+        self._selection.set_selected_path_item(self._marks.get_single())
         self._after_change()
       else:
         self._error_msg = "Can only set position to one mark"
@@ -445,7 +446,7 @@ class CanvasManager(object):
 
   def _deselect(self):
     if not self._selection.deselect():
-      self._marks = []
+      self._marks.clear()
 
   def _delete_selected_objects(self):
     self._before_change()
@@ -495,10 +496,10 @@ class CanvasManager(object):
 
   def _add_simple_mark(self):
     if self._is_in_path_position_mode():
-      self._marks.append(copy.deepcopy(self._selection.get_path_position()))
+      self._marks.add(self._selection.get_path_position())
     else:
       x, y = self._pointer.pos()
-      self._marks.append(create_coordinate(x, y))
+      self._marks.add_coord(x, y)
 
   def _start_timer_for_refreshing_command(self):
     self._command_refreshing_timer_started = True
@@ -558,7 +559,7 @@ class CanvasManager(object):
 
   def _clear(self):
     self._visual_start = None
-    self._marks = []
+    self._marks.clear()
     self._clear_selects()
 
   def _clear_selects(self):
@@ -938,7 +939,8 @@ class CanvasManager(object):
     step_upper, step_lower, step_left, step_right = self._boundary_grids()
     step = round(1 / self._pointer.grid_size())
     for i in range(step_lower, step_upper+1):
-      x, y = self._coordinate_system.map_point(0, self._pointer.grid_size() * i)
+      x, y = self._coordinate_system.map_point(0,
+                                               self._pointer.grid_size() * i)
       c.create_line(self._coordinate_system.horizontal_line(y),
                     fill="gray", dash=2)
       draw_text = i == self._pointer.iy() or i % step == 0
@@ -949,7 +951,8 @@ class CanvasManager(object):
         c.create_text(self._coordinate_system.right_boundary()-3, y,
                       text=text, anchor="se", fill=color)
     for i in range(step_left, step_right+1):
-      x, y = self._coordinate_system.map_point(self._pointer.grid_size() * i, 0)
+      x, y = self._coordinate_system.map_point(
+          self._pointer.grid_size() * i, 0)
       c.create_line(self._coordinate_system.vertical_line(x),
                     fill="gray", dash=2)
       draw_text = i == self._pointer.ix() or i % step == 0
@@ -998,64 +1001,22 @@ class CanvasManager(object):
     x1, y1 = self._pointer.vpos()
     c.create_rectangle((x0, y0, x1, y1), outline="red", width=4, dash=8)
 
-  def _get_mark_pos(self, i, buffer={}):
-    if i in buffer:
-      return buffer[i]
-
-    if i < 0:
-      raise Exception(f"Trying to get mark of number {i}")
-
-    mark = self._marks[i]
-
-    if is_type(mark, "nodename"):
-      bb = self._bounding_boxes[mark["name"]]
-      x, y = bb.get_anchor_pos(get_default(mark, "anchor", "center"))
-      if "anchor" in mark:
-        """
-        It's useless in tikz to shift a node name coordinate without specifying
-        the anchor.
-        """
-        x += dist_to_num(get_default(mark, "xshift", 0))
-        y += dist_to_num(get_default(mark, "yshift", 0))
-      buffer[i] = (x, y)
-      return x, y
-    elif is_type(mark, "intersection"):
-      bb1 = self._bounding_boxes[mark["name1"]]
-      bb2 = self._bounding_boxes[mark["name2"]]
-      x, _ = bb1.get_anchor_pos(get_default(mark, "anchor1", "center"))
-      _, y = bb2.get_anchor_pos(get_default(mark, "anchor2", "center"))
-      buffer[i] = (x, y)
-      return x, y
-    elif is_type(mark, "coordinate"):
-      if get_default(mark, "relative", False):
-        x0, y0 = self._get_mark_pos(i-1, buffer)
-        x = x0 + dist_to_num(mark["x"])
-        y = y0 + dist_to_num(mark["y"])
-      else:
-        x, y = dist_to_num(mark["x"], mark["y"])
-      buffer[i] = (x, y)
-      return x, y
-    elif is_type(mark, "cycle"):
-      buffer[i] = buffer[0]
-      return buffer[i]
-    else:
-      raise Exception(f"Unknown mark type {mark['type']}")
+  def _get_mark_pos(self, i):
+    return self._marks.get_pos(i, self._bounding_boxes)
 
   def _draw_marks(self, c):
     buffer = {}
-    for i, mark in enumerate(self._marks):
-      try:
+    for i, mark in enumerate(self._marks.marks()):
+      coord = self._get_mark_pos(i)
+      if coord is None:
         """
         When a mark is deleted, it may cause marks with relative positions
         to be invalid. So it is possible to have exception here, and in
         this case, we simply remove all the following marks.
         """
-        x, y = self._get_mark_pos(i, buffer)
-      except Exception:
-        self._marks = self._marks[:i]
+        self._marks.chop(i)
         return
-
-      x, y = self._coordinate_system.map_point(x, y)
+      x, y = self._coordinate_system.map_point(*coord)
       radius = 10
       if is_type(mark, "coordinate"):
         if get_default(mark, "relative", False):
@@ -1448,15 +1409,8 @@ class CanvasManager(object):
           arrow = "double.stealth"
 
     if obj == "path":
-      if len(self._marks) < 2:
-        raise Exception(f"Expect at least two marks")
       self._before_change()
-      items = []
-      for i, mark in enumerate(self._marks):
-        items.append(mark)
-        if i < len(self._marks) - 1:
-          items.append(create_line())
-      self._context._picture.append(create_path(items, arrow))
+      self._context._picture.append(self._marks.create_path(arrow))
       self._after_change()
 
     elif obj == "rect":
@@ -1470,16 +1424,11 @@ class CanvasManager(object):
         self._after_change()
       elif len(self._marks) == 2:
         self._before_change()
-        self._context._picture.append(create_path([
-            self._marks[0],
-            create_rectangle(),
-            self._marks[1],
-        ]))
+        self._context._picture.append(self._marks.create_rectangle())
         self._after_change()
       else:
         raise Exception("Please set exactly two marks "
                         "or draw a rect in visual mode")
-
     else:
       raise Exception("Unknown object type")
 
@@ -1581,15 +1530,15 @@ class CanvasManager(object):
   def _connect(self, *args):
     if self._selection.has_path():
       raise Exception("Cannot connect paths")
-    if len(self._marks) == 0:
+    if self._marks.empty():
       if self._selection.num_ids() < 2:
         raise Exception("Should select at least two objects, "
                         "or set at least one mark")
       self._connect_objects_by_ids(self._selection.ids(), *args)
-    elif len(self._marks) == 1:
+    elif self._marks.single():
       if not self._selection.has_id():
         raise Exception("Should select at least one object")
-      self._connect_mark_with_objects_by_ids(self._marks[0],
+      self._connect_mark_with_objects_by_ids(self.get_single(),
                                              self._selection.ids(),
                                              *args)
 
@@ -1655,7 +1604,7 @@ class CanvasManager(object):
         elif v == "relative" or v == "rel":
           if mark["type"] != "coordinate":
             raise Exception("Do not specify anchor")
-          x0, y0 = self._get_mark_pos(len(self._marks)-1, {})
+          x0, y0 = self._marks.get_last_pos(self._bounding_boxes)
           pointerx, pointery = self._pointer.pos()
           xshift = pointerx - x0
           yshift = pointery - y0
@@ -1663,26 +1612,26 @@ class CanvasManager(object):
           mark["y"] = num_to_dist(yshift)
           mark["relative"] = True
         elif v == "clear":
-          self._marks = []
+          self._marks.clear()
           return
         elif v == "del":
-          to_del = len(self._marks) - 1
+          to_del = self._marks.size() - 1
         elif re.match(r"\d+$", v):
           if to_del is None:
             raise Exception("Add del command before specifying the index")
           to_del = int(v)
-          if to_del >= len(self._marks):
+          if to_del >= self._marks.size():
             raise Exception("Index too large")
         elif v == "cycle":
-          if len(self._marks) == 0:
+          if self._marks.empty():
             raise Exception("No marks set yet")
           mark = {"type": "cycle"}
         else:
           raise Exception(f"Unknown argument {v}")
     if to_del is not None:
-      del self._marks[to_del]
+      self._marks.delete(to_del)
     else:
-      self._marks.append(mark)
+      self._marks.add(mark)
 
   def _annotate(self, *args):
     if self._selection.num_paths() > 1:
