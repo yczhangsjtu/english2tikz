@@ -217,23 +217,16 @@ class BoxDrawer(Drawer):
     else:
       if angle != 0:
         if fill or draw:
-          rx0, ry0 = rotate(x0, y0, anchor_screen_x, anchor_screen_y, angle)
-          rx1, ry1 = rotate(x0, y1, anchor_screen_x, anchor_screen_y, angle)
-          rx2, ry2 = rotate(x1, y1, anchor_screen_x, anchor_screen_y, angle)
-          rx3, ry3 = rotate(x1, y0, anchor_screen_x, anchor_screen_y, angle)
-          canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
-                                **draw_fill_style)
+          canvas.create_polygon(
+              BoxDrawer.rotate_rect(x0, y0, x1, y1, anchor_screen_x,
+                                    anchor_screen_y, angle),
+              **draw_fill_style)
         if selected:
-          rx0, ry0 = rotate(x0 - select_buff, y0 + select_buff,
-                            anchor_screen_x, anchor_screen_y, angle)
-          rx1, ry1 = rotate(x0 - select_buff, y1 - select_buff,
-                            anchor_screen_x, anchor_screen_y, angle)
-          rx2, ry2 = rotate(x1 + select_buff, y1 - select_buff,
-                            anchor_screen_x, anchor_screen_y, angle)
-          rx3, ry3 = rotate(x1 + select_buff, y0 + select_buff,
-                            anchor_screen_x, anchor_screen_y, angle)
-          canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
-                                **select_style)
+          canvas.create_polygon(
+              BoxDrawer.rotate_rect(x0 - select_buff, y0 + select_buff,
+                                    x1 + select_buff, y1 - select_buff,
+                                    anchor_screen_x, anchor_screen_y, angle),
+              **select_style)
       else:
         if fill or draw:
           canvas.create_rectangle((x0, y0, x1, y1), **draw_fill_style)
@@ -260,6 +253,13 @@ class BoxDrawer(Drawer):
         fback = canvas.create_rectangle(
             canvas.bbox(ftext), fill="yellow", outline="blue")
         canvas.tag_lower(fback, ftext)
+
+  def rotate_rect(x0, y0, x1, y1, centerx, centery, angle):
+    rx0, ry0 = rotate(x0, y0, centerx, centery, angle)
+    rx1, ry1 = rotate(x0, y1, centerx, centery, angle)
+    rx2, ry2 = rotate(x1, y1, centerx, centery, angle)
+    rx3, ry3 = rotate(x1, y0, centerx, centery, angle)
+    return rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3
 
   def round_rectangle(canvas, x1, y1, x2, y2, radius=25, angle=0,
                       rotate_center=None, **kwargs):
