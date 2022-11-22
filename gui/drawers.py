@@ -193,20 +193,23 @@ class BoxDrawer(Drawer):
           canvas.create_oval((rx0, ry0, rx1, ry1),
                              fill=color_to_tk(fill),
                              outline=color_to_tk(color),
-                             width=line_width * line_width_ratio)
+                             width=line_width * line_width_ratio
+                             if line_width is not None else None)
         elif ellipse:
           BoxDrawer.rotated_oval(canvas, x0, y0, x1, y1, angle=angle,
                                  rotate_center=(anchor_screen_x,
                                                 anchor_screen_y),
                                  fill=color_to_tk(fill),
                                  outline=color_to_tk(color),
-                                 width=line_width * line_width_ratio)
+                                 width=line_width * line_width_ratio
+                                 if line_width is not None else None)
         elif rounded_corners:
           BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
                                     radius=rounded_corners*cs._scale,
                                     fill=color_to_tk(fill),
                                     outline=color_to_tk(color),
-                                    width=line_width * line_width_ratio,
+                                    width=line_width * line_width_ratio
+                                    if line_width is not None else None,
                                     angle=angle,
                                     rotate_center=(anchor_screen_x,
                                                    anchor_screen_y))
