@@ -258,3 +258,16 @@ class CanvasManager(object):
                          fill="white", outline="black")
       c.create_text(5, self._cs().bottom_boundary(),
                     text=self._error_msg(), anchor="sw", fill="red")
+
+  def find_all_in_screen(self):
+    sel = self._cs().view_range()
+    selected_ids, selected_paths = [], []
+
+    for id_, bb in self._bounding_boxes.items():
+      if bb.intersect_rect(sel):
+        if id_.startswith("segment_"):
+          append_if_not_in(selected_paths, bb._obj)
+        else:
+          append_if_not_in(selected_ids, id_)
+
+    return selected_ids, selected_paths

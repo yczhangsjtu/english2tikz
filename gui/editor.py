@@ -551,7 +551,7 @@ class Editor(object):
     return self._selection.is_in_path_position_mode()
 
   def _enter_finding_mode(self, toggle=False):
-    candidate_ids, candidate_paths = self._find_all_in_screen()
+    candidate_ids, candidate_paths = self._canvas_manager.find_all_in_screen()
     candidates = candidate_ids + candidate_paths
     candidates_number = len(candidates)
     try:
@@ -566,7 +566,7 @@ class Editor(object):
     return self._selection.get_selected_objects()
 
   def _shift_object_at_anchor(self, id_, direction):
-    obj = self._find_object_by_id(id_)
+    obj = self._context.find_object_by_id(id_)
     if obj is None:
       return
 
@@ -591,7 +591,7 @@ class Editor(object):
       return
 
   def _shift_object_anchor(self, id_, direction):
-    obj = self._find_object_by_id(id_)
+    obj = self._context.find_object_by_id(id_)
     if obj is None:
       return
 
@@ -665,7 +665,7 @@ class Editor(object):
       self._editing_text_pos = self._pointer.pos()
       return
 
-    self._obj_to_edit_text = self._find_object_by_id(id_)
+    self._obj_to_edit_text = self._context.find_object_by_id(id_)
     if self._obj_to_edit_text is None:
       self._error_msg = f"Cannot find object with id {id_}"
       return
@@ -678,11 +678,8 @@ class Editor(object):
     bb = self._canvas_manager._bounding_boxes[id_]
     self._editing_text_pos = bb.get_anchor_pos("center")
 
-  def _find_object_by_id(self, id_):
-    return self._context.find_object_by_id(id_)
-
   def _ensure_name_is_id(self, id_):
-    obj = self._find_object_by_id(id_)
+    obj = self._context.find_object_by_id(id_)
     if obj is not None:
       obj["name"] = id_
     else:
@@ -713,7 +710,7 @@ class Editor(object):
     if self._selection.has_id():
       with self._modify_picture():
         for id_ in self._selection.ids():
-          shift_object(self._find_object_by_id(id_),
+          shift_object(self._context.find_object_by_id(id_),
                        dx, dy, self._pointer.grid_size())
     elif self._selection.is_in_path_position_mode():
       with self._modify_picture():
@@ -723,19 +720,6 @@ class Editor(object):
   def _shift_selected_objects_by_grid(self, dx, dy):
     return self._shift_selected_objects(dx * self._pointer.grid_size(),
                                         dy * self._pointer.grid_size())
-
-  def _find_all_in_screen(self):
-    sel = self._pointer._cs.view_range()
-    selected_ids, selected_paths = [], []
-
-    for id_, bb in self._canvas_manager._bounding_boxes.items():
-      if bb.intersect_rect(sel):
-        if id_.startswith("segment_"):
-          append_if_not_in(selected_paths, bb._obj)
-        else:
-          append_if_not_in(selected_ids, id_)
-
-    return selected_ids, selected_paths
 
   def _select_targets(self, mode="clear"):
     sel = self._visual.ordered_rect()
@@ -1305,7 +1289,7 @@ class Editor(object):
     with self._modify_picture():
       for i in range(1, self._selection.num_ids()):
         id_ = self._selection.get_id(i)
-        obj = self._find_object_by_id(id_)
+        obj = self._context.find_object_by_id(id_)
         obj["at"] = self._selection.get_id(i-1)
         if direction == "horizontal":
           obj["at.anchor"] = "east"
