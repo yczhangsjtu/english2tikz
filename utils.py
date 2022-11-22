@@ -189,6 +189,51 @@ def shift_by_anchor(x, y, anchor, width, height):
   return 2 * x - anchor_x, 2 * y - anchor_y
 
 
+def shift_dist(obj, key, delta, round_by=None, empty_val=None):
+  if delta == 0:
+    return
+  val = dist_to_num(get_default(obj, key, 0)) + delta
+  if round_by is not None:
+    val = round(val / round_by) * round_by
+  val = num_to_dist(val)
+  set_or_del(obj, key, val, empty_val)
+
+
+def shift_object(obj, dx, dy, round_by=None):
+  at = get_default(obj, "at")
+  if is_type(at, "coordinate"):
+    shift_dist(at, "x", dx, round_by=round_by)
+    shift_dist(at, "y", dy, round_by=round_by)
+  elif get_default(obj, "in_path", False):
+    shift_dist(obj, "xshift", dx, round_by=round_by, empty_val="0")
+    shift_dist(obj, "yshift", dy, round_by=round_by, empty_val="0")
+  elif isinstance(at, str):
+    shift_dist(obj, "xshift", dx, round_by=round_by, empty_val="0")
+    shift_dist(obj, "yshift", dy, round_by=round_by, empty_val="0")
+  elif is_type(at, "intersection"):
+    shift_dist(obj, "xshift", dx, round_by=round_by, empty_val="0")
+    shift_dist(obj, "yshift", dy, round_by=round_by, empty_val="0")
+  elif get_direction_of(obj) is not None:
+    shift_dist(obj, "xshift", dx, round_by=round_by, empty_val="0")
+    shift_dist(obj, "yshift", dy, round_by=round_by, empty_val="0")
+  else:
+    obj["at"] = {
+        "type": "coordinate",
+        "x": dx,
+        "y": dy,
+    }
+
+
+def _shift_path_position(item, dx, dy, round_by=None):
+  if is_type(item, "coordinate"):
+    shift_dist(item, "x", dx, round_by)
+    shift_dist(item, "y", dy, round_by)
+    return
+  if is_type(item, "nodename"):
+    shift_dist(item, "xshift", dx, round_by, empty_val="0")
+    shift_dist(item, "yshift", dy, round_by, empty_val="0")
+
+
 class BoundingBox(object):
   def __init__(self, x, y, width, height, shape="rectangle", angle=0,
                center=None, obj=None, points=None):

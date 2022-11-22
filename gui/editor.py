@@ -716,58 +716,18 @@ class Editor(object):
     if self._selection.has_id():
       self._before_change()
       for id_ in self._selection.ids():
-        self._shift_object(id_, dx, dy)
+        obj = self._find_object_by_id(id_)
+        shift_object(obj, dx, dy, self._pointer.grid_size())
       self._after_change()
     elif self._selection.is_in_path_position_mode():
       self._before_change()
-      self._shift_path_position(self.get_path_position(), dx, dy)
+      shift_path_position(self.get_path_position(), dx, dy,
+                          self._pointer.grid_size())
       self._after_change()
 
   def _shift_selected_objects_by_grid(self, dx, dy):
     return self._shift_selected_objects(dx * self._pointer.grid_size(),
                                         dy * self._pointer.grid_size())
-
-  def _shift_dist(self, obj, key, delta, empty_val=None):
-    if delta == 0:
-      return
-    val = dist_to_num(get_default(obj, key, 0)) + delta
-    val = round(val / self._pointer.grid_size()) * self._pointer.grid_size()
-    val = num_to_dist(val)
-    set_or_del(obj, key, val, empty_val)
-
-  def _shift_object(self, id_, dx, dy):
-    obj = self._find_object_by_id(id_)
-    at = get_default(obj, "at")
-    if is_type(at, "coordinate"):
-      self._shift_dist(at, "x", dx)
-      self._shift_dist(at, "y", dy)
-    elif get_default(obj, "in_path", False):
-      self._shift_dist(obj, "xshift", dx, "0")
-      self._shift_dist(obj, "yshift", dy, "0")
-    elif isinstance(at, str):
-      self._shift_dist(obj, "xshift", dx, "0")
-      self._shift_dist(obj, "yshift", dy, "0")
-    elif is_type(at, "intersection"):
-      self._shift_dist(obj, "xshift", dx, "0")
-      self._shift_dist(obj, "yshift", dy, "0")
-    elif get_direction_of(obj) is not None:
-      self._shift_dist(obj, "xshift", dx, "0")
-      self._shift_dist(obj, "yshift", dy, "0")
-    else:
-      obj["at"] = {
-          "type": "coordinate",
-          "x": dx,
-          "y": dy,
-      }
-
-  def _shift_path_position(self, item, dx, dy):
-    if is_type(item, "coordinate"):
-      self._shift_dist(item, "x", dx)
-      self._shift_dist(item, "y", dy)
-      return
-    if is_type(item, "nodename"):
-      self._shift_dist(item, "xshift", dx)
-      self._shift_dist(item, "yshift", dy)
 
   def _find_all_in_screen(self):
     sel = self._pointer._cs.view_range()
