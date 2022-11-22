@@ -527,6 +527,7 @@ class BoundingBox(object):
       for seg in segs:
         if point_line_dist(cx, cy, seg) < 1:
           return True
+      return False
 
     if self._shape == "line" or self._shape == "curve":
       segs = self.rotated_segments()

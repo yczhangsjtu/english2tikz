@@ -96,7 +96,7 @@ class BoxDrawer(Drawer):
 
   def _draw(canvas, obj, env, position=None, slope=0):
     assert "id" in obj
-    selection = env["selection"]
+    selected = env["selection"].selected(obj)
     finding = env["finding"]
     cs = env["coordinate system"]
     cs_scale = cs._scale
@@ -148,54 +148,21 @@ class BoxDrawer(Drawer):
     anchor_screen_x, anchor_screen_y = cs.map_point(anchorx, anchory)
     center_screen_x, center_screen_y = cs.map_point(centerx, centery)
 
-    if angle is None:
-      if fill or draw:
-        if circle or ellipse:
-          canvas.create_oval((x0, y0, x1, y1), fill=color_to_tk(fill),
-                             outline=color_to_tk(color),
-                             width=line_width * line_width_ratio
-                             if line_width is not None else None,
-                             dash=dash)
-        elif rounded_corners:
-          BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
-                                    radius=rounded_corners*cs._scale,
-                                    fill=color_to_tk(fill),
-                                    outline=color_to_tk(color),
-                                    width=line_width * line_width_ratio
-                                    if line_width is not None else None,
-                                    dash=dash)
-        else:
-          canvas.create_rectangle((x0, y0, x1, y1), fill=color_to_tk(fill),
-                                  outline=color_to_tk(color),
-                                  width=line_width * line_width_ratio
-                                  if line_width is not None else None,
-                                  dash=dash)
-
-      if selection.selected(obj):
-        if circle or ellipse:
-          canvas.create_oval(x0 - 5, y0 + 5, x1 + 5, y1 - 5,
+    if fill or draw:
+      if circle:
+        radius = width / 2 * cs_scale
+        rx0, ry0 = center_screen_x - radius, center_screen_y - radius
+        rx1, ry1 = center_screen_x + radius, center_screen_y + radius
+        canvas.create_oval((rx0, ry0, rx1, ry1),
+                           fill=color_to_tk(fill),
+                           outline=color_to_tk(color),
+                           width=line_width * line_width_ratio
+                           if line_width is not None else None)
+        if selected:
+          canvas.create_oval((rx0 - 5, ry0 - 5, rx1 + 5, ry1 + 5),
                              fill="", outline="red", dash=2)
-        elif rounded_corners:
-          BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
-                                    radius=rounded_corners * cs._scale,
-                                    fill="", outline="red", dash=2)
-        else:
-          canvas.create_rectangle(
-              x0 - 5, y0 + 5, x1 + 5, y1 - 5, outline="red", dash=2, fill="")
-
-    else:
-      if fill or draw:
-        if circle:
-          radius = width / 2 * cs_scale
-          newx, newy = cs.map_point(*bb.get_anchor_pos("center"))
-          rx0, ry0 = newx - radius, newy - radius
-          rx1, ry1 = newx + radius, newy + radius
-          canvas.create_oval((rx0, ry0, rx1, ry1),
-                             fill=color_to_tk(fill),
-                             outline=color_to_tk(color),
-                             width=line_width * line_width_ratio
-                             if line_width is not None else None)
-        elif ellipse:
+      elif ellipse:
+        if angle != 0:
           BoxDrawer.rotated_oval(canvas, x0, y0, x1, y1, angle=angle,
                                  rotate_center=(anchor_screen_x,
                                                 anchor_screen_y),
@@ -203,17 +170,40 @@ class BoxDrawer(Drawer):
                                  outline=color_to_tk(color),
                                  width=line_width * line_width_ratio
                                  if line_width is not None else None)
-        elif rounded_corners:
-          BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
-                                    radius=rounded_corners*cs._scale,
-                                    fill=color_to_tk(fill),
-                                    outline=color_to_tk(color),
-                                    width=line_width * line_width_ratio
-                                    if line_width is not None else None,
-                                    angle=angle,
-                                    rotate_center=(anchor_screen_x,
-                                                   anchor_screen_y))
+          if selected:
+            BoxDrawer.rotated_oval(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
+                                   angle=angle,
+                                   rotate_center=(anchor_screen_x,
+                                                  anchor_screen_y),
+                                   fill="", outline="red", dash=2)
         else:
+          canvas.create_oval((x0, y0, x1, y1), fill=color_to_tk(fill),
+                             outline=color_to_tk(color),
+                             width=line_width * line_width_ratio
+                             if line_width is not None else None,
+                             dash=dash)
+          if selected:
+            canvas.create_oval(x0 - 5, y0 + 5, x1 + 5, y1 - 5,
+                               fill="", outline="red", dash=2)
+      elif rounded_corners:
+        BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
+                                  radius=rounded_corners*cs._scale,
+                                  fill=color_to_tk(fill),
+                                  outline=color_to_tk(color),
+                                  width=line_width * line_width_ratio
+                                  if line_width is not None else None,
+                                  dash=dash, angle=angle,
+                                  rotate_center=(anchor_screen_x,
+                                                 anchor_screen_y))
+        if selected:
+          BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
+                                    radius=rounded_corners * cs._scale,
+                                    fill="", outline="red", dash=2,
+                                    rotate_center=(anchor_screen_x,
+                                                   anchor_screen_y),
+                                    angle=angle)
+      else:
+        if angle != 0:
           rx0, ry0 = rotate(x0, y0, anchor_screen_x, anchor_screen_y, angle)
           rx1, ry1 = rotate(x0, y1, anchor_screen_x, anchor_screen_y, angle)
           rx2, ry2 = rotate(x1, y1, anchor_screen_x, anchor_screen_y, angle)
@@ -223,49 +213,32 @@ class BoxDrawer(Drawer):
                                 outline=color_to_tk(color),
                                 width=line_width * line_width_ratio
                                 if line_width is not None else None)
-
-      if selection.selected(obj):
-        if circle:
-          centerx, centery = (x0 + x1) / 2, (y0 + y1) / 2
-          radius = max(abs(x1 - x0), abs(y1 - y0)) / 2
-          newx, newy = rotate(centerx, centery,
-                              anchor_screen_x,
-                              anchor_screen_y,
-                              angle)
-          rx0, ry0 = newx - radius, newy - radius
-          rx1, ry1 = newx + radius, newy + radius
-          canvas.create_oval((rx0 - 5, ry0 - 5, rx1 + 5, ry1 + 5),
-                             fill="", outline="red", dash=2)
-        elif ellipse:
-          BoxDrawer.rotated_oval(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
-                                 angle=angle,
-                                 rotate_center=(anchor_screen_x,
-                                                anchor_screen_y),
-                                 fill="", outline="red", dash=2)
-        elif rounded_corners:
-          BoxDrawer.round_rectangle(canvas, x0 - 5, y0 + 5, x1 + 5, y1 - 5,
-                                    radius=rounded_corners*cs._scale,
-                                    angle=angle,
-                                    rotate_center=(anchor_screen_x,
-                                                   anchor_screen_y),
-                                    fill="", outline="red", dash=2)
+          if selected:
+            rx0, ry0 = rotate(x0 - 5, y0 + 5, anchor_screen_x,
+                              anchor_screen_y, angle)
+            rx1, ry1 = rotate(x0 - 5, y1 - 5, anchor_screen_x,
+                              anchor_screen_y, angle)
+            rx2, ry2 = rotate(x1 + 5, y1 - 5, anchor_screen_x,
+                              anchor_screen_y, angle)
+            rx3, ry3 = rotate(x1 + 5, y0 + 5, anchor_screen_x,
+                              anchor_screen_y, angle)
+            canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
+                                  outline="red", dash=2, fill="")
         else:
-          rx0, ry0 = rotate(x0 - 5, y0 + 5, anchor_screen_x,
-                            anchor_screen_y, angle)
-          rx1, ry1 = rotate(x0 - 5, y1 - 5, anchor_screen_x,
-                            anchor_screen_y, angle)
-          rx2, ry2 = rotate(x1 + 5, y1 - 5, anchor_screen_x,
-                            anchor_screen_y, angle)
-          rx3, ry3 = rotate(x1 + 5, y0 + 5, anchor_screen_x,
-                            anchor_screen_y, angle)
-          canvas.create_polygon((rx0, ry0, rx1, ry1, rx2, ry2, rx3, ry3),
-                                outline="red", dash=2, fill="")
+          canvas.create_rectangle((x0, y0, x1, y1), fill=color_to_tk(fill),
+                                  outline=color_to_tk(color),
+                                  width=line_width * line_width_ratio
+                                  if line_width is not None else None,
+                                  dash=dash)
+          if selected:
+            canvas.create_rectangle(x0 - 5, y0 + 5, x1 + 5, y1 - 5,
+                                    outline="red", dash=2, fill="")
 
     if text:
       create_text(canvas, center_screen_x, center_screen_y,
                   obj, scale, cs_scale, text_color, text_width, angle)
 
-    if selection.selected(obj):
+    if selected:
       canvas.create_oval(anchor_screen_x - 3, anchor_screen_y - 3,
                          anchor_screen_x + 3, anchor_screen_y + 3,
                          fill="#77ff77", outline="green")
@@ -280,7 +253,7 @@ class BoxDrawer(Drawer):
             canvas.bbox(ftext), fill="yellow", outline="blue")
         canvas.tag_lower(fback, ftext)
 
-  def round_rectangle(canvas, x1, y1, x2, y2, radius=25, angle=None,
+  def round_rectangle(canvas, x1, y1, x2, y2, radius=25, angle=0,
                       rotate_center=None, **kwargs):
     x1, x2 = min(x1, x2), max(x1, x2)
     y1, y2 = min(y1, y2), max(y1, y2)
@@ -305,7 +278,7 @@ class BoxDrawer(Drawer):
               (x1, y1+radius),
               (x1, y1)]
 
-    if angle is not None and rotate_center is not None:
+    if angle != 0 and rotate_center is not None:
       x0, y0 = rotate_center
       points = [rotate(x, y, x0, y0, angle) for x, y in points]
       points = [e for x, y in points for e in (x, y)]
