@@ -20,18 +20,14 @@ def create_text(canvas, x, y, obj, scale, cs_scale,
       return canvas.create_image(
           x, y,
           image=get_image_from_path(
-              text_to_latex_image_path(
-                  obj["text"], text_color, text_width),
-              scale * latex_scale_ratio,
-              obj["id"], angle))
+              text_to_latex_image_path(obj["text"], text_color, text_width),
+              scale * latex_scale_ratio, obj["id"], angle))
     except tk.TclError:
       return canvas.create_image(
           x, y,
           image=get_image_from_path(
-              text_to_latex_image_path(
-                  obj["text"], text_color, text_width),
-              scale * latex_scale_ratio,
-              obj["id"], angle, recreate=True))
+              text_to_latex_image_path(obj["text"], text_color, text_width),
+              scale * latex_scale_ratio, obj["id"], angle, recreate=True))
   return canvas.create_text(
       x, y, text=obj["text"],
       fill=color_to_tk(text_color),
@@ -56,42 +52,25 @@ class BoxDrawer(Drawer):
   def draw(self, canvas, obj, env):
     BoxDrawer._draw(canvas, obj, env)
 
-  def _draw(canvas, obj, env, position=None, slope=None):
-    assert "id" in obj
-    selection = env["selection"]
-    finding = env["finding"]
-    """
-    The LaTeX equations are smaller than expected.
-    """
+  def _precompute_text_size(canvas, obj, scale, cs_scale, inner_sep):
+    text_width = get_default(obj, "text.width")
+    tmptext = create_text(canvas, 0, 0, obj, scale,
+                          cs_scale, "black", text_width)
+    x0, y0, x1, y1 = canvas.bbox(tmptext)
+    canvas.delete(tmptext)
+    width = (x1 - x0) / cs_scale + inner_sep * 2 * scale
+    height = (y1 - y0) / cs_scale + inner_sep * 2 * scale
+    return width, height
 
-    if "scale" in obj:
-      scale = float(obj["scale"])
-    else:
-      scale = 1
-
-    cs_scale = env["coordinate system"]._scale
-    angle = get_default(obj, "rotate")
-
-    if slope is not None or angle is not None:
-      angle = none_or(slope, 0) + dist_to_num(none_or(angle, 0))
-
+  def _compute_object_size(canvas, obj, cs_scale):
     circle = "circle" in obj
     ellipse = "ellipse" in obj
-
-    draw = draw_border(obj)
-    color = get_draw_color(obj)
-    text_color = get_text_color(obj)
     text = get_default(obj, "text")
     inner_sep = dist_to_num(get_default(obj, "inner.sep", 0.1))
-
+    scale = float(get_default(obj, "scale", 1))
     if text:
-      text_width = get_default(obj, "text.width")
-      tmptext = create_text(canvas, 0, 0, obj, scale, cs_scale,
-                            text_color, text_width)
-      x0, y0, x1, y1 = canvas.bbox(tmptext)
-      canvas.delete(tmptext)
-      width = (x1 - x0) / cs_scale + inner_sep * 2 * scale
-      height = (y1 - y0) / cs_scale + inner_sep * 2 * scale
+      width, height = BoxDrawer._precompute_text_size(
+          canvas, obj, scale, cs_scale, inner_sep)
     else:
       width = inner_sep * 2 * scale
       height = inner_sep * 2 * scale
@@ -109,6 +88,32 @@ class BoxDrawer(Drawer):
     if circle:
       width = max(width, height)
       height = width
+
+    return width, height
+
+  def _draw(canvas, obj, env, position=None, slope=None):
+    assert "id" in obj
+    selection = env["selection"]
+    finding = env["finding"]
+    """
+    The LaTeX equations are smaller than expected.
+    """
+    scale = float(get_default(obj, "scale", 1))
+    angle = get_default(obj, "rotate")
+    cs_scale = env["coordinate system"]._scale
+
+    if slope is not None or angle is not None:
+      angle = none_or(slope, 0) + dist_to_num(none_or(angle, 0))
+
+    circle = "circle" in obj
+    ellipse = "ellipse" in obj
+
+    draw = draw_border(obj)
+    color = get_draw_color(obj)
+    text_color = get_text_color(obj)
+    text = get_default(obj, "text")
+    text_width = get_default(obj, "text.width")
+    width, height = BoxDrawer._compute_object_size(canvas, obj, cs_scale)
 
     anchor = get_default(obj, "anchor", "center")
 
@@ -229,7 +234,6 @@ class BoxDrawer(Drawer):
                                       if line_width is not None else None,
                                       dash=dash)
       if text:
-        text_width = get_default(obj, "text.width")
         center_x, center_y = BoundingBox._get_anchor_pos(
             (x, y, width, height), "center")
         x, y = cs.map_point(center_x, center_y)
