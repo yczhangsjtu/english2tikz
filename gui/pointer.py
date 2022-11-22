@@ -1,11 +1,12 @@
 from english2tikz.utils import *
+from english2tikz.gui.grid import Grid
 
 
 class Pointer(object):
-  def __init__(self, grid, cs):
+  def __init__(self, cs):
     self._x = 0
     self._y = 0
-    self._grid = grid
+    self._grid = Grid()
     self._cs = cs
 
   def ix(self):
@@ -19,6 +20,9 @@ class Pointer(object):
 
   def y(self):
     return self._y * self._grid.size()
+
+  def grid_size(self):
+    return self._grid.size()
 
   def pos(self):
     return self._x * self._grid.size(), self._y * self._grid.size()

@@ -36,8 +36,7 @@ class Finding(object):
     self._prefix += char.upper()
     current_candidates = self._current_candidates()
     if len(current_candidates) == 0:
-      raise Exception(f"Cannot find object with "
-                      f"code {self._finding_prefix}")
+      raise Exception(f"Cannot find object with code {self._prefix}")
     elif len(current_candidates) == 1:
       return current_candidates[0]
     else:

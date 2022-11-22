@@ -37,8 +37,7 @@ class CanvasManager(object):
                                                screen_height, 100)
     self._command_line = CommandLine(self._object_path)
     self._error_msg = None
-    self._grid = Grid()
-    self._pointer = Pointer(self._grid, self._coordinate_system)
+    self._pointer = Pointer(self._coordinate_system)
     self._show_axes = True
     self._show_grid = True
     self._show_attributes = True
@@ -177,6 +176,22 @@ class CanvasManager(object):
     self.register_key("normal", "Ctrl-e", partial(self._scroll, 0, -100))
     self.register_key("normal", "Ctrl-y", partial(self._scroll, 0, 100))
     self.register_key("normal", "Ctrl-m", self._set_position_to_mark)
+    self.register_key("normal", "Ctrl-h",
+                      partial(self._shift_selected_object_at_anchor, "left"))
+    self.register_key("normal", "Ctrl-j",
+                      partial(self._shift_selected_object_at_anchor, "down"))
+    self.register_key("normal", "Ctrl-k",
+                      partial(self._shift_selected_object_at_anchor, "up"))
+    self.register_key("normal", "Ctrl-l",
+                      partial(self._shift_selected_object_at_anchor, "right"))
+    self.register_key("normal", "Ctrl-a",
+                      partial(self._shift_selected_object_anchor, "left"))
+    self.register_key("normal", "Ctrl-s",
+                      partial(self._shift_selected_object_anchor, "down"))
+    self.register_key("normal", "Ctrl-w",
+                      partial(self._shift_selected_object_anchor, "up"))
+    self.register_key("normal", "Ctrl-d",
+                      partial(self._shift_selected_object_anchor, "right"))
     self.register_key("visual", "i", self._enter_edit_mode_at_visual)
     self.register_key("visual", ":", self._enter_command_mode)
     self.register_key("visual", "/", self._enter_command_mode_and_search)
@@ -217,22 +232,6 @@ class CanvasManager(object):
                       partial(self._move_pointer_to_screen_boundary, "right"))
     self.register_key("visual", "M",
                       partial(self._move_pointer_to_screen_boundary, "middle"))
-    self.register_key("visual", "Ctrl-h",
-                      partial(self._shift_selected_object_at_anchor, "left"))
-    self.register_key("visual", "Ctrl-j",
-                      partial(self._shift_selected_object_at_anchor, "down"))
-    self.register_key("visual", "Ctrl-k",
-                      partial(self._shift_selected_object_at_anchor, "up"))
-    self.register_key("visual", "Ctrl-l",
-                      partial(self._shift_selected_object_at_anchor, "right"))
-    self.register_key("visual", "Ctrl-a",
-                      partial(self._shift_selected_object_anchor, "left"))
-    self.register_key("visual", "Ctrl-s",
-                      partial(self._shift_selected_object_anchor, "down"))
-    self.register_key("visual", "Ctrl-w",
-                      partial(self._shift_selected_object_anchor, "up"))
-    self.register_key("visual", "Ctrl-d",
-                      partial(self._shift_selected_object_anchor, "right"))
     self.register_key("visual", "G", self._reset_pointer_to_origin)
     self.register_key("visual", "Ctrl-g", partial(self._change_grid_size, 1))
     self.register_key("visual", "Ctrl-f", partial(self._change_grid_size, -1))
@@ -744,14 +743,14 @@ class CanvasManager(object):
       self._after_change()
 
   def _shift_selected_objects_by_grid(self, dx, dy):
-    return self._shift_selected_objects(dx * self._grid.size(),
-                                        dy * self._grid.size())
+    return self._shift_selected_objects(dx * self._pointer.grid_size(),
+                                        dy * self._pointer.grid_size())
 
   def _shift_dist(self, obj, key, delta, empty_val=None):
     if delta == 0:
       return
     val = dist_to_num(get_default(obj, key, 0)) + delta
-    val = round(val / self._grid.size()) * self._grid.size()
+    val = round(val / self._pointer.grid_size()) * self._pointer.grid_size()
     val = num_to_dist(val)
     set_or_del(obj, key, val, empty_val)
 
@@ -937,26 +936,26 @@ class CanvasManager(object):
 
   def _draw_grid(self, c):
     step_upper, step_lower, step_left, step_right = self._boundary_grids()
-    step = round(1 / self._grid.size())
+    step = round(1 / self._pointer.grid_size())
     for i in range(step_lower, step_upper+1):
-      x, y = self._coordinate_system.map_point(0, self._grid.size() * i)
+      x, y = self._coordinate_system.map_point(0, self._pointer.grid_size() * i)
       c.create_line(self._coordinate_system.horizontal_line(y),
                     fill="gray", dash=2)
       draw_text = i == self._pointer.iy() or i % step == 0
       color = "red" if i == self._pointer.iy() else "gray"
       if draw_text:
-        text = "%g" % (i * self._grid.size())
+        text = "%g" % (i * self._pointer.grid_size())
         c.create_text(5, y, text=text, anchor="sw", fill=color)
         c.create_text(self._coordinate_system.right_boundary()-3, y,
                       text=text, anchor="se", fill=color)
     for i in range(step_left, step_right+1):
-      x, y = self._coordinate_system.map_point(self._grid.size() * i, 0)
+      x, y = self._coordinate_system.map_point(self._pointer.grid_size() * i, 0)
       c.create_line(self._coordinate_system.vertical_line(x),
                     fill="gray", dash=2)
       draw_text = i == self._pointer.ix() or i % step == 0
       color = "red" if i == self._pointer.ix() else "gray"
       if draw_text:
-        text = "%g" % (i * self._grid.size())
+        text = "%g" % (i * self._pointer.grid_size())
         c.create_text(x, 0, text=text, anchor="nw", fill=color)
         c.create_text(x, self._coordinate_system.bottom_boundary(),
                       text=text, anchor="sw", fill=color)
