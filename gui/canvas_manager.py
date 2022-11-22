@@ -17,6 +17,7 @@ from english2tikz.gui.selection import Selection
 from english2tikz.gui.finding import Finding
 from english2tikz.gui.grid import Grid
 from english2tikz.gui.coordinate_system import CoordinateSystem
+from english2tikz.gui.command_line import CommandLine
 
 
 class CanvasManager(object):
@@ -33,10 +34,7 @@ class CanvasManager(object):
     self._register_fundamental_drawers()
     self._coordinate_system = CoordinateSystem(screen_width,
                                                screen_height, 100)
-    self._command_line = None
-    self._command_line_buffer = None
-    self._command_history_index = None
-    self._command_history = self._read_command_history()
+    self._command_line = CommandLine(self._object_path)
     self._error_msg = None
     self._pointerx = 0
     self._pointery = 0
@@ -55,8 +53,8 @@ class CanvasManager(object):
     self._image_references = {}
     self._clipboard = []
     self._finding = None
-    self._command_refershing_timer_started = True
-    self._editing_refershing_timer_started = True
+    self._command_refreshing_timer_started = True
+    self._editing_refreshing_timer_started = True
     self._start_time = now()
     self._pointer_objects = []
     self.filename = None
@@ -67,10 +65,6 @@ class CanvasManager(object):
         "command": KeyboardManager(),
         "finding": KeyboardManager(),
     }
-    self._normal_keyboard_manager = KeyboardManager()
-    self._visual_keyboard_manager = KeyboardManager()
-    self._edit_keyboard_manager = KeyboardManager()
-    self._command_keyboard_manager = KeyboardManager()
     self._selection = Selection(self._context)
     self._register_keys()
     root.bind("<Key>", self.handle_key)
@@ -267,7 +261,7 @@ class CanvasManager(object):
 
   def _insert_char_to_edit(self, c):
     self._editing_text.insert(c)
-    self._editing_refershing_timer_started = False
+    self._editing_refreshing_timer_started = False
 
   def _move_edit_cursor(self, offset):
     self._editing_text.move_cursor(offset)
@@ -297,23 +291,16 @@ class CanvasManager(object):
     self._editing_text.move_right()
 
   def _insert_char_to_command(self, c):
-    self._command_refershing_timer_started = False
+    self._command_refreshing_timer_started = False
     self._command_line.insert(c)
-    self._command_line_buffer = str(self._command_line)
-    self._command_history_index = None
 
   def _delete_char_from_edit(self):
     self._editing_text.delete()
-    self._editing_refershing_timer_started = False
+    self._editing_refreshing_timer_started = False
 
   def _delete_char_from_command(self):
-    self._command_refershing_timer_started = False
-    self._command_history_index = None
-    if len(self._command_line) > 0:
-      self._command_line.delete()
-      self._command_line_buffer = str(self._command_line)
-    else:
-      self._exit_command_mode()
+    self._command_refreshing_timer_started = False
+    self._command_line.delete()
 
   def _move_command_cursor(self, offset):
     self._command_line.move_cursor(offset)
@@ -325,7 +312,7 @@ class CanvasManager(object):
     self._command_line.move_to_end()
 
   def _is_in_command_mode(self):
-    return self._command_line is not None
+    return self._command_line.active()
 
   def _is_in_editing_mode(self):
     return self._editing_text is not None
@@ -378,7 +365,7 @@ class CanvasManager(object):
     self._exit_visual_mode()
 
   def _exit_editing_mode(self):
-    self._editing_refershing_timer_started = False
+    self._editing_refreshing_timer_started = False
     if self._obj_to_edit_text is None:
       if len(self._editing_text) > 0:
         x, y = self._get_pointer_pos_str()
@@ -391,46 +378,28 @@ class CanvasManager(object):
     self._editing_text = None
 
   def _enter_command_mode(self):
-    self._command_line = TextEditor()
-    self._command_line_buffer = ""
+    self._command_line.activate()
     self._clear_error_message()
 
   def _enter_command_mode_and_search(self):
-    self._command_line = TextEditor("search ")
-    self._command_line_buffer = str(self._command_line)
+    self._command_line.activate("search ")
     self._clear_error_message()
 
   def _exit_command_mode(self):
-    self._command_line = None
-    self._command_line_buffer = None
-    self._command_history_index = None
-    self._command_refershing_timer_started = False
+    self._command_refreshing_timer_started = False
+    self._command_line.exit()
 
   def _execute_command(self):
     self._process_command(str(self._command_line))
     self._exit_command_mode()
 
   def _fetch_previous_command(self):
-    self._command_refershing_timer_started = False
-    if self._command_history_index is None:
-      if len(self._command_history) > 0:
-        self._command_history_index = len(self._command_history) - 1
-    else:
-      self._command_history_index = max(0, self._command_history_index - 1)
-    self._command_line.set(self._command_history[self._command_history_index])
-    self._command_line.move_to_end()
+    self._command_refreshing_timer_started = False
+    self._command_line.fetch_previous()
 
   def _fetch_next_command(self):
-    self._command_refershing_timer_started = False
-    if self._command_history_index is not None:
-      self._command_history_index += 1
-      if self._command_history_index >= len(self._command_history):
-        self._command_history_index = None
-        self._command_line.set(self._command_line_buffer)
-      else:
-        self._command_line.set(
-            self._command_history[self._command_history_index])
-      self._command_line.move_to_end()
+    self._command_refreshing_timer_started = False
+    self._command_line.fetch_next()
 
   def _external_editor_for_command(self):
     """
@@ -438,7 +407,7 @@ class CanvasManager(object):
     to implement a powerful text editor or using the tkinter text field.
     So press Ctrl+o to open an external editor for assistance.
     """
-    if not self._command_refershing_timer_started:
+    if not self._command_refreshing_timer_started:
       self._start_timer_for_refreshing_command()
     with open("/tmp/command", "w") as f:
       f.write(str(self._command_line))
@@ -450,7 +419,7 @@ class CanvasManager(object):
     to implement a powerful text editor or using the tkinter text field.
     So press Ctrl+o to open an external editor for assistance.
     """
-    if not self._editing_refershing_timer_started:
+    if not self._editing_refreshing_timer_started:
       self._start_timer_for_refreshing_editing()
     with open("/tmp/editing", "w") as f:
       f.write(str(self._editing_text))
@@ -534,14 +503,14 @@ class CanvasManager(object):
       self._marks.append(create_coordinate(x, y))
 
   def _start_timer_for_refreshing_command(self):
-    self._command_refershing_timer_started = True
+    self._command_refreshing_timer_started = True
     self._root.after(100, self._refresh_command)
 
   def _refresh_command(self):
-    if not self._command_refershing_timer_started:
+    if not self._command_refreshing_timer_started:
       return
     if self._command_line is None:
-      self._command_refershing_timer_started = False
+      self._command_refreshing_timer_started = False
       return
     try:
       with open("/tmp/command") as f:
@@ -552,14 +521,14 @@ class CanvasManager(object):
     self.draw()
 
   def _start_timer_for_refreshing_editing(self):
-    self._editing_refershing_timer_started = True
+    self._editing_refreshing_timer_started = True
     self._root.after(100, self._refresh_editing)
 
   def _refresh_editing(self):
-    if not self._editing_refershing_timer_started:
+    if not self._editing_refreshing_timer_started:
       return
     if self._editing_text is None:
-      self._editing_refershing_timer_started = False
+      self._editing_refreshing_timer_started = False
       return
     try:
       with open("/tmp/editing") as f:
@@ -1221,7 +1190,7 @@ class CanvasManager(object):
                           self._coordinate_system.bottom_boundary()),
                          fill="white", outline="black")
       c.create_text(5, self._coordinate_system.bottom_boundary(),
-                    text=":"+self._command_line.view(),
+                    text=":" + self._command_line.view(),
                     anchor="sw", fill="black", font=("Courier", 20, "normal"))
     elif self._error_msg is not None:
       c.create_rectangle((3, self._coordinate_system.bottom_boundary()-15,
@@ -1318,8 +1287,7 @@ class CanvasManager(object):
         item["name"] = id_
 
   def _process_command(self, cmd):
-    self._append_command(cmd)
-    self._save_command_history(self._command_history)
+    self._command_line.append(cmd)
     try:
       tokens = self._tokenize(cmd)
       if len(tokens) == 0:
@@ -1387,11 +1355,6 @@ class CanvasManager(object):
         raise Exception(f"Unkown command: {cmd_name}")
     except Exception as e:
       self._error_msg = f"Error in executing command: {e}"
-
-  def _append_command(self, cmd):
-    self._command_history.append(cmd)
-    if len(self._command_history) > 100:
-      self._command_history = self._command_history[-100:]
 
   def _set(self, *args):
     if self._selection.empty():
@@ -2016,15 +1979,6 @@ class CanvasManager(object):
     if not os.path.exists(self._object_path):
       os.mkdir(self._object_path)
     return os.path.join(self._object_path, f"{name}.json")
-
-  def _read_command_history(self):
-    path = os.path.join(self._object_path, "history")
-    try:
-      with open(path) as f:
-        history = f.read()
-    except Exception:
-      return []
-    return history.split("\n")
 
   def _save_command_history(self, history):
     path = os.path.join(self._object_path, "history")
