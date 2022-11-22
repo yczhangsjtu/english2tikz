@@ -752,8 +752,9 @@ class Editor(object):
     if len(self._clipboard) == 0:
       return
     with self._modify_picture():
-      self._paste_data(copy.deepcopy(self._clipboard), False,
-                       self._canvas_manager._bounding_boxes)
+      self._context.paste_data(copy.deepcopy(self._clipboard),
+                               *self._pointer.pos(),
+                               False, self._canvas_manager._bounding_boxes)
 
   def _jump_to_select(self):
     id_ = self._selection.id_to_jump()
@@ -1350,140 +1351,7 @@ class Editor(object):
     with open(self._get_object_path(object_name)) as f:
       data = json.loads(f.read())
     with self._modify_picture():
-      self._paste_data(data, True)
-
-  def _paste_data(self, data, check_all_relative_pos=False,
-                  bounding_boxes=None):
-    if len(data) == 0:
-      return
-    pos = get_first_absolute_coordinate(data)
-    if pos is None:
-      if check_all_relative_pos:
-        raise Exception("All copied objects have relative positions")
-      if bounding_boxes is None:
-        raise Exception("Must provide the bounding boxes "
-                        "if not check relative positions")
-      pos = get_top_left_corner(data, bounding_boxes)
-    x0, y0 = pos
-    x1, y1 = self._pointer.pos()
-    dx, dy = x1 - x0, y1 - y0
-    old_to_new_id_dict = {}
-    to_replace = []
-    for obj in data:
-      id_ = get_default(obj, "id")
-      if id_ is not None:
-        new_id = self._context.getid()
-        old_to_new_id_dict[id_] = new_id
-        at = get_default(obj, "at")
-        obj["id"] = new_id
-        obj["name"] = new_id
-        if at is None:
-          obj["at"] = create_coordinate(dx, dy)
-        elif is_type(at, "coordinate"):
-          assert not get_default(at, "relative", False)
-          add_to_key(at, "x", dx)
-          add_to_key(at, "y", dy)
-        elif isinstance(at, str):
-          to_replace.append((obj, "at"))
-        elif is_type(at, "intersection"):
-          assert "name1" in at and "name2" in at
-          to_replace.append((at, "name1"))
-          to_replace.append((at, "name2"))
-      elif is_type(obj, "path"):
-        for item in obj["items"]:
-          id_ = get_default(item, "id")
-          if id_ is not None:
-            new_id = self._context.getid()
-            old_to_new_id_dict[id_] = new_id
-            item["id"] = new_id
-          if is_type(item, "nodename"):
-            to_replace.append((item, "name"))
-          elif is_type(item, "intersection"):
-            to_replace.append((item, "name1"))
-            to_replace.append((item, "name2"))
-          elif is_type(item, "coordinate"):
-            if not get_default(item, "relative", False):
-              add_to_key(item, "x", dx)
-              add_to_key(item, "y", dy)
-          elif "annotates" in item:
-            annotates = item["annotates"]
-            for annotate in annotates:
-              id_ = get_default(annotate, "id")
-              if id_ is not None:
-                new_id = self._context.getid()
-                old_to_new_id_dict[id_] = new_id
-                annotate["id"] = new_id
-      else:
-        raise Exception(f"Find an object that is neither object with id, "
-                        f"nor path: {obj}")
-      self._context._picture.append(obj)
-
-    for item, key in to_replace:
-      if key not in item:
-        """
-        This is possible because this object might have been modified
-        """
-        continue
-      old_id = item[key]
-      if old_id in old_to_new_id_dict:
-        item[key] = old_to_new_id_dict[old_id]
-      elif check_all_relative_pos:
-        raise Exception(f"Object {item} refers to "
-                        f"an id {old_id} that is not copied")
-      elif is_type(item, "nodename"):
-        """
-        We get a nodename item in a path that refers to an id
-        that is not copied. In this case, we replace it with an
-        absolute position.
-        """
-        if bounding_boxes is None:
-          raise Exception("Must provide the bounding boxes "
-                          "if not check relative positions")
-        bb = bounding_boxes[old_id]
-        anchor = get_default(item, "anchor", "center")
-        x, y = bb.get_anchor_pos(anchor)
-        """
-        We can only modify 'item' in place, because we cannot
-        overwrite item itself without knowing where it is pointed from
-        """
-        clear_dict(item)
-        item["type"] = "coordinate"
-        item["x"] = num_to_dist(x + dx)
-        item["y"] = num_to_dist(y + dy)
-      elif is_type(item, "intersection"):
-        if bounding_boxes is None:
-          raise Exception("Must provide the bounding boxes "
-                          "if not check relative positions")
-        bb = bounding_boxes[old_id]
-        """
-        key is "name1" or "name2", and the key for anchor is respectively
-        "anchor1" "anchor2"
-        """
-        anchor = get_default(item, f"anchor{key[4]}", "center")
-        x, y = bb.get_anchor_pos(anchor)
-        """
-        We can only modify 'item' in place, because we cannot overwrite item
-        itself without knowing where it is pointed from
-        """
-        clear_dict(item)
-        item["type"] = "coordinate"
-        item["x"] = num_to_dist(x + dx)
-        item["y"] = num_to_dist(y + dy)
-      elif get_default_of_type(item, "at", str) is not None:
-        """
-        Same as before: replace the relative position with absolute coordinate.
-        """
-        if bounding_boxes is None:
-          raise Exception("Must provide the bounding boxes "
-                          "if not check relative positions")
-        bb = bounding_boxes[old_id]
-        anchor = get_default(item, "at.anchor", "center")
-        x, y = bb.get_anchor_pos(anchor)
-        item["at"] = create_coordinate(x + dx, y + dy)
-        del_if_has(item, "at.anchor")
-      else:
-        raise Exception("This branch should not be reached at all, "
-                        "unless something is wrong")
+      self._context.paste_data(data, *self._pointer.pos(), True)
 
   def _get_object_path(self, name):
     if not os.path.exists(self._object_path):
