@@ -234,8 +234,8 @@ class Selection(object):
 
   def jump_to_next_selected(self, by):
     if self.has_id():
-      self._jump_to_select_index += self._selection.num_ids() + by
-      self._jump_to_select_index %= self._selection.num_ids()
+      self._jump_to_select_index += self.num_ids() + by
+      self._jump_to_select_index %= self.num_ids()
       return True
     elif self.single_path():
       self._selected_path_position_index += by

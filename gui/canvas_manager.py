@@ -18,6 +18,7 @@ from english2tikz.gui.finding import Finding
 from english2tikz.gui.grid import Grid
 from english2tikz.gui.coordinate_system import CoordinateSystem
 from english2tikz.gui.command_line import CommandLine
+from english2tikz.gui.pointer import Pointer
 
 
 class CanvasManager(object):
@@ -36,9 +37,8 @@ class CanvasManager(object):
                                                screen_height, 100)
     self._command_line = CommandLine(self._object_path)
     self._error_msg = None
-    self._pointerx = 0
-    self._pointery = 0
     self._grid = Grid()
+    self._pointer = Pointer(self._grid, self._coordinate_system)
     self._show_axes = True
     self._show_grid = True
     self._show_attributes = True
@@ -245,8 +245,7 @@ class CanvasManager(object):
     self.draw()
 
   def _scroll(self, dx, dy):
-    self._coordinate_system.scroll(dx, dy)
-    self._reset_pointer_into_screen()
+    self._pointer.scroll(dx, dy)
 
   def _set_position_to_mark(self):
     if self._is_in_path_position_mode():
@@ -368,7 +367,7 @@ class CanvasManager(object):
     self._editing_refreshing_timer_started = False
     if self._obj_to_edit_text is None:
       if len(self._editing_text) > 0:
-        x, y = self._get_pointer_pos_str()
+        x, y = self._pointer.posstr()
         self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
                         with.align=left""")
     else:
@@ -426,7 +425,7 @@ class CanvasManager(object):
     os.system(f"open -a 'Sublime Text' /tmp/editing")
 
   def _enter_visual_mode(self):
-    x, y = self._get_pointer_pos()
+    x, y = self._pointer.pos()
     self._visual_start = (x, y)
 
   def _select_and_exit_visual_mode(self, mode="clear"):
@@ -499,7 +498,7 @@ class CanvasManager(object):
     if self._is_in_path_position_mode():
       self._marks.append(copy.deepcopy(self._selection.get_path_position()))
     else:
-      x, y = self._get_pointer_pos()
+      x, y = self._pointer.pos()
       self._marks.append(create_coordinate(x, y))
 
   def _start_timer_for_refreshing_command(self):
@@ -567,10 +566,7 @@ class CanvasManager(object):
     self._selection.clear()
 
   def _change_grid_size(self, by):
-    x, y = self._get_pointer_pos()
-    self._grid.change_size(by)
-    self._pointerx, self._pointery = self._grid.closest_int_coord(x, y)
-    self._move_pointer_into_screen()
+    self._pointer.change_grid_size(by)
 
   def _is_in_path_position_mode(self):
     return self._selection.is_in_path_position_mode()
@@ -637,12 +633,10 @@ class CanvasManager(object):
       self._jump_to_select()
 
   def _reset_pointer_to_origin(self):
-    self._pointerx = 0
-    self._pointery = 0
-    self._coordinate_system.reset()
+    self._pointer.reset_to_origin()
 
   def _create_node_at_visual(self):
-    x0, y0 = self._get_pointer_pos()
+    x0, y0 = self._pointer.pos()
     x1, y1 = self._visual_start
     x0, x1 = order(x0, x1)
     y0, y1 = order(y0, y1)
@@ -685,14 +679,14 @@ class CanvasManager(object):
     }
     annotates.append(annotate)
     self._obj_to_edit_text = annotate
-    self._editing_text_pos = self._get_pointer_pos()
+    self._editing_text_pos = self._pointer.pos()
     self._editing_text = TextEditor()
 
   def _start_edit_text(self, id_=None):
     if id_ is None:
       self._editing_text = TextEditor()
       self._obj_to_edit_text = None
-      self._editing_text_pos = self._get_pointer_pos()
+      self._editing_text_pos = self._pointer.pos()
       return
 
     self._obj_to_edit_text = self._find_object_by_id(id_)
@@ -813,7 +807,7 @@ class CanvasManager(object):
 
   def _select_targets(self, mode="clear"):
     x0, y0 = self._visual_start
-    x1, y1 = self._get_pointer_pos()
+    x1, y1 = self._pointer.pos()
     x0, x1 = order(x0, x1)
     y0, y1 = order(y0, y1)
     sel = (x0, y0, x1, y1)
@@ -893,62 +887,24 @@ class CanvasManager(object):
     self._after_change()
 
   def _jump_to_select(self):
-    id_ = self.id_to_jump()
+    id_ = self._selection.id_to_jump()
     if id_ not in self._bounding_boxes:
       return
     bb = self._bounding_boxes[id_]
     x, y = bb.get_anchor_pos("center")
-    self._pointerx = round(x / self._grid.size())
-    self._pointery = round(y / self._grid.size())
-    self._move_pointer_into_screen()
-
-  def _get_pointer_pos(self):
-    return (self._pointerx * self._grid.size(),
-            self._pointery * self._grid.size())
-
-  def _get_pointer_pos_str(self):
-    x, y = self._get_pointer_pos()
-    return num_to_dist(x), num_to_dist(y)
-
-  def _get_pointer_screen_pos(self):
-    x, y = self._get_pointer_pos()
-    return self._coordinate_system.map_point(x, y)
+    self._pointer.goto(x, y)
 
   def _move_pointer(self, x, y):
-    self._pointerx += x
-    self._pointery += y
-    self._move_pointer_into_screen()
+    self._pointer.move_by(x, y)
 
   def _move_pointer_by_inverse_grid_size(self, x, y):
-    self._move_pointer(round(x/self._grid.size()),
-                       round(y/self._grid.size()))
-
-  def _move_pointer_into_screen(self):
-    screenx, screeny = self._get_pointer_screen_pos()
-    self._coordinate_system.shift_to_include(screenx, screeny)
+    self._pointer.move_by_inverse_grid_size(x, y)
 
   def _move_pointer_to_screen_boundary(self, direction):
-    upper, lower, left, right = self._boundary_grids()
-    if direction == "left":
-      self._pointerx = left
-    elif direction == "right":
-      self._pointerx = right
-    elif direction == "above":
-      self._pointery = upper
-    elif direction == "below":
-      self._pointery = lower
-    elif direction == "middle":
-      self._pointery = int((upper + lower)/2)
-    self._move_pointer_into_screen()
-
-  def _reset_pointer_into_screen(self):
-    screenx, screeny = self._coordinate_system.closest_in_view(
-        *self._get_pointer_screen_pos())
-    self._pointerx, self._pointery = self._grid.closest_int_coord(
-        *self._coordinate_system.reverse_map_point(screenx, screeny))
+    self._pointer.move_to_boundary(direction)
 
   def _boundary_grids(self):
-    return self._grid.rect_boundary(*self._coordinate_system.view_range())
+    return self._pointer.boundary_grids()
 
   def draw(self):
     if self._end:
@@ -986,8 +942,8 @@ class CanvasManager(object):
       x, y = self._coordinate_system.map_point(0, self._grid.size() * i)
       c.create_line(self._coordinate_system.horizontal_line(y),
                     fill="gray", dash=2)
-      draw_text = i == self._pointery or i % step == 0
-      color = "red" if i == self._pointery else "gray"
+      draw_text = i == self._pointer.iy() or i % step == 0
+      color = "red" if i == self._pointer.iy() else "gray"
       if draw_text:
         text = "%g" % (i * self._grid.size())
         c.create_text(5, y, text=text, anchor="sw", fill=color)
@@ -997,8 +953,8 @@ class CanvasManager(object):
       x, y = self._coordinate_system.map_point(self._grid.size() * i, 0)
       c.create_line(self._coordinate_system.vertical_line(x),
                     fill="gray", dash=2)
-      draw_text = i == self._pointerx or i % step == 0
-      color = "red" if i == self._pointerx else "gray"
+      draw_text = i == self._pointer.ix() or i % step == 0
+      color = "red" if i == self._pointer.ix() else "gray"
       if draw_text:
         text = "%g" % (i * self._grid.size())
         c.create_text(x, 0, text=text, anchor="nw", fill=color)
@@ -1040,7 +996,7 @@ class CanvasManager(object):
       return
     x, y = self._visual_start
     x0, y0 = self._coordinate_system.map_point(x, y)
-    x1, y1 = self._get_pointer_screen_pos()
+    x1, y1 = self._pointer.vpos()
     c.create_rectangle((x0, y0, x1, y1), outline="red", width=4, dash=8)
 
   def _get_mark_pos(self, i, buffer={}):
@@ -1131,7 +1087,7 @@ class CanvasManager(object):
     return now() - self._start_time
 
   def _draw_pointer_indicator(self, c):
-    x, y = self._get_pointer_screen_pos()
+    x, y = self._pointer.vpos()
     c.create_line(self._coordinate_system.horizontal_line(y),
                   fill="red", width=1)
     c.create_line(self._coordinate_system.vertical_line(x),
@@ -1139,7 +1095,7 @@ class CanvasManager(object):
 
   def _draw_pointer(self, c):
     ret = []
-    x, y = self._get_pointer_screen_pos()
+    x, y = self._pointer.vpos()
     angle = int((self._elapsed() / 5)) % 360
     rad = angle / 180 * math.pi
     dx1, dy1 = 10 * math.cos(rad), 10 * math.sin(rad)
@@ -1510,7 +1466,7 @@ class CanvasManager(object):
         self._context._picture.append(create_path([
             create_coordinate(*self._visual_start),
             create_rectangle(),
-            create_coordinate(*self._get_pointer_pos()),
+            create_coordinate(*self._pointer.pos()),
         ]))
         self._after_change()
       elif len(self._marks) == 2:
@@ -1651,7 +1607,7 @@ class CanvasManager(object):
         self._show_axes = False
 
   def _add_mark(self, *args):
-    x, y = self._get_pointer_pos()
+    x, y = self._pointer.pos()
     mark = create_coordinate(x, y)
     to_del = None
     for t, v in args:
@@ -1689,7 +1645,7 @@ class CanvasManager(object):
             raise Exception("Please specify anchor before shift")
           anchor = mark["anchor"]
           bb = self._bounding_boxes[mark["name"]]
-          pointerx, pointery = self._get_pointer_pos()
+          pointerx, pointery = self._pointer.pos()
           anchorx, anchory = bb.get_anchor_pos(anchor)
           xshift = pointerx - anchorx
           yshift = pointery - anchory
@@ -1701,7 +1657,7 @@ class CanvasManager(object):
           if mark["type"] != "coordinate":
             raise Exception("Do not specify anchor")
           x0, y0 = self._get_mark_pos(len(self._marks)-1, {})
-          pointerx, pointery = self._get_pointer_pos()
+          pointerx, pointery = self._pointer.pos()
           xshift = pointerx - x0
           yshift = pointery - y0
           mark["x"] = num_to_dist(xshift)
@@ -1855,7 +1811,7 @@ class CanvasManager(object):
                         "if not check relative positions")
       pos = get_top_left_corner(data, bounding_boxes)
     x0, y0 = pos
-    x1, y1 = self._get_pointer_pos()
+    x1, y1 = self._pointer.pos()
     dx, dy = x1 - x0, y1 - y0
     old_to_new_id_dict = {}
     to_replace = []
@@ -2013,7 +1969,7 @@ class CanvasManager(object):
     ctx._state["refered_to"] = self._selection.get_selected_objects()
     for i, id_ in enumerate(self._selection.ids()):
       code = code.replace(f"{{#{i}}}", id_)
-    x, y = self._get_pointer_pos_str()
+    x, y = self._pointer.posstr()
     code = code.replace(f"{{#x}}", x)
     code = code.replace(f"{{#y}}", y)
     ctx.parse(code)
