@@ -17,6 +17,7 @@ class CanvasManager(object):
     self._start_time = now()
     self._pointer_objects = []
     self._editor = editor
+    self._preview = None
     root.after(100, self._draw_animated)
     root.after(1, self.draw)
 
@@ -58,7 +59,26 @@ class CanvasManager(object):
   def draw(self):
     if self._end:
       return
+
     self._canvas.delete("all")
+
+    if self._preview is not None:
+      img = Image.open(self._preview)
+      img = img.convert("RGBA")
+      w, h = img.size
+      if w >= self._cs()._view_width:
+        w, h = self._cs()._view_width, h / w * self._cs()._view_width
+      if h >= self._cs()._view_height:
+        w, h = w / h * self._cs()._view_height, self._cs()._view_height
+      w, h = int(w), int(h)
+      x0 = self._cs()._view_width / 2
+      y0 = self._cs()._view_height / 2
+      img = img.resize((w, h))
+      image = ImageTk.PhotoImage(img)
+      self._image_references["view"] = image
+      self._canvas.create_image(x0, y0, image=image)
+      return
+
     if self._show_grid:
       self._draw_grid(self._canvas)
     if self._show_axes:
@@ -78,7 +98,7 @@ class CanvasManager(object):
       return
     for obj in self._pointer_objects:
       self._canvas.delete(obj)
-    if self._editing_text() is None:
+    if self._editing_text() is None and self._preview is None:
       self._pointer_objects = self._draw_pointer(self._canvas)
     else:
       self._pointer_objects = []
@@ -271,3 +291,6 @@ class CanvasManager(object):
           append_if_not_in(selected_ids, id_)
 
     return selected_ids, selected_paths
+
+  def preview(self, path):
+    self._preview = path

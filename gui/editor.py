@@ -55,6 +55,7 @@ class Editor(object):
         "editing": KeyboardManager(),
         "command": KeyboardManager(),
         "finding": KeyboardManager(),
+        "preview": KeyboardManager(),
     }
     self._canvas_manager = CanvasManager(root, canvas,
                                          screen_width, screen_height, self)
@@ -221,6 +222,7 @@ class Editor(object):
     self.register_key("finding", "Printable", self._finding_narrow_down)
     self.register_key("finding", "BackSpace", self._finding_back)
     self.register_key("finding", "Ctrl-c", self._exit_finding_mode)
+    self.register_key("preview", "Ctrl-c", self._exit_preview)
 
   @contextmanager
   def _modify_picture(self):
@@ -331,7 +333,11 @@ class Editor(object):
     return (not self._is_in_command_mode() and
             not self._is_in_editing_mode() and
             not self._is_in_visual_mode() and
-            not self._is_in_finding_mode())
+            not self._is_in_finding_mode() and
+            not self._is_in_preview_mode())
+
+  def _is_in_preview_mode(self):
+    return self._canvas_manager._preview is not None
 
   def _get_mode(self):
     if self._is_in_command_mode():
@@ -342,6 +348,8 @@ class Editor(object):
       return "visual"
     if self._is_in_finding_mode():
       return "finding"
+    if self._is_in_preview_mode():
+      return "preview"
     if self._is_in_normal_mode():
       return "normal"
     raise Exception("Invalid mode")
@@ -447,6 +455,9 @@ class Editor(object):
 
   def _exit_visual_mode(self):
     self._visual.clear()
+
+  def _exit_preview(self):
+    self._canvas_manager._preview = None
 
   def _deselect(self):
     if not self._selection.deselect():
@@ -815,8 +826,8 @@ class Editor(object):
         self._execute_describeit_code()
       elif cmd_name == "eeg":
         self._edit_describeit_code()
-      elif cmd_name == "dump":
-        self._dump()
+      elif cmd_name == "view":
+        self._view()
       else:
         raise Exception(f"Unkown command: {cmd_name}")
     except Exception as e:
@@ -1321,7 +1332,7 @@ class Editor(object):
         f.write("### Write the describe it code here ###")
     os.system("open -a 'Sublime Text' /tmp/english2tikz.desc")
 
-  def _dump(self):
+  def _view(self):
     tikzcode = self._context.render()
     tikzimage(tikzcode)
-    os.system("open ./view/view.png")
+    self._canvas_manager.preview("./view/view.png")
