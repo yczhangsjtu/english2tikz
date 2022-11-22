@@ -5,6 +5,7 @@ import copy
 import string
 import traceback
 from functools import partial
+from contextlib import contextmanager
 
 
 from english2tikz.utils import *
@@ -221,6 +222,30 @@ class Editor(object):
     self.register_key("finding", "BackSpace", self._finding_back)
     self.register_key("finding", "Ctrl-c", self._exit_finding_mode)
 
+  @contextmanager
+  def _modify_picture(self):
+    self._history = self._history[:self._history_index+1]
+    self._history[self._history_index] = copy.deepcopy(
+        self._history[self._history_index])
+    yield
+    self._history.append(self._context._picture)
+    self._history_index = len(self._history) - 1
+
+  def _undo(self):
+    if self._history_index == 0:
+      self._error_msg = "Already the oldest"
+      return
+
+    self._history_index -= 1
+    self._context._picture = self._history[self._history_index]
+
+  def _redo(self):
+    if self._history_index >= len(self._history) - 1:
+      self._error_msg = "Already at newest change"
+      return
+    self._history_index += 1
+    self._context._picture = self._history[self._history_index]
+
   def handle_key(self, event):
     self._keyboard_managers[self._get_mode()].handle_key(event)
     self._canvas_manager.draw()
@@ -231,9 +256,8 @@ class Editor(object):
   def _set_position_to_mark(self):
     if self._is_in_path_position_mode():
       if self._marks.single():
-        self._before_change()
-        self._selection.set_selected_path_item(self._marks.get_single())
-        self._after_change()
+        with self._modify_picture():
+          self._selection.set_selected_path_item(self._marks.get_single())
       else:
         self._error_msg = "Can only set position to one mark"
     else:
@@ -352,9 +376,8 @@ class Editor(object):
         self._parse(f"""there.is.text "{self._editing_text}" at.x.{x}.y.{y}
                         with.align=left""")
     else:
-      self._before_change()
-      self._obj_to_edit_text["text"] = str(self._editing_text)
-      self._after_change()
+      with self._modify_picture():
+        self._obj_to_edit_text["text"] = str(self._editing_text)
     self._editing_text = None
 
   def _enter_command_mode(self):
@@ -430,15 +453,14 @@ class Editor(object):
       self._marks.clear()
 
   def _delete_selected_objects(self):
-    self._before_change()
-    if self._selection.has_id():
-      deleted_ids = []
-      for id_ in self._selection.ids():
-        self._context.delete_objects_related_to_id(id_, deleted_ids)
-    if self._selection.has_path():
-      for path in self._selection.paths():
-        self._context.delete_path(path)
-    self._after_change()
+    with self._modify_picture():
+      if self._selection.has_id():
+        deleted_ids = []
+        for id_ in self._selection.ids():
+          self._context.delete_objects_related_to_id(id_, deleted_ids)
+      if self._selection.has_path():
+        for path in self._selection.paths():
+          self._context.delete_path(path)
     self._selection.clear()
 
   def _copy_selected_objects(self):
@@ -447,33 +469,8 @@ class Editor(object):
                        if self._selection.selected(obj)]
 
   def _parse(self, code):
-    self._before_change()
-    self._context.parse(code)
-    self._after_change()
-
-  def _before_change(self):
-    self._history = self._history[:self._history_index+1]
-    self._history[self._history_index] = copy.deepcopy(
-        self._history[self._history_index])
-
-  def _after_change(self):
-    self._history.append(self._context._picture)
-    self._history_index = len(self._history) - 1
-
-  def _undo(self):
-    if self._history_index == 0:
-      self._error_msg = "Already the oldest"
-      return
-
-    self._history_index -= 1
-    self._context._picture = self._history[self._history_index]
-
-  def _redo(self):
-    if self._history_index >= len(self._history) - 1:
-      self._error_msg = "Already at newest change"
-      return
-    self._history_index += 1
-    self._context._picture = self._history[self._history_index]
+    with self._modify_picture():
+      self._context.parse(code)
 
   def _add_simple_mark(self):
     if self._is_in_path_position_mode():
@@ -714,16 +711,14 @@ class Editor(object):
 
   def _shift_selected_objects(self, dx, dy):
     if self._selection.has_id():
-      self._before_change()
-      for id_ in self._selection.ids():
-        shift_object(self._find_object_by_id(id_),
-                     dx, dy, self._pointer.grid_size())
-      self._after_change()
+      with self._modify_picture():
+        for id_ in self._selection.ids():
+          shift_object(self._find_object_by_id(id_),
+                       dx, dy, self._pointer.grid_size())
     elif self._selection.is_in_path_position_mode():
-      self._before_change()
-      shift_path_position(self._selection.get_path_position(), dx, dy,
-                          self._pointer.grid_size())
-      self._after_change()
+      with self._modify_picture():
+        shift_path_position(self._selection.get_path_position(), dx, dy,
+                            self._pointer.grid_size())
 
   def _shift_selected_objects_by_grid(self, dx, dy):
     return self._shift_selected_objects(dx * self._pointer.grid_size(),
@@ -756,10 +751,9 @@ class Editor(object):
   def _paste(self):
     if len(self._clipboard) == 0:
       return
-    self._before_change()
-    self._paste_data(copy.deepcopy(self._clipboard), False,
-                     self._canvas_manager._bounding_boxes)
-    self._after_change()
+    with self._modify_picture():
+      self._paste_data(copy.deepcopy(self._clipboard), False,
+                       self._canvas_manager._bounding_boxes)
 
   def _jump_to_select(self):
     id_ = self._selection.id_to_jump()
@@ -933,38 +927,36 @@ class Editor(object):
   def _set_path_position(self, key, value):
     obj = self._selection.get_selected_path_item()
     key_values = self._process_key_value(key, value)
-    self._before_change()
-    if key in ["xshift", "yshift", "anchor"]:
-      if is_type(obj, "nodename"):
+    with self._modify_picture():
+      if key in ["xshift", "yshift", "anchor"]:
+        if is_type(obj, "nodename"):
+          self._set_object(obj, key_values)
+        else:
+          raise Exception("Can only shift node name")
+      elif key in ["x", "y"]:
+        if is_type(obj, "coordinate"):
+          self._set_object(obj, key_values)
+        else:
+          raise Exception("Can only set x, y of coordinate")
+      elif key in ["in"]:
+        obj = self._selection.previous_line()
+        if obj is None:
+          raise Exception("Cannot set 'in' of a position not at end of line")
         self._set_object(obj, key_values)
       else:
-        raise Exception("Can only shift node name")
-    elif key in ["x", "y"]:
-      if is_type(obj, "coordinate"):
+        obj = self._selection.next_line()
+        if obj is None:
+          raise Exception("Cannot find segment following the position")
         self._set_object(obj, key_values)
-      else:
-        raise Exception("Can only set x, y of coordinate")
-    elif key in ["in"]:
-      obj = self._selection.previous_line()
-      if obj is None:
-        raise Exception("Cannot set 'in' of a position not at end of line")
-      self._set_object(obj, key_values)
-    else:
-      obj = self._selection.next_line()
-      if obj is None:
-        raise Exception("Cannot find segment following the position")
-      self._set_object(obj, key_values)
-    self._after_change()
 
   def _set_selected_objects(self, key, value):
     if self._selection.is_in_path_position_mode():
       self._set_path_position(key, value)
       return
-    self._before_change()
-    key_values = self._process_key_value(key, value)
-    for obj in self._selection.get_selected_objects():
-      self._set_object(obj, key_values)
-    self._after_change()
+    with self._modify_picture():
+      key_values = self._process_key_value(key, value)
+      for obj in self._selection.get_selected_objects():
+        self._set_object(obj, key_values)
 
   def _set_fill(self, code):
     parser = Parser()
@@ -992,19 +984,16 @@ class Editor(object):
     arrow = get_default(args, "arrow", [None])[0]
 
     if obj == "path":
-      self._before_change()
-      self._context._picture.append(self._marks.create_path(arrow))
-      self._after_change()
+      with self._modify_picture():
+        self._context._picture.append(self._marks.create_path(arrow))
 
     elif obj == "rect":
       if self._visual.active():
-        self._before_change()
-        self._context._picture.append(self._visual.create_path())
-        self._after_change()
+        with self._modify_picture():
+          self._context._picture.append(self._visual.create_path())
       elif self._marks.size() == 2:
-        self._before_change()
-        self._context._picture.append(self._marks.create_rectangle())
-        self._after_change()
+        with self._modify_picture():
+          self._context._picture.append(self._marks.create_rectangle())
       else:
         raise Exception("Please set exactly two marks "
                         "or draw a rect in visual mode")
@@ -1277,19 +1266,18 @@ class Editor(object):
     parser = Parser()
     args = parser.parse(code)
     text = get_default(args, "positionals", [""])[0]
-    self._before_change()
-    ensure_key(line, "annotates", [])
-    line["annotates"].append({
-        "id": self._context.getid(),
-        "type": "text",
-        "in_path": True,
-        "text": text,
-        "midway": True,
-        "above": True,
-        "sloped": True,
-        "scale": "0.7",
-    })
-    self._after_change()
+    with self._modify_picture():
+      ensure_key(line, "annotates", [])
+      line["annotates"].append({
+          "id": self._context.getid(),
+          "type": "text",
+          "in_path": True,
+          "text": text,
+          "midway": True,
+          "above": True,
+          "sloped": True,
+          "scale": "0.7",
+      })
 
   def _chain(self, code):
     if self._selection.num_ids() < 2:
@@ -1313,24 +1301,23 @@ class Editor(object):
     elif "/" in args:
       direction = "down left"
 
-    self._before_change()
-    for i in range(1, self._selection.num_ids()):
-      id_ = self._selection.get_id(i)
-      obj = self._find_object_by_id(id_)
-      obj["at"] = self._selection.get_id(i-1)
-      if direction == "horizontal":
-        obj["at.anchor"] = "east"
-        obj["anchor"] = "west"
-      elif direction == "vertical":
-        obj["at.anchor"] = "south"
-        obj["anchor"] = "north"
-      elif direction == "down right":
-        obj["at.anchor"] = "south.east"
-        obj["anchor"] = "north.west"
-      elif direction == "down left":
-        obj["at.anchor"] = "south.west"
-        obj["anchor"] = "north.east"
-    self._after_change()
+    with self._modify_picture():
+      for i in range(1, self._selection.num_ids()):
+        id_ = self._selection.get_id(i)
+        obj = self._find_object_by_id(id_)
+        obj["at"] = self._selection.get_id(i-1)
+        if direction == "horizontal":
+          obj["at.anchor"] = "east"
+          obj["anchor"] = "west"
+        elif direction == "vertical":
+          obj["at.anchor"] = "south"
+          obj["anchor"] = "north"
+        elif direction == "down right":
+          obj["at.anchor"] = "south.east"
+          obj["anchor"] = "north.west"
+        elif direction == "down left":
+          obj["at.anchor"] = "south.west"
+          obj["anchor"] = "north.east"
 
   def _search(self, code):
     parser = Parser()
@@ -1342,12 +1329,11 @@ class Editor(object):
     with open(filename) as f:
       data = json.loads(f.read())
 
-    self._before_change()
-    if "picture" in data:
-      self._context._picture = data["picture"]
-    if "nextid" in data:
-      self._context._state["nextid"] = data["nextid"]
-    self._after_change()
+    with self._modify_picture():
+      if "picture" in data:
+        self._context._picture = data["picture"]
+      if "nextid" in data:
+        self._context._state["nextid"] = data["nextid"]
 
   def _save_as_object(self, code):
     object_name = code
@@ -1363,9 +1349,8 @@ class Editor(object):
     object_name = code
     with open(self._get_object_path(object_name)) as f:
       data = json.loads(f.read())
-    self._before_change()
-    self._paste_data(data, True)
-    self._after_change()
+    with self._modify_picture():
+      self._paste_data(data, True)
 
   def _paste_data(self, data, check_all_relative_pos=False,
                   bounding_boxes=None):
@@ -1513,13 +1498,12 @@ class Editor(object):
       f.write("\n".join(history))
 
   def _execute_python_code(self):
-    self._before_change()
-    with open("/tmp/english2tikz.py") as f:
-      code = f.read()
-    selected_objects = self._selection.get_selected_id_objects()
-    selected_paths = self._selection.paths()
-    exec(code, locals())
-    self._after_change()
+    with self._modify_picture():
+      with open("/tmp/english2tikz.py") as f:
+        code = f.read()
+      selected_objects = self._selection.get_selected_id_objects()
+      selected_paths = self._selection.paths()
+      exec(code, locals())
 
   def _edit_python_code(self):
     if not os.path.exists("/tmp/english2tikz.py"):
@@ -1531,18 +1515,17 @@ class Editor(object):
     os.system("open -a 'Sublime Text' /tmp/english2tikz.py")
 
   def _execute_describeit_code(self):
-    self._before_change()
-    with open("/tmp/english2tikz.desc") as f:
-      code = f.read()
-    ctx = self._context
-    ctx._state["refered_to"] = self._selection.get_selected_objects()
-    for i, id_ in enumerate(self._selection.ids()):
-      code = code.replace(f"{{#{i}}}", id_)
-    x, y = self._pointer.posstr()
-    code = code.replace(f"{{#x}}", x)
-    code = code.replace(f"{{#y}}", y)
-    ctx.parse(code)
-    self._after_change()
+    with self._modify_picture():
+      with open("/tmp/english2tikz.desc") as f:
+        code = f.read()
+      ctx = self._context
+      ctx._state["refered_to"] = self._selection.get_selected_objects()
+      for i, id_ in enumerate(self._selection.ids()):
+        code = code.replace(f"{{#{i}}}", id_)
+      x, y = self._pointer.posstr()
+      code = code.replace(f"{{#x}}", x)
+      code = code.replace(f"{{#y}}", y)
+      ctx.parse(code)
 
   def _edit_describeit_code(self):
     if not os.path.exists("/tmp/english2tikz.desc"):
