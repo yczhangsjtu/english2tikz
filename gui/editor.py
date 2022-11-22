@@ -566,14 +566,16 @@ class Editor(object):
     return self._selection.get_selected_objects()
 
   def _shift_selected_object_at_anchor(self, direction):
-    for id_ in self._selection.ids():
-      if not self._context.shift_object_at_anchor(id_, direction):
-        self._error_msg = f"Object {id_} is not anchored to another object, " \
-          "nor at intersection"
+    with self._modify_picture():
+      for id_ in self._selection.ids():
+        if not self._context.shift_object_at_anchor(id_, direction):
+          self._error_msg = f"Object {id_} is not anchored to " \
+              "another object, nor at intersection"
 
   def _shift_selected_object_anchor(self, direction):
-    for id_ in self._selection.ids():
-      self._context.shift_object_anchor(id_, direction)
+    with self._modify_picture():
+      for id_ in self._selection.ids():
+        self._context.shift_object_anchor(id_, direction)
 
   def _jump_to_next_selected(self, by):
     if self._selection.jump_to_next_selected(by):
