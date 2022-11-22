@@ -14,6 +14,7 @@ from english2tikz.gui.drawers import *
 from english2tikz.gui.keyboard import KeyboardManager
 from english2tikz.gui.text_editor import TextEditor
 from english2tikz.gui.selection import Selection
+from english2tikz.gui.finding import Finding
 
 
 class CanvasManager(object):
@@ -55,11 +56,9 @@ class CanvasManager(object):
     self._marks = []
     self._image_references = {}
     self._clipboard = []
-    self._finding_prefix = None
-    self._finding_candidates = None
+    self._finding = None
     self._command_refershing_timer_started = True
     self._editing_refershing_timer_started = True
-    self._toggle_find = False
     self._start_time = now()
     self._pointer_objects = []
     self.filename = None
@@ -338,7 +337,7 @@ class CanvasManager(object):
     return self._visual_start is not None
 
   def _is_in_finding_mode(self):
-    return self._finding_prefix is not None
+    return self._finding is not None
 
   def _is_in_normal_mode(self):
     return (not self._is_in_command_mode() and
@@ -577,30 +576,24 @@ class CanvasManager(object):
     self.draw()
 
   def _finding_narrow_down(self, char):
-    if char not in string.ascii_lowercase:
+    try:
+      obj = self._finding.narrow_down(char)
+    except Exception as e:
+      self._error_msg = f"Error in finding: {e}"
       return
-    self._finding_prefix += char.upper()
-    current_candidates = self._current_finding_candidates()
-    if len(current_candidates) == 0:
-      self._error_msg = f"Cannot find object with " \
-                        f"code {self._finding_prefix}"
-      self._exit_finding_mode()
-    elif len(current_candidates) == 1:
-      if self._toggle_find:
-        self._selection.toggle(current_candidates[0])
+    if obj is not None:
+      if self._finding.is_toggle():
+        self._selection.toggle(obj)
       else:
-        self._selection.select(current_candidates[0])
+        self._selection.select(obj)
       self._exit_finding_mode()
 
   def _finding_back(self):
-    if len(self._finding_prefix) > 0:
-      self._finding_prefix = self._finding_prefix[:-1]
-    else:
+    if not self._finding.back():
       self._exit_finding_mode()
 
   def _exit_finding_mode(self):
-    self._finding_prefix = None
-    self._finding_candidates = None
+    self._finding = None
 
   def _clear(self):
     self._visual_start = None
@@ -622,51 +615,13 @@ class CanvasManager(object):
     return self._selection.is_in_path_position_mode()
 
   def _enter_finding_mode(self, toggle=False):
-    self._finding_prefix = ""
-    self._finding_candidates = {}
-    self._toggle_find = toggle
     candidate_ids, candidate_paths = self._find_all_in_screen()
-    candidates_number = len(candidate_ids) + len(candidate_paths)
-    if candidates_number == 0:
-      self._error_msg = "No object on screen"
-    elif candidates_number <= 26:
-      for i in range(0, candidates_number):
-        c = chr(ord('A') + i)
-        self._finding_candidates[c] = index_two_lists(candidate_ids,
-                                                      candidate_paths, i)
-    elif candidates_number <= 26 * 26:
-      for i in range(0, candidates_number):
-        c = chr(ord('A') + i // 26) + chr(ord('A') + i % 26)
-        self._finding_candidates[c] = index_two_lists(candidate_ids,
-                                                      candidate_paths, i)
-    elif candidates_number <= 26 * 26 * 26:
-      for i in range(0, candidates_number):
-        c = chr(ord('A') + i // (26 * 26)) + \
-            chr(ord('A') + (i // 26) % 26) + \
-            chr(ord('A') + i % 26)
-        self._finding_candidates[c] = index_two_lists(candidate_ids,
-                                                      candidate_paths, i)
-    else:
-      self._error_msg = "Too many objects on screen"
-
-  def _get_candidate_code(self, obj):
-    for key, value in self._finding_candidates.items():
-      if not key.startswith(self._finding_prefix):
-        continue
-      if isinstance(value, str):
-        if get_default(obj, "id") == value:
-          return key
-      elif obj == value:
-        return key
-    return None
-
-  def _current_finding_candidates(self):
-    ret = []
-    for key, value in self._finding_candidates.items():
-      if not key.startswith(self._finding_prefix):
-        continue
-      ret.append(value)
-    return ret
+    candidates = candidate_ids + candidate_paths
+    candidates_number = len(candidates)
+    try:
+      self._finding = Finding(candidates, toggle)
+    except Exception as e:
+      self._error_msg = f"Error entering finding mode: {e}"
 
   def _get_selected_id_objects(self):
     return self._selection.get_selected_id_objects()
@@ -1135,8 +1090,7 @@ class CanvasManager(object):
         "coordinate system": self._coordinate_system(),
         "selection": self._selection,
         "image references": self._image_references,
-        "finding prefix": self._finding_prefix,
-        "get_candidate_code": self._get_candidate_code,
+        "finding": self._finding,
     }
     for obj in ctx._picture:
       self._draw_obj(c, obj, env)

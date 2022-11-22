@@ -27,6 +27,7 @@ class BoxDrawer(Drawer):
   def _draw(canvas, obj, env, position=None, slope=None):
     assert "id" in obj
     selection = env["selection"]
+    finding = env["finding"]
     tmptext = None
     """
     The LaTeX equations are smaller than expected.
@@ -405,10 +406,9 @@ class BoxDrawer(Drawer):
                          anchor_screen_x + 3, anchor_screen_y + 3,
                          fill="#77ff77", outline="green")
 
-    if env["finding prefix"] is not None:
-      candidate_code = env["get_candidate_code"](obj)
+    if finding is not None:
+      candidate_code = finding.get_chopped_code(obj)
       if candidate_code is not None:
-        candidate_code = candidate_code[len(env["finding prefix"]):]
         label_pos = map_point(*bb.get_anchor_pos("north.west"), cs)
         ftext = canvas.create_text(
             label_pos, anchor="nw", text=candidate_code, fill="black")
@@ -484,6 +484,7 @@ class PathDrawer(Drawer):
     first_segment = None
     cs = env["coordinate system"]
     selection = env["selection"]
+    finding = env["finding"]
     is_selected = selection.selected(obj)
     for index, item in enumerate(obj["items"]):
       segment_id = f"segment_{id(obj)}_{index}"
@@ -833,10 +834,9 @@ class PathDrawer(Drawer):
                                 outline="")
       canvas.tag_lower(p, first_segment)
 
-    if env["finding prefix"] is not None:
-      candidate_code = env["get_candidate_code"](obj)
+    if finding is not None:
+      candidate_code = finding.get_chopped_code(obj)
       if candidate_code is not None:
-        candidate_code = candidate_code[len(env["finding prefix"]):]
         x0, y0 = map_point(*starting_pos, cs)
         ftext = canvas.create_text(
             x0, y0, anchor="nw", text=candidate_code, fill="black")
