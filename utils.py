@@ -3,6 +3,29 @@ import re
 from datetime import datetime
 
 
+mutually_exclusive = [
+    set([
+        "above", "below", "left", "right",
+        "below.left", "below.right",
+        "above.left", "above.right",
+    ]),
+    set([
+        "midway", "pos",
+        "near.end", "near.start",
+        "very.near.end", "very.near.start",
+        "at.end", "at.start"
+    ]),
+    set([
+        "stealth", "arrow",
+        "reversed.stealth", "reversed.arrow",
+        "double.stealth", "double.arrow",
+    ]),
+    set([
+        "circle", "ellipse",
+    ]),
+]
+
+
 colors = [
     "red", "blue", "white", "black", "yellow", "orange", "green"
 ]
@@ -280,7 +303,7 @@ def smart_key_value(key, value):
   if key in ["rectangle", "line"]:
     return [("type", key)]
   ret = [(key, value)]
-  for s in WithAttributeHandler.mutually_exclusive:
+  for s in mutually_exclusive:
     if key in s:
       ret = ret + [(k, False) for k in s if k != key]
   return ret

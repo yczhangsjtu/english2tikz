@@ -4,9 +4,41 @@ from PIL import Image
 from PIL import ImageTk
 from english2tikz.utils import *
 from english2tikz.latex import text_to_latex_image_path
+from english2tikz.gui.object_utils import *
+from english2tikz.gui.image_utils import *
 
 
 line_width_ratio = 2.5
+latex_scale_ratio = 0.42
+font_size = 40
+
+
+def create_text(canvas, x, y, obj, scale, cs_scale,
+                text_color, text_width, angle=0):
+  if need_latex(obj["text"]):
+    try:
+      return canvas.create_image(
+          x, y,
+          image=get_image_from_path(
+              text_to_latex_image_path(
+                  obj["text"], text_color, text_width),
+              scale * latex_scale_ratio,
+              obj["id"], angle))
+    except tk.TclError:
+      return canvas.create_image(
+          x, y,
+          image=get_image_from_path(
+              text_to_latex_image_path(
+                  obj["text"], text_color, text_width),
+              scale * latex_scale_ratio,
+              obj["id"], angle, recreate=True))
+  return canvas.create_text(
+      x, y, text=obj["text"],
+      fill=color_to_tk(text_color),
+      font=("Times New Roman", int(font_size * scale), "normal"),
+      width=dist_to_num(text_width) * scale * cs_scale
+      if text_width is not None else None,
+      angle=angle % 360)
 
 
 class Drawer(object):
@@ -28,11 +60,9 @@ class BoxDrawer(Drawer):
     assert "id" in obj
     selection = env["selection"]
     finding = env["finding"]
-    tmptext = None
     """
     The LaTeX equations are smaller than expected.
     """
-    latex_scale_ratio = 0.42
 
     if "scale" in obj:
       scale = float(obj["scale"])
@@ -48,59 +78,30 @@ class BoxDrawer(Drawer):
     circle = "circle" in obj
     ellipse = "ellipse" in obj
 
-    font_size = 40
-    if scale != 1:
-      font_size = int(font_size * scale)
+    draw = draw_border(obj)
+    color = get_draw_color(obj)
+    text_color = get_text_color(obj)
+    text = get_default(obj, "text")
+    inner_sep = dist_to_num(get_default(obj, "inner.sep", 0.1))
 
-    draw = ("draw" in obj and obj["draw"]) or obj["type"] == "box"
-    color = get_default(obj, "color", "black") if draw else ""
-
-    if "text.color" in obj:
-      text_color = obj["text.color"]
-    elif len(color) > 0:
-      text_color = color
-    elif "color" in obj:
-      text_color = obj["color"]
-    else:
-      text_color = "black"
-
-    if "text" in obj:
+    if text:
       text_width = get_default(obj, "text.width")
-      if need_latex(obj["text"]):
-        path = text_to_latex_image_path(obj["text"], text_color, text_width)
-        if (path, scale, obj["id"]) not in env["image references"]:
-          img = Image.open(path)
-          img = img.convert("RGBA")
-          w, h = img.size
-          img = img.resize((int(w * scale * latex_scale_ratio),
-                            int(h * scale * latex_scale_ratio)))
-          image = ImageTk.PhotoImage(img)
-          env["image references"][(path, scale, obj["id"])] = image
-        else:
-          image = env["image references"][(path, scale, obj["id"])]
-        tmptext = canvas.create_image(0, 0, image=image)
-      else:
-        tmptext = canvas.create_text(
-            0, 0, text=obj["text"],
-            font=default_font(font_size),
-            width=dist_to_num(text_width) * scale * cs_scale
-            if text_width is not None else None)
+      tmptext = create_text(canvas, 0, 0, obj, scale, cs_scale,
+                            text_color, text_width)
       x0, y0, x1, y1 = canvas.bbox(tmptext)
-
-      if "inner.sep" in obj:
-        inner_sep = dist_to_num(obj["inner.sep"])
-      else:
-        inner_sep = 0.1
-
+      canvas.delete(tmptext)
       width = (x1 - x0) / cs_scale + inner_sep * 2 * scale
       height = (y1 - y0) / cs_scale + inner_sep * 2 * scale
+    else:
+      width = inner_sep * 2 * scale
+      height = inner_sep * 2 * scale
 
-      if circle:
-        radius = math.sqrt(width*width+height*height)/2
-        width, height = radius*2, radius*2
-      elif ellipse:
-        width *= 1.414
-        height *= 1.414
+    if circle:
+      radius = math.sqrt(width*width+height*height)/2
+      width, height = radius*2, radius*2
+    elif ellipse:
+      width *= 1.414
+      height *= 1.414
 
     width = max(dist_to_num(get_default(obj, "width", 0)) * scale, width)
     height = max(dist_to_num(get_default(obj, "height", 0)) * scale, height)
@@ -227,44 +228,12 @@ class BoxDrawer(Drawer):
                                       width=line_width * line_width_ratio
                                       if line_width is not None else None,
                                       dash=dash)
-      if "text" in obj and obj["text"]:
+      if text:
         text_width = get_default(obj, "text.width")
         center_x, center_y = BoundingBox._get_anchor_pos(
             (x, y, width, height), "center")
         x, y = cs.map_point(center_x, center_y)
-        if need_latex(obj["text"]):
-          if tmptext is None:
-            path = text_to_latex_image_path(
-                obj["text"], text_color, text_width)
-            if (path, scale, obj["id"]) not in env["image references"]:
-              img = Image.open(path)
-              img = img.convert("RGBA")
-              w, h = img.size
-              img = img.resize((int(w * scale * latex_scale_ratio),
-                                int(h * scale * latex_scale_ratio)))
-              image = ImageTk.PhotoImage(img)
-              env["image references"][(path, scale, obj["id"])] = image
-            else:
-              image = env["image references"][(path, scale, obj["id"])]
-            canvas.create_image(x, y, image=image)
-          else:
-            canvas.move(tmptext, x, y)
-            canvas.itemconfig(tmptext)
-            if r:
-              canvas.tag_lower(r, tmptext)
-        else:
-          if tmptext is None:
-            canvas.create_text(
-                x, y, text=obj["text"],
-                fill=color_to_tk(text_color),
-                font=default_font(font_size),
-                width=dist_to_num(text_width) * scale * cs_scale
-                if text_width is not None else None)
-          else:
-            canvas.move(tmptext, x, y)
-            canvas.itemconfig(tmptext, fill=color_to_tk(text_color))
-            if r:
-              canvas.tag_lower(r, tmptext)
+        create_text(canvas, x, y, obj, scale, cs_scale, text_color, text_width)
       if selection.selected(obj):
         if circle or ellipse:
           canvas.create_oval(x0 - 5, y0 + 5, x1 + 5, y1 - 5,
@@ -321,7 +290,7 @@ class BoxDrawer(Drawer):
                                     width=line_width * line_width_ratio
                                     if line_width is not None else None)
 
-      if "text" in obj and obj["text"]:
+      if text:
         text_width = get_default(obj, "text.width")
         center_x, center_y = BoundingBox._get_anchor_pos(
             (x, y, width, height), "center")
@@ -331,39 +300,8 @@ class BoxDrawer(Drawer):
             center_x, center_y, anchor_x, anchor_y, 360-angle)
 
         x, y = cs.map_point(rotated_x, rotated_y)
-        if need_latex(obj["text"]):
-          if tmptext is not None:
-            canvas.delete(tmptext)
-          path = text_to_latex_image_path(obj["text"], text_color, text_width)
-          if (path, scale, angle, obj["id"]) not in env["image references"]:
-            img = Image.open(path)
-            img = img.convert("RGBA")
-            w, h = img.size
-            img = img.resize((int(w * scale * latex_scale_ratio),
-                              int(h * scale * latex_scale_ratio)))
-            if angle != 0:
-              img = img.rotate(angle % 360, expand=True)
-            image = ImageTk.PhotoImage(img)
-            env["image references"][(path, scale, angle, obj["id"])] = image
-          else:
-            image = env["image references"][(path, scale, angle, obj["id"])]
-          canvas.create_image(x, y, image=image)
-        else:
-          if tmptext is None:
-            canvas.create_text(
-                x, y, text=obj["text"],
-                fill=color_to_tk(text_color),
-                font=("Times New Roman", font_size, "normal"),
-                width=dist_to_num(text_width) * scale * cs_scale
-                if text_width is not None else None,
-                angle=angle % 360)
-          else:
-            canvas.move(tmptext, x, y)
-            canvas.itemconfig(tmptext, fill=color_to_tk(
-                text_color), angle=angle % 360)
-            if r:
-              canvas.tag_lower(r, tmptext)
-
+        create_text(canvas, x, y, obj, scale, cs_scale,
+                    text_color, text_width, angle)
       if selection.selected(obj):
         if circle:
           centerx, centery = (x0 + x1) / 2, (y0 + y1) / 2

@@ -1,7 +1,8 @@
 import re
 import copy
-from .object_handlers import *
-from .object_renderers import *
+from english2tikz.object_handlers import *
+from english2tikz.object_renderers import *
+from english2tikz.utils import *
 
 
 class Handler(object):
@@ -612,28 +613,6 @@ class CloseInHandler(Handler):
 
 
 class WithAttributeHandler(Handler):
-  mutually_exclusive = [
-      set([
-          "above", "below", "left", "right",
-          "below.left", "below.right",
-          "above.left", "above.right",
-      ]),
-      set([
-          "midway", "pos",
-          "near.end", "near.start",
-          "very.near.end", "very.near.start",
-          "at.end", "at.start"
-      ]),
-      set([
-          "stealth", "arrow",
-          "reversed.stealth", "reversed.arrow",
-          "double.stealth", "double.arrow",
-      ]),
-      set([
-          "circle", "ellipse",
-      ]),
-  ]
-
   def _match(self, command):
     return re.match(
         r"(?:(?:and|that)\.)?(?:without|with|where|has|have|is|are|set|let|make\.it|make\.them)\.([\w\.]+)(?:=([\w\.!\-\(\),]+))?$",
@@ -685,7 +664,7 @@ class WithAttributeHandler(Handler):
 
   def _handle(self, target, key, value):
     target[key] = value
-    for me in WithAttributeHandler.mutually_exclusive:
+    for me in mutually_exclusive:
       if key in me:
         for other_key in me:
           if other_key != key and other_key in target:
