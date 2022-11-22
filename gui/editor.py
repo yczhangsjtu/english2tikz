@@ -623,7 +623,8 @@ class Editor(object):
         "sloped": True,
         "scale": "0.7",
     }
-    annotates.append(annotate)
+    with self._modify_picture():
+      annotates.append(annotate)
     self._obj_to_edit_text = annotate
     self._editing_text_pos = self._pointer.pos()
     self._editing_text = TextEditor()
@@ -837,41 +838,6 @@ class Editor(object):
     for key, _ in args.items():
       self._set_selected_objects(key, False)
 
-  def _process_key_value(self, key, value):
-    """
-    Implement acronyms and aliases.
-    """
-    if is_color(key) and value is True:
-      """
-      set blue <=> set color=blue
-      """
-      return [("color", key)]
-    if key in anchor_list and value is True:
-      return [("anchor", key)]
-    if key in short_anchor_dict and value is True:
-      return [("anchor", short_anchor_dict[key])]
-    if key == "at" and value in anchor_list:
-      return [("at.anchor", value)]
-    if key == "at" and value in short_anchor_dict:
-      return [("at.anchor", short_anchor_dict[value])]
-    if key == "at":
-      raise Exception("Does not support setting node position (except anchor)")
-    if key == "rc":
-      key = "rounded.corners"
-    if value == "False" or value == "None":
-      return [(key, None)]
-    if key in ["width", "height", "xshift", "yshift"]:
-      value = num_to_dist(value)
-    if key in ["out", "in"] and value in directions:
-      return [(key, direction_to_angle(value))]
-    if key in ["rectangle", "line"]:
-      return [("type", key)]
-    ret = [(key, value)]
-    for s in WithAttributeHandler.mutually_exclusive:
-      if key in s:
-        ret = ret + [(k, False) for k in s if k != key]
-    return ret
-
   def _set_object(self, obj, key_values):
     for key, value in key_values:
       if value is None or value is False:
@@ -881,7 +847,7 @@ class Editor(object):
 
   def _set_path_position(self, key, value):
     obj = self._selection.get_selected_path_item()
-    key_values = self._process_key_value(key, value)
+    key_values = smart_key_value(key, value)
     with self._modify_picture():
       if key in ["xshift", "yshift", "anchor"]:
         if is_type(obj, "nodename"):
@@ -909,7 +875,7 @@ class Editor(object):
       self._set_path_position(key, value)
       return
     with self._modify_picture():
-      key_values = self._process_key_value(key, value)
+      key_values = smart_key_value(key, value)
       for obj in self._selection.get_selected_objects():
         self._set_object(obj, key_values)
 

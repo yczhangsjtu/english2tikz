@@ -250,6 +250,42 @@ def related_to(obj, id_):
   return False
 
 
+def smart_key_value(key, value):
+  """
+  Implement acronyms and aliases.
+  """
+  if is_color(key) and value is True:
+    """
+    set blue <=> set color=blue
+    """
+    return [("color", key)]
+  if key in anchor_list and value is True:
+    return [("anchor", key)]
+  if key in short_anchor_dict and value is True:
+    return [("anchor", short_anchor_dict[key])]
+  if key == "at" and value in anchor_list:
+    return [("at.anchor", value)]
+  if key == "at" and value in short_anchor_dict:
+    return [("at.anchor", short_anchor_dict[value])]
+  if key == "at":
+    raise Exception("Does not support setting node position (except anchor)")
+  if key == "rc":
+    key = "rounded.corners"
+  if value == "False" or value == "None":
+    return [(key, None)]
+  if key in ["width", "height", "xshift", "yshift"]:
+    value = num_to_dist(value)
+  if key in ["out", "in"] and value in directions:
+    return [(key, direction_to_angle(value))]
+  if key in ["rectangle", "line"]:
+    return [("type", key)]
+  ret = [(key, value)]
+  for s in WithAttributeHandler.mutually_exclusive:
+    if key in s:
+      ret = ret + [(k, False) for k in s if k != key]
+  return ret
+
+
 class BoundingBox(object):
   def __init__(self, x, y, width, height, shape="rectangle", angle=0,
                center=None, obj=None, points=None):
