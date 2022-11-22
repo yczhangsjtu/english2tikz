@@ -1,7 +1,7 @@
 import tkinter as tk
 import argparse
 import os
-from english2tikz.gui.canvas_manager import CanvasManager
+from english2tikz.gui.editor import Editor
 
 
 screen_width, screen_height = 1200, 750
@@ -17,12 +17,12 @@ if __name__ == "__main__":
   parser.add_argument('filename', nargs='?')
   args = parser.parse_args()
 
-  cm = CanvasManager(root, canvas, screen_width, screen_height)
+  editor = Editor(root, canvas, screen_width, screen_height)
   if args.filename is not None:
     filename = args.filename
-    cm.filename = filename
+    editor.filename = filename
     if os.path.exists(filename):
-      cm._read(("command", filename))
+      editor._read(("command", filename))
 
   root.title("Vim Draw")
   root.minsize(screen_width, screen_height)
