@@ -330,6 +330,7 @@ class PathDrawer(Drawer):
     cs = env["coordinate system"]
     selection = env["selection"]
     finding = env["finding"]
+    bounding_boxes = env["bounding box"]
     is_selected = selection.selected(obj)
     for index, item in enumerate(obj["items"]):
       segment_id = f"segment_{id(obj)}_{index}"
@@ -338,21 +339,23 @@ class PathDrawer(Drawer):
       if item["type"] == "nodename":
         name = item["name"]
         anchor = get_default(item, "anchor")
-        new_pos = env["bounding box"][name].get_anchor_pos(
-            none_or(anchor, "center"))
+        xshift = dist_to_num(get_default(item, "xshift", 0))
+        yshift = dist_to_num(get_default(item, "yshift", 0))
         if anchor is None:
-          new_pos_clip = env["bounding box"][name]
-        elif "xshift" in item or "yshift" in item:
-          x, y = new_pos
-          if "xshift" in item:
-            x += dist_to_num(item["xshift"])
-          if "yshift" in item:
-            y += dist_to_num(item["yshift"])
-          new_pos = (x, y)
+          """
+          anchor = None or anchor = "center" is different here, and only here:
+          1. if the line is clipped by the bounding box of the node
+          2. if the xshift and yshift take affect
+          """
+          new_pos_clip = bounding_boxes[name]
+          anchor = "center"
+          xshift, yshift = 0, 0
+        x, y = bounding_boxes[name].get_anchor_pos(anchor)
+        new_pos = (x + xshift, y + yshift)
       elif item["type"] == "point":
         id_ = item["id"]
         x, y = current_pos
-        env["bounding box"][id_] = BoundingBox(x, y, 0, 0)
+        bounding_boxes[id_] = BoundingBox(x, y, 0, 0)
       elif item["type"] == "coordinate":
         if "relative" in item and item["relative"]:
           if current_pos is None:
@@ -365,8 +368,8 @@ class PathDrawer(Drawer):
         name1, name2 = item["name1"], item["name2"]
         anchor1 = get_default(item, "anchor1", "center")
         anchor2 = get_default(item, "anchor2", "center")
-        x, _ = env["bounding box"][name1].get_anchor_pos(anchor1)
-        _, y = env["bounding box"][name2].get_anchor_pos(anchor2)
+        x, _ = bounding_boxes[name1].get_anchor_pos(anchor1)
+        _, y = bounding_boxes[name2].get_anchor_pos(anchor2)
         new_pos = (x, y)
       elif item["type"] == "cycle":
         if starting_pos is None:
@@ -416,7 +419,7 @@ class PathDrawer(Drawer):
                 continue
               x1, y1 = cliped_pos
 
-            env["bounding box"][segment_id] = BoundingBox.from_rect(
+            bounding_boxes[segment_id] = BoundingBox.from_rect(
                 x0, y0, x1, y1, shape="line", obj=obj)
 
             x0p, y0p = cs.map_point(x0, y0)
@@ -535,7 +538,7 @@ class PathDrawer(Drawer):
                   new_pos = None
                 continue
 
-            env["bounding box"][segment_id] = BoundingBox(
+            bounding_boxes[segment_id] = BoundingBox(
                 0, 0, 0, 0, shape="curve", points=curve, obj=obj)
             screen_curve = [cs.map_point(x, y) for x, y in curve]
 
@@ -612,7 +615,7 @@ class PathDrawer(Drawer):
           x0, x1 = min(x0, x1), max(x0, x1)
           y0, y1 = min(y0, y1), max(y0, y1)
 
-          env["bounding box"][segment_id] = BoundingBox.from_rect(
+          bounding_boxes[segment_id] = BoundingBox.from_rect(
               x0, y0, x1, y1, shape="rectangle", obj=obj)
 
           x0p, y0p = cs.map_point(x0, y0)
