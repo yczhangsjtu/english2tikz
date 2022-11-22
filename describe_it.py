@@ -467,3 +467,35 @@ class DescribeIt(object):
       else:
         raise Exception("This branch should not be reached at all, "
                         "unless something is wrong")
+
+  def shift_object_anchor(self, id_, direction):
+    obj = self.find_object_by_id(id_)
+    if obj is None:
+      return
+
+    obj["anchor"] = shift_anchor(get_default(obj, "anchor", "center"),
+                                 flipped(direction))
+
+  def shift_object_at_anchor(self, id_, direction):
+    obj = self.find_object_by_id(id_)
+    if obj is None:
+      return False
+
+    if get_default_of_type(obj, "at", str):
+      obj["at.anchor"] = shift_anchor(
+          get_default(obj, "at.anchor", "center"),
+          direction)
+    elif "at" in obj and is_type(obj["at"], "intersection"):
+      if direction == "left" or direction == "right":
+        obj["at"]["anchor1"] = shift_anchor(
+            get_default(obj["at"], "anchor1", "center"),
+            direction)
+      elif direction == "up" or direction == "down":
+        obj["at"]["anchor2"] = shift_anchor(
+            get_default(obj["at"], "anchor2", "center"),
+            direction)
+      else:
+        raise Exception(f"Unknown direction {direction}")
+    else:
+      return False
+    return True

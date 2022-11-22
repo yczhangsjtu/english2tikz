@@ -565,47 +565,15 @@ class Editor(object):
   def _get_selected_objects(self):
     return self._selection.get_selected_objects()
 
-  def _shift_object_at_anchor(self, id_, direction):
-    obj = self._context.find_object_by_id(id_)
-    if obj is None:
-      return
-
-    if get_default_of_type(obj, "at", str):
-      obj["at.anchor"] = shift_anchor(
-          get_default(obj, "at.anchor", "center"),
-          direction)
-    elif "at" in obj and is_type(obj["at"], "intersection"):
-      if direction == "left" or direction == "right":
-        obj["at"]["anchor1"] = shift_anchor(
-            get_default(obj["at"], "anchor1", "center"),
-            direction)
-      elif direction == "up" or direction == "down":
-        obj["at"]["anchor2"] = shift_anchor(
-            get_default(obj["at"], "anchor2", "center"),
-            direction)
-      else:
-        raise Exception(f"Unknown direction {direction}")
-    else:
-      self._error_msg = f"Object {id_} is not anchored to another object, " \
-          "nor at intersection"
-      return
-
-  def _shift_object_anchor(self, id_, direction):
-    obj = self._context.find_object_by_id(id_)
-    if obj is None:
-      return
-
-    obj["anchor"] = shift_anchor(
-        get_default(obj, "anchor", "center"),
-        flipped(direction))
-
   def _shift_selected_object_at_anchor(self, direction):
     for id_ in self._selection.ids():
-      self._shift_object_at_anchor(id_, direction)
+      if not self._context.shift_object_at_anchor(id_, direction):
+        self._error_msg = f"Object {id_} is not anchored to another object, " \
+          "nor at intersection"
 
   def _shift_selected_object_anchor(self, direction):
     for id_ in self._selection.ids():
-      self._shift_object_anchor(id_, direction)
+      self._context.shift_object_anchor(id_, direction)
 
   def _jump_to_next_selected(self, by):
     if self._selection.jump_to_next_selected(by):
