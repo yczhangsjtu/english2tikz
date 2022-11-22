@@ -336,7 +336,7 @@ class PathDrawer(Drawer):
       segment_id = f"segment_{id(obj)}_{index}"
       new_pos = None
       new_pos_clip = None
-      if item["type"] == "nodename":
+      if is_type(item, "nodename"):
         name = item["name"]
         anchor = get_default(item, "anchor")
         xshift = dist_to_num(get_default(item, "xshift", 0))
@@ -352,11 +352,11 @@ class PathDrawer(Drawer):
           xshift, yshift = 0, 0
         x, y = bounding_boxes[name].get_anchor_pos(anchor)
         new_pos = (x + xshift, y + yshift)
-      elif item["type"] == "point":
+      elif is_type(item, "point"):
         id_ = item["id"]
         x, y = current_pos
         bounding_boxes[id_] = BoundingBox(x, y, 0, 0)
-      elif item["type"] == "coordinate":
+      elif is_type(item, "coordinate"):
         if "relative" in item and item["relative"]:
           if current_pos is None:
             raise Exception("Current position is None")
@@ -364,22 +364,22 @@ class PathDrawer(Drawer):
           new_pos = (x + dist_to_num(item["x"]), y + dist_to_num(item["y"]))
         else:
           new_pos = (dist_to_num(item["x"]), dist_to_num(item["y"]))
-      elif item["type"] == "intersection":
+      elif is_type(item, "intersection"):
         name1, name2 = item["name1"], item["name2"]
         anchor1 = get_default(item, "anchor1", "center")
         anchor2 = get_default(item, "anchor2", "center")
         x, _ = bounding_boxes[name1].get_anchor_pos(anchor1)
         _, y = bounding_boxes[name2].get_anchor_pos(anchor2)
         new_pos = (x, y)
-      elif item["type"] == "cycle":
+      elif is_type(item, "cycle"):
         if starting_pos is None:
           raise Exception("Starting position not set yet")
         new_pos = starting_pos
-      elif item["type"] == "line":
+      elif is_type(item, "line"):
         if to_draw is not None:
           raise Exception(f"Expected position, got line")
         to_draw = item
-      elif item["type"] == "rectangle":
+      elif is_type(item, "rectangle"):
         if to_draw is not None:
           raise Exception(f"Expected position, got rectangle")
         to_draw = item
