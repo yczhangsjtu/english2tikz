@@ -7,6 +7,7 @@ from english2tikz.object_handlers import SupportMultipleHandler
 from english2tikz.object_renderers import SupportMultipleRenderer
 from english2tikz.preprocessor import *
 from english2tikz.utils import *
+from english2tikz.errors import *
 
 
 class DescribeIt(object):
@@ -38,7 +39,7 @@ class DescribeIt(object):
       of the handler for the last command
       """
       if self._last_handler is None:
-        raise Exception("Cannot start with text")
+        raise UserInputError("Cannot start with text")
       if is_long_str(command_or_text):
         text = command_or_text[3:-3]
       else:
@@ -65,20 +66,20 @@ class DescribeIt(object):
         self._last_is_command = True
         self._last_command_or_text = command
         return
-    raise Exception(f"Unsupported command: {command}")
+    raise UserInputError(f"Unsupported command: {command}")
 
   def _render(self, obj):
     for renderer in reversed(self._renderers):
       if renderer.match(obj):
         return renderer.render(obj)
-    raise Exception(f"Unknown object: {obj}")
+    raise ConfigurationError(f"Unknown object: {obj}")
 
   def render(self):
     paths = []
     for obj in self._picture:
       rendered = self._render(obj)
       if rendered is None:
-        raise Exception(
+        raise ConfigurationError(
             f"Object not supported by any render: {json.dumps(obj)}")
       paths.append(rendered)
     ret = r"""\begin{tikzpicture}
@@ -120,7 +121,7 @@ class DescribeIt(object):
           self.process(text)
           continue
         else:
-          raise Exception(f"Unended quote: {code}")
+          raise UserInputError(f"Unended quote: {code}")
       if code.startswith("'") or code.startswith('"'):
         escaped, text = False, None
         for i in range(1, len(code)):
@@ -138,11 +139,11 @@ class DescribeIt(object):
           self.process(text)
           continue
         else:
-          raise Exception(f"Unended quote: {code}")
+          raise UserInputError(f"Unended quote: {code}")
       if code.startswith("python{{{"):
         end = code.find("python}}}")
         if end < 0:
-          raise Exception(f"Unended python code: {code}")
+          raise UserInputError(f"Unended python code: {code}")
         python_code = code[9:end]
         code = code[end+9:].strip()
         variables = {}
@@ -344,10 +345,10 @@ class DescribeIt(object):
     pos = get_first_absolute_coordinate(data)
     if pos is None:
       if check_all_relative_pos:
-        raise Exception("All copied objects have relative positions")
+        raise PictureError("All copied objects have relative positions")
       if bounding_boxes is None:
-        raise Exception("Must provide the bounding boxes "
-                        "if not check relative positions")
+        raise ValueError("Must provide the bounding boxes "
+                         "if not check relative positions")
       pos = get_top_left_corner(data, bounding_boxes)
     x0, y0 = pos
     dx, dy = atx - x0, aty - y0
@@ -398,8 +399,8 @@ class DescribeIt(object):
                 old_to_new_id_dict[id_] = new_id
                 annotate["id"] = new_id
       else:
-        raise Exception(f"Find an object that is neither object with id, "
-                        f"nor path: {obj}")
+        raise PictureError(f"Find an object that is neither object with id, "
+                           f"nor path: {obj}")
       self._picture.append(obj)
 
     for item, key in to_replace:
@@ -412,8 +413,8 @@ class DescribeIt(object):
       if old_id in old_to_new_id_dict:
         item[key] = old_to_new_id_dict[old_id]
       elif check_all_relative_pos:
-        raise Exception(f"Object {item} refers to "
-                        f"an id {old_id} that is not copied")
+        raise PictureError(f"Object {item} refers to "
+                           f"an id {old_id} that is not copied")
       elif is_type(item, "nodename"):
         """
         We get a nodename item in a path that refers to an id
@@ -421,8 +422,8 @@ class DescribeIt(object):
         absolute position.
         """
         if bounding_boxes is None:
-          raise Exception("Must provide the bounding boxes "
-                          "if not check relative positions")
+          raise ValueError("Must provide the bounding boxes "
+                           "if not check relative positions")
         bb = bounding_boxes[old_id]
         anchor = get_default(item, "anchor", "center")
         x, y = bb.get_anchor_pos(anchor)
@@ -436,8 +437,8 @@ class DescribeIt(object):
         item["y"] = num_to_dist(y + dy)
       elif is_type(item, "intersection"):
         if bounding_boxes is None:
-          raise Exception("Must provide the bounding boxes "
-                          "if not check relative positions")
+          raise ValueError("Must provide the bounding boxes "
+                           "if not check relative positions")
         bb = bounding_boxes[old_id]
         """
         key is "name1" or "name2", and the key for anchor is respectively
@@ -458,16 +459,16 @@ class DescribeIt(object):
         Same as before: replace the relative position with absolute coordinate.
         """
         if bounding_boxes is None:
-          raise Exception("Must provide the bounding boxes "
-                          "if not check relative positions")
+          raise ValueError("Must provide the bounding boxes "
+                           "if not check relative positions")
         bb = bounding_boxes[old_id]
         anchor = get_default(item, "at.anchor", "center")
         x, y = bb.get_anchor_pos(anchor)
         item["at"] = create_coordinate(x + dx, y + dy)
         del_if_has(item, "at.anchor")
       else:
-        raise Exception("This branch should not be reached at all, "
-                        "unless something is wrong")
+        raise ConfigurationError("This branch should not be reached at all, "
+                                 "unless something is wrong")
 
   def shift_object_anchor(self, id_, direction):
     obj = self.find_object_by_id(id_)
@@ -496,7 +497,7 @@ class DescribeIt(object):
             get_default(obj["at"], "anchor2", "center"),
             direction)
       else:
-        raise Exception(f"Unknown direction {direction}")
+        raise ValueError(f"Unknown direction {direction}")
     else:
       return False
     return True

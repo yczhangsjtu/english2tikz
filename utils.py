@@ -1,6 +1,7 @@
 import math
 import re
 from datetime import datetime
+from english2tikz.errors import *
 
 
 mutually_exclusive = [
@@ -8,21 +9,21 @@ mutually_exclusive = [
         "above", "below", "left", "right",
         "below.left", "below.right",
         "above.left", "above.right",
-        ]),
+    ]),
     set([
         "midway", "pos",
         "near.end", "near.start",
         "very.near.end", "very.near.start",
         "at.end", "at.start"
-        ]),
+    ]),
     set([
         "stealth", "arrow",
         "reversed.stealth", "reversed.arrow",
         "double.stealth", "double.arrow",
-        ]),
+    ]),
     set([
         "circle", "ellipse",
-        ]),
+    ]),
 ]
 
 
@@ -153,7 +154,7 @@ def unindent(code):
   for i, line in enumerate(lines):
     if line.strip() != "":
       if len(line) < indent_size or line[:indent_size] != " " * indent_size:
-        raise Exception(
+        raise UserInputError(
             f"code does not have sufficient indentation on line {i}:\n{code}")
       lines[i] = lines[i][indent_size:]
   return "\n".join(lines)
@@ -293,7 +294,8 @@ def smart_key_value(key, value):
   if key == "at" and value in short_anchor_dict:
     return [("at.anchor", short_anchor_dict[value])]
   if key == "at":
-    raise Exception("Does not support setting node position (except anchor)")
+    raise UserInputError("Does not support setting node "
+                         "position (except anchor)")
   if key == "rc":
     key = "rounded.corners"
   if value == "False" or value == "None":
@@ -376,7 +378,7 @@ class BoundingBox(object):
       return self.radius() * 2
     if self._shape == "ellipse":
       return max(*self.radius()) * 2
-    raise Exception(f"Cannot compute diameter of shape {self._shape}")
+    raise ValueError(f"Cannot compute diameter of shape {self._shape}")
 
   def _get_anchor_pos(bb, anchor):
     x, y, w, h = bb
@@ -399,7 +401,7 @@ class BoundingBox(object):
     elif anchor == "south.west":
       return x, y
     else:
-      raise Exception(f"Unsupported anchor: {anchor}")
+      raise ValueError(f"Unsupported anchor: {anchor}")
 
   def get_anchor_pos(self, anchor):
     assert self._shape in ["rectangle", "circle", "ellipse"]
@@ -417,7 +419,7 @@ class BoundingBox(object):
       return self._width / 2
     if self._shape == "ellipse":
       return self._width / 2, self._height / 2
-    raise Exception("Cannot compute radius of non-oval")
+    raise ValueError("Cannot compute radius of non-oval")
 
   def rotate(self, x, y):
     return rotate(x, y, self._centerx, self._centery, -self._angle)
@@ -444,7 +446,7 @@ class BoundingBox(object):
               (self._x + self._width, self._y + self._height)]
     if self._shape == "curve":
       return self._points
-    raise Exception(f"Shape {self._shape} does not have vertices")
+    raise ValueError(f"Shape {self._shape} does not have vertices")
 
   def rotated_vertices(self):
     points = self.vertices()
@@ -544,8 +546,8 @@ class BoundingBox(object):
           return True
       return False
 
-    raise Exception("Cannot compute intersection between "
-                    f"shape {self._shape} and rect")
+    raise ValueError("Cannot compute intersection between "
+                     f"shape {self._shape} and rect")
 
   def get_point_at_direction(self, x1, y1):
     x0, y0 = self.rotated_geometry_center()
@@ -572,7 +574,7 @@ class BoundingBox(object):
       sy1p = (y1p - y0p) / distance * b + y0p
       return self.rotate(sx1p, sy1p)
 
-    raise Exception(f"Cannot compute direction from a shape: {self._shape}")
+    raise ValueError(f"Cannot compute direction from a shape: {self._shape}")
 
   def clip_curve(self, curve):
     for i in range(len(curve)):
@@ -688,7 +690,7 @@ def color_to_tk(color):
     if s < 1:
       cleaned_dict["white"] = 1-s
     elif s > 1:
-      raise Exception(f"Got s > 1 for color {color}")
+      raise ValueError(f"Got s > 1 for color {color}")
     r0, g0, b0 = 0, 0, 0
     for key, weight in cleaned_dict.items():
       r, g, b = color_name_to_rgb(key)
@@ -721,7 +723,7 @@ def color_name_to_rgb(name):
     return 255, 0, 255
   if name == "orange":
     return 255, 165, 0
-  raise Exception(f"Unrecognized color {name}")
+  raise ValueError(f"Unrecognized color {name}")
 
 
 def flipped(direction):
@@ -745,7 +747,7 @@ def flipped(direction):
     return "below.right"
   if direction == "above.right":
     return "below.left"
-  raise Exception(f"Unrecognized direction {direction}")
+  raise ValueError(f"Unrecognized direction {direction}")
 
 
 def shift_anchor(anchor, direction):
@@ -950,7 +952,7 @@ def create_path(items, arrow=None):
     elif arrow in arrow_symbols:
       ret[arrow_symbols[arrow]] = True
     else:
-      raise Exception(f"Invalid arrow type: {arrow}")
+      raise ValueError(f"Invalid arrow type: {arrow}")
   return ret
 
 
@@ -1012,7 +1014,7 @@ def get_first_absolute_coordinate(data):
     at = get_default(obj, "at")
     if is_type(at, "coordinate"):
       if get_default(at, "relative", False):
-        raise Exception("An object cannot have relative coordinate")
+        raise ValueError("An object cannot have relative coordinate")
       return dist_to_num(get_default(at, "x", 0), get_default(at, "y", 0))
     if "id" in obj and at is None:
       return 0, 0
@@ -1102,7 +1104,7 @@ def previous_line(items, position):
 def next_line(items, position):
   for pos in range(position, len(items)):
     if (is_type(items[pos], "line") or is_type(items[pos], "rectangle") or
-        is_type(items[pos], "arc")):
+            is_type(items[pos], "arc")):
       return items[pos]
   return None
 

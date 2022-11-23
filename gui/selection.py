@@ -1,4 +1,5 @@
 from english2tikz.utils import *
+from english2tikz.errors import *
 
 
 class Selection(object):
@@ -164,7 +165,7 @@ class Selection(object):
 
   def selected_path(self, path):
     return path in self._selected_paths
-  
+
   def update(self, mode, *items):
     if mode == "clear":
       self.select(*items)
@@ -177,7 +178,7 @@ class Selection(object):
     elif mode == "merge":
       self.include(*items)
     else:
-      raise Exception(f"Unknown mode {mode}")
+      raise ValueError(f"Unknown mode {mode}")
 
   def select(self, *items):
     self.clear()
@@ -195,7 +196,7 @@ class Selection(object):
         self._selected_paths = toggle_element(self._selected_paths, item)
         self._selected_path_position = None
       else:
-        raise Exception(f"Invalid item {item}")
+        raise ValueError(f"Invalid item {item}")
 
   def include(self, *items):
     for item in items:
@@ -209,7 +210,7 @@ class Selection(object):
         append_if_not_in(self._selected_paths, item)
         self._selected_path_position = None
       else:
-        raise Exception(f"Invalid item {item}")
+        raise ValueError(f"Invalid item {item}")
 
   def exclude(self, *items):
     for item in items:
@@ -223,7 +224,7 @@ class Selection(object):
         self._selected_paths = remove_if_in(self._selected_paths, item)
         self._selected_path_position = None
       else:
-        raise Exception(f"Invalid item {item}")
+        raise ValueError(f"Invalid item {item}")
 
   def intersect(self, *items):
     items = [item for item in items if self.selected(item)]
@@ -236,7 +237,7 @@ class Selection(object):
       elif is_type(item, "path"):
         self._selected_paths.append(item)
       else:
-        raise Exception(f"Invalid item {item}")
+        raise ValueError(f"Invalid item {item}")
 
   def get_selected_id_objects(self):
     return [self._context.find_object_by_id(id_) for id_ in self.ids()]
@@ -281,7 +282,7 @@ class Selection(object):
 
     for key, value in kwargs.items():
       if len(key) == 0:
-        raise Exception("Does not support empty search key")
+        raise ErrorMessage("Does not support empty search key")
       if value is True:
         filters.append((None, key))
       elif len(value) == 0:
@@ -294,7 +295,7 @@ class Selection(object):
         filters.append((key, value))
 
     if len(filters) == 0:
-      raise Exception("No filter given")
+      raise ErrorMessage("No filter given")
 
     for obj in self._context._picture:
       if satisfy_filters(obj, filters):

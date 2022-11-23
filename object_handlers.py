@@ -1,12 +1,13 @@
 import re
+from english2tikz.errors import *
 
 
 class ObjectHandler(object):
   def match(self, obj_name):
-    raise Exception("'match' cannot be invoked directly")
+    raise ConfigurationError("'match' cannot be invoked directly")
 
   def __call__(self, obj_name):
-    raise Exception("'__call__' cannot be invoked directly")
+    raise ConfigurationError("'__call__' cannot be invoked directly")
 
 
 class SupportMultipleHandler(object):

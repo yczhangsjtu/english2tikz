@@ -1,5 +1,6 @@
 import traceback
 from english2tikz.utils import *
+from english2tikz.errors import *
 from english2tikz.gui.drawers import *
 
 
@@ -145,21 +146,21 @@ class CanvasManager(object):
         "image references": self._image_references,
         "finding": self._editor._finding,
     }
-    for obj in ctx._picture:
-      self._draw_obj(c, obj, env)
+    try:
+      for obj in ctx._picture:
+        self._draw_obj(c, obj, env)
+    except Exception as e:
+      traceback.print_exc()
+      self._editor._error_msg = f"Error in drawing {obj}: {e}"
     self._bounding_boxes = env["bounding box"]
 
   def _draw_obj(self, c, obj, env):
     for drawer in self._drawers:
       if not drawer.match(obj):
         continue
-      try:
-        drawer.draw(c, obj, env)
-      except Exception as e:
-        traceback.print_exc()
-        self._editor._error_msg = f"Error in drawing {obj}: {e}"
+      drawer.draw(c, obj, env)
       return
-    raise Exception(f"Cannot find drawer for obj {obj}")
+    raise ConfigurationError(f"Cannot find drawer for obj {obj}")
 
   def _draw_visual(self, c):
     if not self._visual().active():

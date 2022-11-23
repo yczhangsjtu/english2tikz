@@ -4,6 +4,7 @@ import copy
 from PIL import Image
 from PIL import ImageTk
 from english2tikz.utils import *
+from english2tikz.errors import *
 from english2tikz.latex import text_to_latex_image_path
 from english2tikz.gui.object_utils import *
 from english2tikz.gui.image_utils import *
@@ -43,10 +44,12 @@ def create_text(canvas, x, y, obj, scale, cs_scale,
 
 class Drawer(object):
   def match(self, obj):
-    raise Exception("Cannot invoke match method from base class Drawer")
+    raise ConfigurationError(
+        "Cannot invoke match method from base class Drawer")
 
   def draw(self, canvas, obj, env):
-    raise Exception("Cannot invoke draw method from base class Drawer")
+    raise ConfigurationError(
+        "Cannot invoke draw method from base class Drawer")
 
 
 class BoxDrawer(Drawer):
@@ -370,7 +373,7 @@ class PathDrawer(Drawer):
         dy = dist_to_num(get_default(item, "y", 0))
         if get_default(item, "relative", False):
           if current_pos is None:
-            raise Exception("Current position is None")
+            raise ValueError("Current position is None")
           x, y = current_pos
           new_pos = (x + dx, y + dy)
         else:
@@ -403,7 +406,7 @@ class PathDrawer(Drawer):
         dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
         new_pos = (x0+(dx2-dx1)*radius, y0+(dy2-dy1)*radius)
       else:
-        raise Exception(f"Unsupported path item type {item['type']}")
+        raise ValueError(f"Unsupported path item type {item['type']}")
 
       if new_pos is not None and to_draw is not None:
         assert current_pos is not None, "No starting position for line"
@@ -669,5 +672,5 @@ class PathDrawer(Drawer):
 
           BoxDrawer._draw(canvas, annotate, env, position=(x, y), slope=angle)
     else:
-      raise Exception(f"Unknown type {item['type']}")
+      raise ValueError(f"Unknown type {item['type']}")
     return ret

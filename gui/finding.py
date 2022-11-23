@@ -1,5 +1,6 @@
 import string
 from english2tikz.utils import *
+from english2tikz.errors import *
 
 
 class Finding(object):
@@ -9,7 +10,7 @@ class Finding(object):
     self._candidates = {}
 
     if len(candidates) == 0:
-      raise Exception("No object on screen")
+      raise ErrorMessage("No object on screen")
     elif len(candidates) <= 26:
       for i in range(0, len(candidates)):
         c = chr(ord('A') + i)
@@ -25,7 +26,7 @@ class Finding(object):
             chr(ord('A') + i % 26)
         self._candidates[c] = candidates[i]
     else:
-      raise Exception("Too many objects on screen")
+      raise ErrorMessage("Too many objects on screen")
 
   def is_toggle(self):
     return self._toggle
@@ -36,7 +37,7 @@ class Finding(object):
     self._prefix += char.upper()
     current_candidates = self._current_candidates()
     if len(current_candidates) == 0:
-      raise Exception(f"Cannot find object with code {self._prefix}")
+      raise ErrorMessage(f"Cannot find object with code {self._prefix}")
     elif len(current_candidates) == 1:
       return current_candidates[0]
     else:

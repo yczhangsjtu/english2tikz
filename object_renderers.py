@@ -1,9 +1,12 @@
+from english2tikz.errors import *
+
+
 class ObjectRenderer(object):
   def match(self, obj):
-    raise Exception("'match' cannot be invoked directly")
+    raise ConfigurationError("'match' cannot be invoked directly")
 
   def render(self, context, obj):
-    raise Exception("'render' cannot be invoked directly")
+    raise ConfigurationError("'render' cannot be invoked directly")
 
 
 class SupportMultipleRenderer(object):

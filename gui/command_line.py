@@ -17,7 +17,7 @@ class CommandLine(object):
     try:
       with open(self._path) as f:
         history = f.read()
-    except Exception:
+    except IOError:
       return []
     return history.split("\n")
 

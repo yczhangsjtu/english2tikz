@@ -1,13 +1,14 @@
-from .utils import colors, dump_options
-from .latex import escape_for_latex
+from english2tikz.utils import colors, dump_options
+from english2tikz.latex import escape_for_latex
+from english2tikz.errors import *
 
 
 class Renderer(object):
   def match(self, obj):
-    raise Exception("'match' cannot be invoked directly")
+    raise ConfigurationError("'match' cannot be invoked directly")
 
   def render(self, obj):
-    raise Exception("'render' cannot be invoked directly")
+    raise ConfigurationError("'render' cannot be invoked directly")
 
 
 class BoxRenderer(Renderer):
@@ -61,7 +62,7 @@ class BoxRenderer(Renderer):
           elif CoordinateRenderer().match(obj["at"]):
             at = "{{{}}}".format(CoordinateRenderer().render(obj["at"]))
           else:
-            raise Exception(f"Unsupported node location: {obj['at']}")
+            raise ValueError(f"Unsupported node location: {obj['at']}")
         else:
           at = f"({obj['at']})"
         ret["at"] = at

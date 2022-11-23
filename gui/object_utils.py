@@ -58,7 +58,7 @@ def get_original_pos(obj, bounding_boxes, position=None):
         get_default(at, "anchor2", "center"))
     return x, y
   else:
-    raise Exception(f"Unsupported at {at}")
+    raise ValueError(f"Unsupported at {at}")
 
 
 def get_rounded_corners(obj, default):

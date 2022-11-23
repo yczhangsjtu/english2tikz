@@ -3,17 +3,18 @@ import copy
 from english2tikz.object_handlers import *
 from english2tikz.object_renderers import *
 from english2tikz.utils import *
+from english2tikz.errors import *
 
 
 class Handler(object):
   def match(self, command):
-    raise Exception("'match' cannot be invoked directly")
+    raise ConfigurationError("'match' cannot be invoked directly")
 
   def __call__(self, context, command):
-    raise Exception("'__call__' cannot be invoked directly")
+    raise ConfigurationError("'__call__' cannot be invoked directly")
 
   def process_text(self, context, text):
-    raise Exception(
+    raise ConfigurationError(
         f"The handler {self.__class__} does not support handling text")
 
   def on_finished(self, context):
@@ -30,7 +31,7 @@ class GlobalHandler(Handler):
       context._scale = m.group(1)
       return
 
-    raise Exception(f"Unsupported command: {command}")
+    raise UserInputError(f"Unsupported command: {command}")
 
 
 class DefineCommandHandler(Handler):
@@ -124,7 +125,7 @@ class ThereIsHandler(Handler):
           context._state["the_" + m["type"]] = obj
         context._state["filter_mode"] = False
         return
-    raise Exception(f"No renderer found for the object {m}")
+    raise ConfigurationError(f"No renderer found for the object {m}")
 
   def register_object_handler(self, handler):
     assert isinstance(handler, ObjectHandler)
@@ -193,7 +194,7 @@ class ThereAreHandler(Handler):
           context._state["filter_mode"] = False
           break
       if not rendered:
-        raise Exception(f"No renderer found for the object {m}")
+        raise ConfigurationError(f"No renderer found for the object {m}")
     for key in type_maps:
       context._state[key] = type_maps[key]
 
@@ -305,7 +306,7 @@ class SpacedByHandler(Handler):
         targets[2]["xshift"] = distance1
         targets[2]["yshift"] = f"-{distance2}"
     else:
-      raise Exception("No arranged objects")
+      raise UserInputError("No arranged objects")
 
 
 class ChainedByArrowsHandler(Handler):
@@ -547,11 +548,11 @@ class ShiftedTwoHandler(Handler):
     target = context._state["refered_to"]
     if isinstance(target, list):
       if len(target) != 2:
-        raise Exception(f"Expected two objects, got {len(target)}")
+        raise UserInputError(f"Expected two objects, got {len(target)}")
       self._handle(target[0], direction1, distance1)
       self._handle(target[1], direction2, distance2)
     else:
-      raise Exception("Refered objects is not list")
+      raise UserInputError("Refered objects is not list")
 
   def _handle(self, target, direction, distance):
     if direction == "left":
@@ -819,7 +820,7 @@ class DirectionOfHandler(Handler):
             for annotate in subitem["annotates"]:
               if "name" in annotate and annotate["name"] == name:
                 return annotate
-    raise Exception(f"Cannot find object with name {name}")
+    raise PictureError(f"Cannot find object with name {name}")
 
 
 class NoSlopeHandler(Handler):
@@ -1934,7 +1935,7 @@ class RepeatedHandler(TextOperationHandler):
         for handler in reversed(context._handlers):
           if handler.match(context._last_command):
             if isinstance(handler, TextOperationHandler):
-              raise Exception("Cannot repeat a text operation handler")
+              raise UserInputError("Cannot repeat a text operation handler")
             """
             Remember this last handler, because if this repeated handler is
             followed by text, then the text will be fed into this last handler
@@ -1950,7 +1951,7 @@ class RepeatedHandler(TextOperationHandler):
       for i in range(count - 1):
         handler.process_text(context, context._last_text)
     else:
-      raise Exception("Neither _last_is_command or _last_is_text is set")
+      raise UserInputError("Neither _last_is_command or _last_is_text is set")
 
   def process_text(self, context, text):
     context._state["handler_to_repeat"].process_text(context, text)
@@ -2208,13 +2209,13 @@ class RangeHandler(TextOperationHandler):
     for r in ranges:
       if isinstance(r, list):
         if len(r) < 2:
-          raise Exception(f"The range size is smaller than 2: {r}")
+          raise UserInputError(f"The range size is smaller than 2: {r}")
         if repeated > 1:
           assert len(r) == repeated
         else:
           repeated = len(r)
     if repeated == 1:
-      raise Exception(f"No range found in text: {original_text}")
+      raise UserInputError(f"No range found in text: {original_text}")
     return [''.join([r if isinstance(r, str) else str(r[i]) for r in ranges])
             for i in range(repeated)]
 
@@ -2228,7 +2229,7 @@ class DefineMacroHandler(Handler):
 
   def process_text(self, context, text):
     if not context._state["macro.define"]:
-      raise Exception("end.macro cannot be followed by text")
+      raise UserInputError("end.macro cannot be followed by text")
 
 
 class RunMacroHandler(Handler):
@@ -2243,7 +2244,7 @@ class RunMacroHandler(Handler):
     assert m is not None
     macro_name = m.group(1)
     if macro_name not in context._macro_preprocessor._defined_macros:
-      raise Exception(f"No macro named {macro_name}")
+      raise UserInputError(f"No macro named {macro_name}")
 
     macro = context._macro_preprocessor._defined_macros[macro_name]
     context._state["macro_to_run"] = [(t, item) for t, item in macro]
@@ -2256,7 +2257,7 @@ class RunMacroHandler(Handler):
     """
     index = text.find(" => ")
     if index < 0:
-      raise Exception("Texts passed to run.macro must contain '=>'")
+      raise UserInputError("Texts passed to run.macro must contain '=>'")
     to_be_replaced = text[:index]
     repl = text[index + len(' => '):]
     """
@@ -2303,7 +2304,7 @@ class RunMacroHandler(Handler):
     for t, item in macro:
       if t == "TXT":
         if context._last_handler is None:
-          raise Exception("Macro cannot start with text")
+          raise UserInputError("Macro cannot start with text")
         text = item
         for preprocessor in context._preprocessors:
           text = preprocessor.preprocess_text(text)
@@ -2341,7 +2342,7 @@ class RunMacroHandler(Handler):
           context._last_command_or_text = command
           break
       if not matched:
-        raise Exception(f"Unsupported command: {command}")
+        raise UserInputError(f"Unsupported command: {command}")
 
     if context._last_handler is not None:
       context._last_handler.on_finished(context)
@@ -2404,7 +2405,7 @@ class AddRowHandler(Handler):
     align = align if align is not None else "center"
     key = f"dynamic.grid.{id_}"
     if key not in context._state:
-      raise Exception(f"Dynamic grid {id_} is not created yet")
+      raise UserInputError(f"Dynamic grid {id_} is not created yet")
     grid = context._state[key]
     nrows = len(grid["row.aligns"])
     ncols = len(grid["col.aligns"])
@@ -2499,7 +2500,7 @@ class AddColHandler(Handler):
     align = align if align is not None else "center"
     key = f"dynamic.grid.{id_}"
     if key not in context._state:
-      raise Exception(f"Dynamic grid {id_} is not created yet")
+      raise UserInputError(f"Dynamic grid {id_} is not created yet")
     grid = context._state[key]
     nrows = len(grid["row.aligns"])
     ncols = len(grid["col.aligns"])
@@ -2612,7 +2613,7 @@ class AddLayerHandler(Handler):
 
   def __call__(self, context, command):
     if "layered_graph" not in context._state:
-      raise Exception("There is no dynamic layered graph yet")
+      raise UserInputError("There is no dynamic layered graph yet")
     context._state["layer"] = []
     context._state["layered_graph"].append(context._state["layer"])
     context._state["refered_to"] = []

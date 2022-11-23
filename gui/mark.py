@@ -1,5 +1,6 @@
 import copy
 from english2tikz.utils import *
+from english2tikz.errors import *
 
 
 class MarkManager(object):
@@ -42,7 +43,7 @@ class MarkManager(object):
       return buffer[i]
 
     if i < 0:
-      raise Exception(f"Trying to get mark of number {i}")
+      raise IndexError(f"Trying to get mark of number {i}")
 
     mark = self._marks[i]
 
@@ -102,19 +103,19 @@ class MarkManager(object):
       buffer[i] = self._get_pos(0, buffer)
       return buffer[i]
     else:
-      raise Exception(f"Unknown mark type {mark['type']}")
+      raise ValueError(f"Unknown mark type {mark['type']}")
 
   def get_pos(self, i, bounding_boxes):
     return self._get_pos(i, bounding_boxes, buffer={})
 
   def get_last_pos(self, bounding_boxes):
     if self.empty():
-      raise Exception("Empty marks")
+      raise IndexError("Empty marks")
     return self._get_pos(len(self._marks)-1, bounding_boxes)
 
   def create_path(self, arrow):
     if self.size() < 2:
-      raise Exception(f"Expect at least two marks")
+      raise ErrorMessage(f"Expect at least two marks")
     items = []
     for i, mark in enumerate(self._marks):
       items.append(mark)
@@ -124,7 +125,7 @@ class MarkManager(object):
 
   def create_rectangle(self):
     if self.size() != 2:
-      raise Exception(f"Expect exactly two marks")
+      raise ErrorMessage(f"Expect exactly two marks")
     return create_path([
         self._marks[0],
         create_rectangle(),
@@ -133,5 +134,5 @@ class MarkManager(object):
 
   def delete(self, index):
     if index < 0 or index >= self.size():
-      raise Exception(f"Index out of bound {index}/{self.size()}")
+      raise IndexError(f"Index out of bound {index}/{self.size()}")
     del self._marks[index]

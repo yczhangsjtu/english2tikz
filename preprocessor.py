@@ -1,4 +1,5 @@
 import re
+from english2tikz.errors import *
 
 
 class Preprocessor(object):
@@ -71,7 +72,7 @@ class CustomCommandPreprocessor(Preprocessor):
           last = stack[-1]._content
           stack.pop()
           if len(stack) == 0:
-            raise Exception("Extra }")
+            raise UserInputError("Extra }")
           if isinstance(stack[-1], Command):
             stack[-1].append(last)
           else:
@@ -79,10 +80,10 @@ class CustomCommandPreprocessor(Preprocessor):
           mode = "just closed"
         elif label == "End":
           if len(stack) > 1:
-            raise Exception("Unexpected End, expecting '}'")
+            raise UserInputError("Unexpected End, expecting '}'")
           return stack[0]._content
         else:
-          raise Exception(f"Unknown label {label}")
+          raise UserInputError(f"Unknown label {label}")
       elif mode == "expect open":
         if label == "OpenBrace":
           stack.append(Raw())
@@ -118,7 +119,7 @@ class CustomCommandPreprocessor(Preprocessor):
           mode = "normal"
           continue
       else:
-        raise Exception(f"Impossible mode {mode}")
+        raise ValueError(f"Impossible mode {mode}")
 
       label, token, line = CustomCommandPreprocessor.tokenize(line)
 
@@ -190,7 +191,7 @@ class CommentPreprocessor(Preprocessor):
     if self._mode == CommentPreprocessor.ACTIVE_ONCE:
       self._mode = CommentPreprocessor.NORMAL
       return "comment"
-    raise Exception(f"Invalid comment mode {self._mode}")
+    raise ValueError(f"Invalid comment mode {self._mode}")
 
 
 class MacroPreprocessor(Preprocessor):
@@ -207,11 +208,11 @@ class MacroPreprocessor(Preprocessor):
         return "macro.define"
       else:
         if command == "end.macro":
-          raise Exception("Cannot end macro outside macro definition")
+          raise UserInputError("Cannot end macro outside macro definition")
         return command
 
     if command.startswith("define.macro"):
-      raise Exception("Cannot define macro inside macro definition")
+      raise UserInputError("Cannot define macro inside macro definition")
 
     if command == "end.macro":
       self._defined_macros[self._current_macro_defined] = self._commands

@@ -1,5 +1,6 @@
 import re
 from english2tikz.utils import *
+from english2tikz.errors import *
 
 
 def tokenize(code):
@@ -23,7 +24,7 @@ def tokenize(code):
         tokens.append(("text", text[3:-3]))
         continue
       else:
-        raise Exception(f"Unended quote: {code}")
+        raise ErrorMessage(f"Unended quote: {code}")
     if code.startswith("'") or code.startswith('"'):
       escaped, text = False, None
       for i in range(1, len(code)):
@@ -41,11 +42,11 @@ def tokenize(code):
         tokens.append(("text", text[1:-1]))
         continue
       else:
-        raise Exception(f"Unended quote: {code}")
+        raise ErrorMessage(f"Unended quote: {code}")
     if code.startswith("python{{{"):
       end = code.find("python}}}")
       if end < 0:
-        raise Exception(f"Unended python code: {code}")
+        raise ErrorMessage(f"Unended python code: {code}")
       python_code = code[9:end]
       code = code[end+9:].strip()
       tokens.append(("python", code))

@@ -12,6 +12,7 @@ from english2tikz.utils import *
 from english2tikz.describe_it import DescribeIt
 from english2tikz.handlers import WithAttributeHandler, DirectionOfHandler
 from english2tikz.latex import tikzimage
+from english2tikz.errors import *
 from english2tikz.gui.canvas_manager import CanvasManager
 from english2tikz.gui.keyboard import KeyboardManager
 from english2tikz.gui.text_editor import TextEditor
@@ -249,7 +250,13 @@ class Editor(object):
     self._context._picture = self._history[self._history_index]
 
   def handle_key(self, event):
-    self._keyboard_managers[self._get_mode()].handle_key(event)
+    try:
+      self._keyboard_managers[self._get_mode()].handle_key(event)
+    except ErrorMessage as e:
+      self._error_msg = f"Error: {e}"
+    except Exception as e:
+      self._error_msg = f"Error: {e}"
+      traceback.print_exc()
     self._canvas_manager.draw()
 
   def _scroll(self, dx, dy):
@@ -352,7 +359,7 @@ class Editor(object):
       return "preview"
     if self._is_in_normal_mode():
       return "normal"
-    raise Exception("Invalid mode")
+    raise ValueError("Invalid mode")
 
   def _enter_edit_mode_without_visual(self):
     if self._selection.num_ids() > 2:
@@ -402,8 +409,10 @@ class Editor(object):
     self._command_line.exit()
 
   def _execute_command(self):
-    self._process_command(str(self._command_line))
-    self._exit_command_mode()
+    try:
+      self._process_command(str(self._command_line))
+    finally:
+      self._exit_command_mode()
 
   def _fetch_previous_command(self):
     self._command_refreshing_timer_started = False
@@ -504,8 +513,12 @@ class Editor(object):
     try:
       with open("/tmp/command") as f:
         self._command_line.set(f.read())
+    except ErrorMessage as e:
+      self._error_msg = f"Failed to refresh command: {e}"
     except Exception as e:
       self._error_msg = f"Failed to refresh command: {e}"
+      self._command_refreshing_timer_started = False
+      traceback.print_exc()
     self._root.after(100, self._refresh_command)
     self._canvas_manager.draw()
 
@@ -523,18 +536,22 @@ class Editor(object):
       with open("/tmp/editing") as f:
         self._editing_text.set(f.read())
         self._editing_text.move_to_end()
+    except ErrorMessage as e:
+      self._error_msg = f"Failed to refresh editing: {e}"
     except Exception as e:
       self._error_msg = f"Failed to refresh editing: {e}"
+      self._editing_refreshing_timer_started = False
+      traceback.print_exc()
     self._root.after(100, self._refresh_editing)
     self._canvas_manager.draw()
 
   def _finding_narrow_down(self, char):
     try:
       obj = self._finding.narrow_down(char)
-    except Exception as e:
-      self._error_msg = f"Error in finding: {e}"
+    finally:
       self._exit_finding_mode()
       return
+
     if obj is not None:
       if self._finding.is_toggle():
         self._selection.toggle(obj)
@@ -567,10 +584,7 @@ class Editor(object):
     candidate_ids, candidate_paths = self._canvas_manager.find_all_in_screen()
     candidates = candidate_ids + candidate_paths
     candidates_number = len(candidates)
-    try:
-      self._finding = Finding(candidates, toggle)
-    except Exception as e:
-      self._error_msg = f"Error entering finding mode: {e}"
+    self._finding = Finding(candidates, toggle)
 
   def _get_selected_id_objects(self):
     return self._selection.get_selected_id_objects()
@@ -680,7 +694,7 @@ class Editor(object):
     elif direction == "below":
       anchor, at_anchor = "north", "south"
     else:
-      raise Exception(f"Unknown direction: {direction}")
+      raise ValueError(f"Unknown direction: {direction}")
 
     self._ensure_name_is_id(id_)
     self._parse(f"there.is.text '' with.{anchor}.at.{at_anchor}.of.{id_}")
@@ -772,70 +786,66 @@ class Editor(object):
 
   def _process_command(self, cmd):
     self._command_line.append(cmd)
-    try:
-      cmd_name, code = Parser.split_name_args(cmd)
-      if cmd_name == "set":
-        self._set(code)
-      elif cmd_name == "unset" or cmd_name == "un":
-        self._unset(code)
-      elif cmd_name == "fill" or cmd_name == "f":
-        self._set_fill(code)
-      elif cmd_name in anchor_list:
-        self._set(cmd_name)
-      elif cmd_name == "make" or cmd_name == "mk":
-        self._make(code)
-      elif cmd_name == "rect":
-        self._make(f"rect {code}")
-      elif cmd_name == "path":
-        self._make(f"path {code}")
-      elif cmd_name == "cn" or cmd_name == "connect":
-        self._connect(code)
-      elif cmd_name == "grid" or cmd_name == "g":
-        self._set_grid(code)
-      elif cmd_name == "axes" or cmd_name == "a":
-        self._set_axes(code)
-      elif cmd_name == "mark" or cmd_name == "m":
-        self._add_mark(code)
-      elif cmd_name == "attr":
-        self._show_attributes = not self._show_attributes
-      elif cmd_name == "ann" or cmd_name == "annotate":
-        self._annotate(code)
-      elif cmd_name == "ch" or cmd_name == "chain":
-        self._chain(code)
-      elif cmd_name == "search":
-        self._search(code)
-      elif cmd_name == "read":
-        self._read(code)
-      elif cmd_name == "w":
-        self._write(code)
-      elif cmd_name == "sao":
-        self._save_as_object(code)
-      elif cmd_name == "export":
-        self._export(code)
-      elif cmd_name == "ro":
-        self._read_object(code)
-      elif cmd_name == "q":
-        self._canvas_manager._end = True
-        self._root.after(100, self._root.destroy())
-      elif cmd_name == "py":
-        self._execute_python_code()
-      elif cmd_name == "epy":
-        self._edit_python_code()
-      elif cmd_name == "eg":
-        self._execute_describeit_code()
-      elif cmd_name == "eeg":
-        self._edit_describeit_code()
-      elif cmd_name == "view":
-        self._view()
-      else:
-        raise Exception(f"Unkown command: {cmd_name}")
-    except Exception as e:
-      self._error_msg = f"Error in executing command: {e}"
-      # traceback.print_exc()
+    cmd_name, code = Parser.split_name_args(cmd)
+    if cmd_name == "set":
+      self._set(code)
+    elif cmd_name == "unset" or cmd_name == "un":
+      self._unset(code)
+    elif cmd_name == "fill" or cmd_name == "f":
+      self._set_fill(code)
+    elif cmd_name in anchor_list:
+      self._set(cmd_name)
+    elif cmd_name == "make" or cmd_name == "mk":
+      self._make(code)
+    elif cmd_name == "rect":
+      self._make(f"rect {code}")
+    elif cmd_name == "path":
+      self._make(f"path {code}")
+    elif cmd_name == "cn" or cmd_name == "connect":
+      self._connect(code)
+    elif cmd_name == "grid" or cmd_name == "g":
+      self._set_grid(code)
+    elif cmd_name == "axes" or cmd_name == "a":
+      self._set_axes(code)
+    elif cmd_name == "mark" or cmd_name == "m":
+      self._add_mark(code)
+    elif cmd_name == "attr":
+      self._show_attributes = not self._show_attributes
+    elif cmd_name == "ann" or cmd_name == "annotate":
+      self._annotate(code)
+    elif cmd_name == "ch" or cmd_name == "chain":
+      self._chain(code)
+    elif cmd_name == "search":
+      self._search(code)
+    elif cmd_name == "read":
+      self._read(code)
+    elif cmd_name == "w":
+      self._write(code)
+    elif cmd_name == "sao":
+      self._save_as_object(code)
+    elif cmd_name == "export":
+      self._export(code)
+    elif cmd_name == "ro":
+      self._read_object(code)
+    elif cmd_name == "q":
+      self._canvas_manager._end = True
+      self._root.after(100, self._root.destroy())
+    elif cmd_name == "py":
+      self._execute_python_code()
+    elif cmd_name == "epy":
+      self._edit_python_code()
+    elif cmd_name == "eg":
+      self._execute_describeit_code()
+    elif cmd_name == "eeg":
+      self._edit_describeit_code()
+    elif cmd_name == "view":
+      self._view()
+    else:
+      raise ErrorMessage(f"Unkown command: {cmd_name}")
 
   def _set(self, code):
     if self._selection.empty():
-      raise Exception("No object selected")
+      raise ErrorMessage("No object selected")
     parser = Parser()
     parser.require_arg("text", 1)
     parser.require_arg("color", 1)
@@ -850,7 +860,7 @@ class Editor(object):
 
   def _unset(self, code):
     if self._selection.empty():
-      raise Exception("No object selected")
+      raise ErrorMessage("No object selected")
     parser = Parser()
     args = parser.parse(code)
     with self._modify_picture():
@@ -871,21 +881,21 @@ class Editor(object):
       if is_type(obj, "nodename"):
         self._set_object(obj, key_values)
       else:
-        raise Exception("Can only shift node name")
+        raise ErrorMessage("Can only shift node name")
     elif key in ["x", "y"]:
       if is_type(obj, "coordinate"):
         self._set_object(obj, key_values)
       else:
-        raise Exception("Can only set x, y of coordinate")
+        raise ErrorMessage("Can only set x, y of coordinate")
     elif key in ["in"]:
       obj = self._selection.previous_line()
       if obj is None:
-        raise Exception("Cannot set 'in' of a position not at end of line")
+        raise ErrorMessage("Cannot set 'in' of a position not at end of line")
       self._set_object(obj, key_values)
     else:
       obj = self._selection.next_line()
       if obj is None:
-        raise Exception("Cannot find segment following the position")
+        raise ErrorMessage("Cannot find segment following the position")
       self._set_object(obj, key_values)
 
   def _set_selected_objects(self, key, value):
@@ -902,7 +912,7 @@ class Editor(object):
     args = parser.parse(code)
     color = get_default(args, "color", None)
     if color is None:
-      raise Exception("Expected a color name")
+      raise ErrorMessage("Expected a color name")
     self._set_selected_objects("fill", color)
 
   def _make(self, code):
@@ -933,10 +943,10 @@ class Editor(object):
         with self._modify_picture():
           self._context._picture.append(self._marks.create_rectangle())
       else:
-        raise Exception("Please set exactly two marks "
-                        "or draw a rect in visual mode")
+        raise ErrorMessage("Please set exactly two marks "
+                           "or draw a rect in visual mode")
     else:
-      raise Exception("Unknown object type")
+      raise ErrorMessage("Unknown object type")
 
   def _connect_objects_by_ids(self, ids, code):
     assert len(ids) >= 2
@@ -1016,7 +1026,7 @@ class Editor(object):
         else:
           start_point += f" shifted.up.by.{yshift}"
     else:
-      raise Exception(f"Unknown mark type: {mark['type']}")
+      raise ErrorMessage(f"Unknown mark type: {mark['type']}")
 
     parser = Parser()
     parser.flag_group("arrow", list(arrow_symbols.keys()))
@@ -1061,15 +1071,15 @@ class Editor(object):
 
   def _connect(self, code):
     if self._selection.has_path():
-      raise Exception("Cannot connect paths")
+      raise ErrorMessage("Cannot connect paths")
     if self._marks.empty():
       if self._selection.num_ids() < 2:
-        raise Exception("Should select at least two objects, "
-                        "or set at least one mark")
+        raise ErrorMessage("Should select at least two objects, "
+                           "or set at least one mark")
       self._connect_objects_by_ids(self._selection.ids(), code)
     elif self._marks.single():
       if not self._selection.has_id():
-        raise Exception("Should select at least one object")
+        raise ErrorMessage("Should select at least one object")
       self._connect_mark_with_objects_by_ids(self._marks.get_single(),
                                              self._selection.ids(),
                                              code)
@@ -1113,12 +1123,12 @@ class Editor(object):
     args = parser.parse(code)
     anchors = get_default(args, "anchor", [])
     if len(anchors) > 2:
-      raise Exception("Too many anchors. Expect no more than two.")
+      raise ErrorMessage("Too many anchors. Expect no more than two.")
     elif len(anchors) > 0:
       if self._selection.num_ids() > 2:
-        raise Exception("Cannot mark more than two object anchors")
+        raise ErrorMessage("Cannot mark more than two object anchors")
       elif not self._selection.has_id():
-        raise Exception("Please select one or two objects")
+        raise ErrorMessage("Please select one or two objects")
       if self._selection.num_ids() == 2:
         id1, id2 = self._selection.ids()
         mark = {
@@ -1133,7 +1143,7 @@ class Editor(object):
                              else short_anchor_dict[anchors[1]])
       else:
         if len(anchors) == 2:
-          raise Exception("Too many anchors. Expect no more than one.")
+          raise ErrorMessage("Too many anchors. Expect no more than one.")
         anchor = anchors[0]
         if anchor in short_anchor_dict:
           anchor = short_anchor_dict[anchor]
@@ -1170,7 +1180,7 @@ class Editor(object):
       else:
         index = self._marks.size() - 1
       if index >= self._marks.size():
-        raise Exception("Index too large")
+        raise ErrorMessage("Index too large")
       self._marks.delete(index)
       return
     elif "arc" in args:
@@ -1183,7 +1193,7 @@ class Editor(object):
       mark = create_arc(start, end, radius)
     elif "cycle" in args:
       if self._marks.empty():
-        raise Exception("No marks set yet")
+        raise ErrorMessage("No marks set yet")
       mark = {"type": "cycle"}
     else:
       mark = create_coordinate(x, y)
@@ -1192,22 +1202,22 @@ class Editor(object):
 
   def _annotate(self, code):
     if self._selection.num_paths() > 1:
-      raise Exception("Cannot annotate more than one paths")
+      raise ErrorMessage("Cannot annotate more than one paths")
     if not self._selection.has_path():
-      raise Exception("Please select one path")
+      raise ErrorMessage("Please select one path")
     path = self._selection.get_single_path()
     lines = [item for item in path["items"] if item["type"] == "line"]
     if len(lines) == 0:
-      raise Exception("Selected path does not have any lines")
+      raise ErrorMessage("Selected path does not have any lines")
     if len(lines) > 1:
       if self._selection.is_in_path_position_mode():
         line = self._selection.next_line()
         if line is None:
-          raise Exception("Selected position is not followed by line")
+          raise ErrorMessage("Selected position is not followed by line")
         if not is_type(line, "line") and not is_type(line, "arc"):
-          raise Exception("Selected position is not followed by line")
+          raise ErrorMessage("Selected position is not followed by line")
       else:
-        raise Exception("Selected path has multiple lines")
+        raise ErrorMessage("Selected path has multiple lines")
     else:
       line = lines[0]
 
@@ -1229,7 +1239,7 @@ class Editor(object):
 
   def _chain(self, code):
     if self._selection.num_ids() < 2:
-      raise Exception("Please select at least two objects")
+      raise ErrorMessage("Please select at least two objects")
 
     direction = "horizontal"
 
