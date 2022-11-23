@@ -334,6 +334,8 @@ The program is still in active development and in alpha state yet. Use it for fu
   - [ ] More shapes
   - [ ] Fine-tuned arrow heads
   - [ ] Transparency
+  - [ ] Arcs
+  - [ ] Polar coordinates
 - [ ] Better handling of the deletion (not just delete all depending objects)
 - [ ] Deletion serve as cut
 - [ ] Support configuration file (like .vimrc)
