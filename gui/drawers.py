@@ -318,9 +318,20 @@ class PathDrawer(Drawer):
     draw = "draw" in obj
     fill = "fill" in obj
     fill_polygon = []
+    line_width = get_default(obj, "line.width")
+    if line_width is not None:
+      line_width = dist_to_num(line_width) * line_width_ratio
     arrow = "stealth" in obj or "arrow" in obj
     rarrow = "reversed.stealth" in obj or "reversed.arrow" in obj
     darrow = "double.stealth" in obj or "double.arrow" in obj
+    if arrow:
+      arrow = tk.LAST
+    elif rarrow:
+      arrow = tk.FIRST
+    elif darrow:
+      arrow = tk.BOTH
+    else:
+      arrow = None
     starting_pos = None
     current_pos = None
     current_pos_clip = None
@@ -353,17 +364,17 @@ class PathDrawer(Drawer):
         x, y = bounding_boxes[name].get_anchor_pos(anchor)
         new_pos = (x + xshift, y + yshift)
       elif is_type(item, "point"):
-        id_ = item["id"]
-        x, y = current_pos
-        bounding_boxes[id_] = BoundingBox(x, y, 0, 0)
+        bounding_boxes[item["id"]] = BoundingBox(*current_pos, 0, 0)
       elif is_type(item, "coordinate"):
-        if "relative" in item and item["relative"]:
+        dx = dist_to_num(get_default(item, "x", 0))
+        dy = dist_to_num(get_default(item, "y", 0))
+        if get_default(item, "relative", False):
           if current_pos is None:
             raise Exception("Current position is None")
           x, y = current_pos
-          new_pos = (x + dist_to_num(item["x"]), y + dist_to_num(item["y"]))
+          new_pos = (x + dx, y + dy)
         else:
-          new_pos = (dist_to_num(item["x"]), dist_to_num(item["y"]))
+          new_pos = (dx, dy)
       elif is_type(item, "intersection"):
         name1, name2 = item["name1"], item["name2"]
         anchor1 = get_default(item, "anchor1", "center")
@@ -372,309 +383,47 @@ class PathDrawer(Drawer):
         _, y = bounding_boxes[name2].get_anchor_pos(anchor2)
         new_pos = (x, y)
       elif is_type(item, "cycle"):
-        if starting_pos is None:
-          raise Exception("Starting position not set yet")
+        assert starting_pos is not None, "Starting position not set yet"
         new_pos = starting_pos
       elif is_type(item, "line"):
-        if to_draw is not None:
-          raise Exception(f"Expected position, got line")
+        assert to_draw is None, "Expected position, got line"
         to_draw = item
       elif is_type(item, "rectangle"):
-        if to_draw is not None:
-          raise Exception(f"Expected position, got rectangle")
+        assert to_draw is None, "Expected position, got rectangle"
         to_draw = item
       else:
         raise Exception(f"Unsupported path item type {item['type']}")
 
       if new_pos is not None and to_draw is not None:
-        if to_draw["type"] == "line":
-          if current_pos is None:
-            raise Exception("No starting position for line")
-
-          x0, y0 = current_pos
-          x1, y1 = new_pos
-
-          straight = "in" not in to_draw and "out" not in to_draw
-
-          if straight:
-            if current_pos_clip:
-              cliped_pos = current_pos_clip.get_point_at_direction(x1, y1)
-              if cliped_pos is None:
-                to_draw = None
-                if new_pos is not None:
-                  current_pos = new_pos
-                  current_pos_clip = new_pos_clip
-                  new_pos = None
-                continue
-              x0, y0 = cliped_pos
-
-            if new_pos_clip:
-              cliped_pos = new_pos_clip.get_point_at_direction(x0, y0)
-              if cliped_pos is None:
-                to_draw = None
-                if new_pos is not None:
-                  current_pos = new_pos
-                  current_pos_clip = new_pos_clip
-                  new_pos = None
-                continue
-              x1, y1 = cliped_pos
-
-            bounding_boxes[segment_id] = BoundingBox.from_rect(
-                x0, y0, x1, y1, shape="line", obj=obj)
-
-            x0p, y0p = cs.map_point(x0, y0)
-            x1p, y1p = cs.map_point(x1, y1)
-
-            if "line.width" in obj:
-              width = float(obj["line.width"])
-            else:
-              width = None
-            if "color" in obj:
-              color = obj["color"]
-            else:
-              color = "black"
-            dashed = 2 if "dashed" in obj else None
-
-            if arrow:
-              arrow = tk.LAST
-            elif rarrow:
-              arrow = tk.FIRST
-            elif darrow:
-              arrow = tk.BOTH
-            else:
-              arrow = None
-
-            if is_selected:
-              canvas.create_line((x0p, y0p, x1p, y1p), fill="red", dash=6,
-                                 width=(width+4) * line_width_ratio
-                                 if width is not None
-                                 else 4 * line_width_ratio)
-            if draw:
-              h = canvas.create_line((x0p, y0p, x1p, y1p),
-                                     fill=color_to_tk(color),
-                                     width=width * line_width_ratio
-                                     if width is not None else None,
-                                     arrow=arrow, dash=dashed)
-              if first_segment is None:
-                first_segment = h
-
-            if "annotates" in to_draw:
-              for annotate in to_draw["annotates"]:
-                if "at.start" in annotate:
-                  t = 1
-                elif "near.start" in annotate:
-                  t = 0.8
-                elif "midway" in annotate:
-                  t = 0.5
-                elif "near.end" in annotate:
-                  t = 0.2
-                elif "at.end" in annotate:
-                  t = 0
-                else:
-                  t = 0.5
-                x = x0 * t + x1 * (1 - t)
-                y = y0 * t + y1 * (1 - t)
-                angle = None
-                if "sloped" in annotate:
-                  angle = get_angle(x0, y0, x1, y1) % 360
-                  if angle < 270 and angle > 90:
-                    angle = (angle + 180) % 360
-                BoxDrawer._draw(canvas, annotate, env,
-                                position=(x, y), slope=angle)
-          else:
-            points = [[x0, y0]]
-            dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
-
-            if "out" in to_draw:
-              out_degree = int(to_draw["out"])
-              dy = math.sin(out_degree / 180 * math.pi) * dist / 3
-              dx = math.cos(out_degree / 180 * math.pi) * dist / 3
-              if current_pos_clip:
-                diagnal = current_pos_clip.diameter()
-                start_point = current_pos_clip.get_point_at_direction(
-                    x0 + dx * diagnal / dist * 3,
-                    y0 + dy * diagnal / dist * 3)
-                assert start_point is not None
-                x0, y0 = start_point
-                points[0] = [x0, y0]
-              points.append([x0 + dx, y0 + dy])
-
-            if "in" in to_draw:
-              in_degree = int(to_draw["in"])
-              dy = math.sin(in_degree / 180 * math.pi) * dist / 3
-              dx = math.cos(in_degree / 180 * math.pi) * dist / 3
-              if new_pos_clip:
-                diagnal = new_pos_clip.diameter()
-                end_point = new_pos_clip.get_point_at_direction(
-                    x1 + dx * diagnal / dist * 3,
-                    y1 + dy * diagnal / dist * 3)
-                assert end_point is not None
-                x1, y1 = end_point
-              points.append([x1 + dx, y1 + dy])
-            points.append([x1, y1])
-
-            dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
-            steps = max(int(dist / 0.01) + 1, 20)
-            curve = Bezier.generate_line_segments(*points, steps=steps)
-
-            if current_pos_clip:
-              curve = current_pos_clip.clip_curve(curve)
-              if curve is None:
-                to_draw = None
-                if new_pos is not None:
-                  current_pos = new_pos
-                  current_pos_clip = new_pos_clip
-                  new_pos = None
-                continue
-
-            if new_pos_clip:
-              curve = list(
-                  reversed(new_pos_clip.clip_curve(list(reversed(curve)))))
-              if curve is None:
-                to_draw = None
-                if new_pos is not None:
-                  current_pos = new_pos
-                  current_pos_clip = new_pos_clip
-                  new_pos = None
-                continue
-
-            bounding_boxes[segment_id] = BoundingBox(
-                0, 0, 0, 0, shape="curve", points=curve, obj=obj)
-            screen_curve = [cs.map_point(x, y) for x, y in curve]
-
-            if "line.width" in obj:
-              width = float(obj["line.width"])
-            else:
-              width = None
-            if "color" in obj:
-              color = obj["color"]
-            else:
-              color = "black"
-            dashed = 2 if "dashed" in obj else None
-
-            if arrow:
-              arrow = tk.LAST
-            elif rarrow:
-              arrow = tk.FIRST
-            elif darrow:
-              arrow = tk.BOTH
-            else:
-              arrow = None
-
-            if is_selected:
-              canvas.create_line(*[e for x, y in screen_curve
-                                   for e in (x, y)],
-                                 fill="red", dash=6,
-                                 width=(width+4) * line_width_ratio
-                                 if width is not None
-                                 else 4 * line_width_ratio)
-            if draw:
-              h = canvas.create_line(*[e for x, y in screen_curve
-                                       for e in (x, y)],
-                                     fill=color_to_tk(color),
-                                     width=width * line_width_ratio
-                                     if width is not None else None,
-                                     arrow=arrow, dash=dashed)
-              if first_segment is None:
-                first_segment = h
-
-            if "annotates" in to_draw:
-              for annotate in to_draw["annotates"]:
-                if "at.start" in annotate:
-                  t = 1
-                elif "near.start" in annotate:
-                  t = 0.8
-                elif "midway" in annotate:
-                  t = 0.5
-                elif "near.end" in annotate:
-                  t = 0.2
-                elif "at.end" in annotate:
-                  t = 0
-                else:
-                  t = 0.5
-                x, y = curve[int((len(curve)-1) * (1-t))]
-                angle = None
-                if "sloped" in annotate:
-                  if t == 0:
-                    x0, y0 = curve[len(curve)-2]
-                    x1, y1 = x, y
-                  else:
-                    x0, y0 = x, y
-                    x1, y1 = curve[int((len(curve)-1) * (1-t))+1]
-                  angle = get_angle(x0, y0, x1, y1) % 360
-                  if angle < 270 and angle > 90:
-                    angle = (angle + 180) % 360
-                BoxDrawer._draw(canvas, annotate, env,
-                                position=(x, y), slope=angle)
-        elif to_draw["type"] == "rectangle":
-          if current_pos is None:
-            raise Exception("No starting position for rectangle")
-          x0, y0 = current_pos
-          x1, y1 = new_pos
-
-          x0, x1 = min(x0, x1), max(x0, x1)
-          y0, y1 = min(y0, y1), max(y0, y1)
-
-          bounding_boxes[segment_id] = BoundingBox.from_rect(
-              x0, y0, x1, y1, shape="rectangle", obj=obj)
-
-          x0p, y0p = cs.map_point(x0, y0)
-          x1p, y1p = cs.map_point(x1, y1)
-
-          if "line.width" in obj:
-            width = obj["line.width"]
-          else:
-            width = None
-          if "color" in obj:
-            color = obj["color"]
-          else:
-            color = "black"
-          if "fill" in obj:
-            fill = obj["fill"]
-          else:
-            fill = ""
-          dashed = 2 if "dashed" in obj else None
-
-          if is_selected:
-            canvas.create_rectangle(
-                (x0p-5, y0p+5, x1p+5, y1p-5), fill="", outline="red", dash=4)
-          if draw:
-            h = canvas.create_rectangle((x0p, y0p, x1p, y1p),
-                                        fill=color_to_tk(fill),
-                                        outline=color_to_tk(color),
-                                        width=width * line_width_ratio
-                                        if width is not None else None,
-                                        dash=dashed)
-            if first_segment is None:
-              first_segment = h
-
+        assert current_pos is not None, "No starting position for line"
+        citem = PathDrawer._draw_item(canvas, to_draw, *current_pos, *new_pos,
+                                      current_pos_clip, new_pos_clip,
+                                      is_selected, arrow, obj, segment_id, env)
+        if first_segment is None:
+          first_segment = citem
         to_draw = None
 
       if new_pos is not None:
         if is_selected:
-          x, y = new_pos
-          x, y = cs.map_point(x, y)
-          if "line.width" in obj:
-            width = 5 + float(obj["line.width"])
-          else:
-            width = 5
+          x, y = cs.map_point(*new_pos)
           if selection.selected_position(index):
-            canvas.create_oval(x-width-2, y-width-2, x+width+2,
-                               y+width+2, outline="black", fill="yellow")
+            radius = 7
+            canvas.create_oval(x-radius, y-radius, x+radius,
+                               y+radius, outline="black", fill="yellow")
             canvas.create_text(x, y, text=str(position_number), fill="blue")
           else:
-            canvas.create_oval(x-width, y-width, x+width,
-                               y+width, outline="red", dash=2)
-        if current_pos is None:
+            radius = none_or(line_width, 1)+5
+            canvas.create_oval(x-radius, y-radius, x+radius,
+                               y+radius, outline="red", dash=2)
+        if starting_pos is None:
           starting_pos = new_pos
         current_pos = new_pos
-        fill_polygon.append(new_pos)
         current_pos_clip = new_pos_clip
         position_number += 1
+        fill_polygon.append(new_pos)
         new_pos = None
 
-    if to_draw is not None:
-      raise Exception(f"Undrawn item {to_draw}")
+    assert to_draw is None, f"Undrawn item {to_draw}"
 
     if fill and len(fill_polygon) > 2:
       fill_polygon = [e for x, y in fill_polygon for e in cs.map_point(x, y)]
@@ -691,3 +440,172 @@ class PathDrawer(Drawer):
         fback = canvas.create_rectangle(
             canvas.bbox(ftext), fill="yellow", outline="blue")
         canvas.tag_lower(fback, ftext)
+
+  def _draw_item(canvas, item, x0, y0, x1, y1, current_pos_clip, new_pos_clip,
+                 is_selected, arrow, path, segment_id, env):
+    line_width = get_default(path, "line.width")
+    if line_width is not None:
+      line_width = dist_to_num(line_width) * line_width_ratio
+    dash = 2 if "dashed" in path else None
+    if line_width is not None and dash is not None:
+      dash = int(dash * line_width)
+    color = get_default(path, "color", "black")
+    draw = "draw" in path
+    fill = get_default(path, "fill", "")
+    cs = env["coordinate system"]
+    bounding_boxes = env["bounding box"]
+    ret = None
+
+    if is_type(item, "line"):
+      line_style = {
+          "fill": color,
+          "width": line_width,
+          "arrow": arrow,
+          "dash": dash,
+      }
+      select_style = {
+          "fill": "red",
+          "width": int(none_or(line_width, 1)) + 4,
+          "dash": int(none_or(line_width, 1)) + 4,
+      }
+
+      if "in" in item and current_pos_clip:
+        diagnal = current_pos_clip.diameter()
+        start_point = current_pos_clip.get_point_at_direction(
+            x0 + dx * diagnal / dist * 3,
+            y0 + dy * diagnal / dist * 3)
+        assert start_point is not None
+        x0, y0 = start_point
+
+      if "out" in item and new_pos_clip:
+        diagnal = new_pos_clip.diameter()
+        end_point = new_pos_clip.get_point_at_direction(
+            x1 + dx * diagnal / dist * 3,
+            y1 + dy * diagnal / dist * 3)
+        assert end_point is not None
+        x1, y1 = end_point
+
+      if "in" not in item and current_pos_clip:
+        cliped_pos = current_pos_clip.get_point_at_direction(x1, y1)
+        if cliped_pos is None:
+          return ret
+        x0, y0 = cliped_pos
+
+      if "out" not in item and new_pos_clip:
+        cliped_pos = new_pos_clip.get_point_at_direction(x0, y0)
+        if cliped_pos is None:
+          return ret
+        x1, y1 = cliped_pos
+
+      straight = "in" not in item and "out" not in item
+      if straight:
+        bounding_boxes[segment_id] = BoundingBox.from_rect(
+            x0, y0, x1, y1, shape="line", obj=path)
+
+        x0p, y0p = cs.map_point(x0, y0)
+        x1p, y1p = cs.map_point(x1, y1)
+        line_segments = (x0p, y0p, x1p, y1p)
+      else:
+        points = [[x0, y0]]
+        dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
+        steps = max(int(dist / 0.01) + 1, 20)
+
+        if "out" in item:
+          out_degree = int(item["out"])
+          dy = math.sin(out_degree / 180 * math.pi) * dist / 3
+          dx = math.cos(out_degree / 180 * math.pi) * dist / 3
+          points[0] = [x0, y0]
+          points.append([x0 + dx, y0 + dy])
+
+        if "in" in item:
+          in_degree = int(item["in"])
+          dy = math.sin(in_degree / 180 * math.pi) * dist / 3
+          dx = math.cos(in_degree / 180 * math.pi) * dist / 3
+          points.append([x1 + dx, y1 + dy])
+        points.append([x1, y1])
+
+        curve = Bezier.generate_line_segments(*points, steps=steps)
+
+        """
+        Don't know why still need to clip curve. Maybe forgot to delete
+        the code.
+        """
+        """
+        if current_pos_clip:
+          curve = current_pos_clip.clip_curve(curve)
+          if curve is None:
+            return
+
+        if new_pos_clip:
+          curve = list(
+              reversed(new_pos_clip.clip_curve(list(reversed(curve)))))
+          if curve is None:
+            return
+        """
+
+        bounding_boxes[segment_id] = BoundingBox(
+            0, 0, 0, 0, shape="curve", points=curve, obj=path)
+        screen_curve = [cs.map_point(x, y) for x, y in curve]
+        line_segments = [e for x, y in screen_curve for e in (x, y)]
+
+      if is_selected:
+        canvas.create_line(line_segments, **select_style)
+      if draw:
+        ret = canvas.create_line(line_segments, **line_style)
+
+      if "annotates" in item:
+        for annotate in item["annotates"]:
+          t = get_position_in_line(annotate)
+          if straight:
+            x = x0 * t + x1 * (1 - t)
+            y = y0 * t + y1 * (1 - t)
+          else:
+            x, y = curve[int((len(curve)-1) * (1-t))]
+
+          angle = None
+          if "sloped" in annotate:
+            if straight:
+              ax0, ay0, ax1, ay1 = x0, y0, x1, y1
+            else:
+              if t == 0:
+                ax0, ay0 = curve[len(curve)-2]
+                ax1, ay1 = x, y
+              else:
+                ax0, ay0 = x, y
+                ax1, ay1 = curve[int((len(curve)-1) * (1-t))+1]
+
+            angle = get_angle(ax0, ay0, ax1, ay1) % 360
+            if angle < 270 and angle > 90:
+              angle = (angle + 180) % 360
+
+          BoxDrawer._draw(canvas, annotate, env,
+                          position=(x, y), slope=angle)
+
+    elif is_type(item, "rectangle"):
+      line_style = {
+          "fill": color_to_tk(fill),
+          "outline": color_to_tk(color),
+          "width": line_width,
+          "dash": dash,
+      }
+      select_style = {
+          "fill": "",
+          "outline": "red",
+          "dash": 2,
+      }
+      x0, x1 = min(x0, x1), max(x0, x1)
+      y0, y1 = min(y0, y1), max(y0, y1)
+
+      bounding_boxes[segment_id] = BoundingBox.from_rect(
+          x0, y0, x1, y1, shape="rectangle", obj=path)
+
+      x0p, y0p = cs.map_point(x0, y0)
+      x1p, y1p = cs.map_point(x1, y1)
+
+      if is_selected:
+        canvas.create_rectangle((x0p-5, y0p+5, x1p+5, y1p-5), **select_style)
+      if draw:
+        ret = canvas.create_rectangle((x0p, y0p, x1p, y1p), **line_style)
+    else:
+      raise Exception(f"Unknown type {item['type']}")
+    return ret

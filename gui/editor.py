@@ -1160,7 +1160,7 @@ class Editor(object):
       self._marks.clear()
       return
     elif "del" in args:
-      index = int(arg["del"][0])
+      index = int(args["del"][0])
       if index >= self._marks.size():
         raise Exception("Index too large")
       self._marks.delete(index)

@@ -68,3 +68,17 @@ def get_rounded_corners(obj, default):
   if rounded_corners is not None:
     return dist_to_num(rounded_corners)
   return None
+
+
+def get_position_in_line(obj):
+  if "at.start" in obj:
+    return 1
+  if "near.start" in obj:
+    return 0.8
+  if "midway" in obj:
+    return 0.5
+  if "near.end" in obj:
+    return 0.2
+  if "at.end" in obj:
+    return 0
+  return 0.5
