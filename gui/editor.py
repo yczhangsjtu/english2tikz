@@ -990,6 +990,7 @@ class Editor(object):
       id1, id2 = ids[i], ids[j]
       anchor1, anchor2 = anchors[i], anchors[j]
       annotate = annotates[k]
+      print(id1, anchor1, id2, anchor2, action)
       self._parse(f"draw {arrow} from.{id1}{anchor1} "
                   f"{action}.to.{id2}{anchor2} "
                   f"{start_out} {close_in} {annotate}")

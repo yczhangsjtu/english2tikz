@@ -495,16 +495,16 @@ class PathDrawer(Drawer):
           x1, y1 = end_point
 
       if "out" not in item and current_pos_clip:
-        cliped_pos = current_pos_clip.get_point_at_direction(x0, y0)
-        if cliped_pos is None:
-          return ret
-        x1, y1 = cliped_pos
-
-      if "in" not in item and new_pos_clip:
-        cliped_pos = new_pos_clip.get_point_at_direction(x1, y1)
+        cliped_pos = current_pos_clip.get_point_at_direction(x1, y1)
         if cliped_pos is None:
           return ret
         x0, y0 = cliped_pos
+
+      if "in" not in item and new_pos_clip:
+        cliped_pos = new_pos_clip.get_point_at_direction(x0, y0)
+        if cliped_pos is None:
+          return ret
+        x1, y1 = cliped_pos
 
       straight = "in" not in item and "out" not in item
       if straight:
