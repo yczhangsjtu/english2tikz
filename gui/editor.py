@@ -533,6 +533,7 @@ class Editor(object):
       obj = self._finding.narrow_down(char)
     except Exception as e:
       self._error_msg = f"Error in finding: {e}"
+      self._exit_finding_mode()
       return
     if obj is not None:
       if self._finding.is_toggle():
