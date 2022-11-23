@@ -458,7 +458,7 @@ class PathDrawer(Drawer):
 
     if is_type(item, "line"):
       line_style = {
-          "fill": color,
+          "fill": color_to_tk(color),
           "width": line_width,
           "arrow": arrow,
           "dash": dash,
