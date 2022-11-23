@@ -317,6 +317,9 @@ class RectangleRenderer(Renderer):
 
 
 class ArcRenderer(Renderer):
+  def __init__(self, context):
+    self._context = context
+
   def match(self, obj):
     return "type" in obj and obj["type"] == "arc"
 
@@ -324,4 +327,10 @@ class ArcRenderer(Renderer):
     start = obj['start']
     end = obj['end']
     radius = obj['radius']
-    return f"arc ({start}:{end}:{radius})"
+    ret = [f"arc ({start}:{end}:{radius})"]
+
+    if "annotates" in obj:
+      for annotate in obj["annotates"]:
+        ret.append(self._context._render(annotate))
+
+    return " ".join(ret)

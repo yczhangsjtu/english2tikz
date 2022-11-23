@@ -10,7 +10,7 @@ from contextlib import contextmanager
 
 from english2tikz.utils import *
 from english2tikz.describe_it import DescribeIt
-from english2tikz.handlers import WithAttributeHandler
+from english2tikz.handlers import WithAttributeHandler, DirectionOfHandler
 from english2tikz.latex import tikzimage
 from english2tikz.gui.canvas_manager import CanvasManager
 from english2tikz.gui.keyboard import KeyboardManager
@@ -992,7 +992,6 @@ class Editor(object):
       id1, id2 = ids[i], ids[j]
       anchor1, anchor2 = anchors[i], anchors[j]
       annotate = annotates[k]
-      print(id1, anchor1, id2, anchor2, action)
       self._parse(f"draw {arrow} from.{id1}{anchor1} "
                   f"{action}.to.{id2}{anchor2} "
                   f"{start_out} {close_in} {annotate}")
@@ -1039,9 +1038,7 @@ class Editor(object):
     anchor = get_default(args, "anchor", [""])[0]
     anchor = (short_anchor_dict[anchor]
               if anchor in short_anchor_dict else anchor)
-    anchor = f".{anchor}"
-    while len(anchors) < len(ids):
-      anchors.append("")
+    anchor = f".{anchor}" if anchor != "" else ""
 
     out = get_default(args, "out", None)
     in_ = get_default(args, "in", None)
@@ -1058,7 +1055,6 @@ class Editor(object):
 
     for id_, annotate in zip(ids, annotates):
       self._ensure_name_is_id(id_)
-      self._ensure_name_is_id(id_)
       self._parse(f"draw {arrow} {start_point} "
                   f"{action}.to.{id_}{anchor} "
                   f"{start_out} {close_in} {annotate}")
@@ -1074,7 +1070,7 @@ class Editor(object):
     elif self._marks.single():
       if not self._selection.has_id():
         raise Exception("Should select at least one object")
-      self._connect_mark_with_objects_by_ids(self.get_single(),
+      self._connect_mark_with_objects_by_ids(self._marks.get_single(),
                                              self._selection.ids(),
                                              code)
 
@@ -1168,7 +1164,11 @@ class Editor(object):
       self._marks.clear()
       return
     elif "del" in args:
-      index = int(args["del"][0])
+      indices = args["del"]
+      if len(indices) > 0:
+        index = indices[0]
+      else:
+        index = self._marks.size() - 1
       if index >= self._marks.size():
         raise Exception("Index too large")
       self._marks.delete(index)
@@ -1177,8 +1177,8 @@ class Editor(object):
       arc_args = args["arc"]
       assert len(arc_args) == 3, ("Invalid number of args for arc: "
                                   f"expected 3, got {len(arc_args)}")
-      start = int(arc_args[0]) % 360
-      end = int(arc_args[1]) % 360
+      start = int(arc_args[0])
+      end = int(arc_args[1])
       radius = arc_args[2]
       mark = create_arc(start, end, radius)
     elif "cycle" in args:
@@ -1204,7 +1204,7 @@ class Editor(object):
         line = self._selection.next_line()
         if line is None:
           raise Exception("Selected position is not followed by line")
-        if not is_type(line, "line"):
+        if not is_type(line, "line") and not is_type(line, "arc"):
           raise Exception("Selected position is not followed by line")
       else:
         raise Exception("Selected path has multiple lines")

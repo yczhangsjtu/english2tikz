@@ -247,6 +247,7 @@ class DescribeIt(object):
     self.register_renderer(PathRenderer(self))
     self.register_renderer(NodeNameRenderer())
     self.register_renderer(LineRenderer(self))
+    self.register_renderer(ArcRenderer(self))
     self.register_renderer(IntersectionRenderer())
     self.register_renderer(CoordinateRenderer())
     self.register_renderer(CycleRenderer())

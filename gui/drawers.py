@@ -397,8 +397,8 @@ class PathDrawer(Drawer):
         start = int(item["start"])
         end = int(item["end"])
         radius = dist_to_num(item["radius"])
-        assert starting_pos is not None, "Starting position not set yet"
-        x0, y0 = starting_pos
+        assert current_pos is not None, "Starting position not set yet"
+        x0, y0 = current_pos
         dx1, dy1 = math.cos(start*math.pi/180), math.sin(start*math.pi/180)
         dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
         new_pos = (x0+(dx2-dx1)*radius, y0+(dy2-dy1)*radius)
@@ -633,23 +633,41 @@ class PathDrawer(Drawer):
       start = int(item["start"])
       end = int(item["end"])
       radius = dist_to_num(item["radius"])
+      bounding_boxes[segment_id] = BoundingBox(
+          0, 0, 0, 0, shape="curve",
+          points=create_arc_curve(x0, y0, start, end, radius), obj=path)
       dx1, dy1 = math.cos(start*math.pi/180), math.sin(start*math.pi/180)
       dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
       centerx, centery = x0 - dx1 * radius, y0 - dy1 * radius
       screenx0, screeny0 = cs.map_point(centerx - radius, centery - radius)
       screenx1, screeny1 = cs.map_point(centerx + radius, centery + radius)
+      start, end = order(start, end)
       extent = end - start
       if extent < 0:
         extent += 360
-      bounding_boxes[segment_id] = BoundingBox(
-          0, 0, 0, 0, shape="curve",
-          points=create_arc_curve(x0, y0, start, end, radius), obj=path)
       if is_selected:
         canvas.create_arc(screenx0, screeny0, screenx1, screeny1, start=start,
                           extent=extent, style=tk.ARC, **select_style)
       if draw:
         canvas.create_arc(screenx0, screeny0, screenx1, screeny1, start=start,
                           extent=extent, style=tk.ARC, **line_style)
+
+      if "annotates" in item:
+        for annotate in item["annotates"]:
+          t = get_position_in_line(annotate)
+          start = int(item["start"])
+          end = int(item["end"])
+          deg = int((end - start) * t + start)
+          x = centerx + math.cos(deg/180*math.pi) * radius
+          y = centery + math.sin(deg/180*math.pi) * radius
+
+          angle = None
+          if "sloped" in annotate:
+            angle = (deg + 360 + 270) % 360
+            if angle < 270 and angle > 90:
+              angle = (angle + 180) % 360
+
+          BoxDrawer._draw(canvas, annotate, env, position=(x, y), slope=angle)
     else:
       raise Exception(f"Unknown type {item['type']}")
     return ret

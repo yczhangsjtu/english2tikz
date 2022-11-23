@@ -25,7 +25,7 @@ class MarkManager(object):
   def marks(self):
     return self._marks
 
-  def chop(self):
+  def chop(self, i):
     self._marks = self._marks[:i]
 
   def add_coord(self, x, y):
