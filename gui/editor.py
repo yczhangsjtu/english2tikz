@@ -370,7 +370,8 @@ class Editor(object):
     if self._selection.num_ids() > 1:
       self._error_msg = "Cannot append to more than one objects"
     elif self._selection.single_id():
-      self._insert_text_following_id(self.get_single_id(), direction)
+      self._insert_text_following_id(self._selection.get_single_id(),
+                                     direction)
 
   def _enter_edit_mode_at_visual(self):
     self._create_node_at_visual()
@@ -684,7 +685,7 @@ class Editor(object):
     self._parse(f"there.is.text '' with.{anchor}.at.{at_anchor}.of.{id_}")
     self._obj_to_edit_text = self._context._picture[-1]
     self._editing_text = TextEditor()
-    bb = self._bounding_boxes[id_]
+    bb = self._canvas_manager._bounding_boxes[id_]
     self._editing_text_pos = bb.get_anchor_pos(at_anchor)
     self._selection.select(self._obj_to_edit_text)
 
