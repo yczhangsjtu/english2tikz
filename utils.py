@@ -938,6 +938,8 @@ def create_path(items, arrow=None):
   if arrow is not None:
     if arrow in arrow_types:
       ret[arrow] = True
+    elif arrow in arrow_symbols:
+      ret[arrow_symbols[arrow]] = True
     else:
       raise Exception(f"Invalid arrow type: {arrow}")
   return ret
