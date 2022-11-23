@@ -83,6 +83,21 @@ class MarkManager(object):
         x, y = dist_to_num(mark["x"], mark["y"])
       buffer[i] = (x, y)
       return x, y
+    elif is_type(mark, "arc"):
+      if i == 0:
+        return None
+      previous = self._get_pos(i-1, buffer)
+      if previous is None:
+        return None
+      x0, y0 = previous
+      start = int(mark["start"])
+      end = int(mark["end"])
+      radius = dist_to_num(mark["radius"])
+      dx1, dy1 = math.cos(start*math.pi/180), math.sin(start*math.pi/180)
+      dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
+      x, y = x0+(dx2-dx1)*radius, y0+(dy2-dy1)*radius
+      buffer[i] = (x, y)
+      return x, y
     elif is_type(mark, "cycle"):
       buffer[i] = self._get_pos(0, buffer)
       return buffer[i]
@@ -103,7 +118,7 @@ class MarkManager(object):
     items = []
     for i, mark in enumerate(self._marks):
       items.append(mark)
-      if i < len(self._marks) - 1:
+      if i < len(self._marks) - 1 and not is_type(self._marks[i+1], "arc"):
         items.append(create_line())
     return create_path(items, arrow)
 

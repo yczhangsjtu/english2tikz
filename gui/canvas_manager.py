@@ -196,6 +196,8 @@ class CanvasManager(object):
           fill, outline = "#ffff77", "orange"
       elif is_type(mark, "intersection"):
         fill, outline = "white", "black"
+      elif is_type(mark, "arc"):
+        fill, outline = "#444444", "black"
       elif is_type(mark, "cycle"):
         fill, outline, radius = "red", "black", 12
       c.create_oval(x-radius, y-radius, x+radius, y + radius,

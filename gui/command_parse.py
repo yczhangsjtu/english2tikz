@@ -128,10 +128,10 @@ class Parser(object):
         if v in self._require_args:
           expected_args_count = self._require_args[v]
           expected_args_name = v
+          ensure_key(ret, expected_args_name, [])
           continue
 
         if expected_args_count == "*":
-          ensure_key(ret, expected_args_name, [])
           ret[expected_args_name].append(v)
           continue
 

@@ -831,6 +831,7 @@ class Editor(object):
         raise Exception(f"Unkown command: {cmd_name}")
     except Exception as e:
       self._error_msg = f"Error in executing command: {e}"
+      # traceback.print_exc()
 
   def _set(self, code):
     if self._selection.empty():
@@ -1111,6 +1112,7 @@ class Editor(object):
     parser.flag("clear")
     parser.flag("cycle")
     parser.require_arg("del", 1)
+    parser.require_arg("arc", 3)
 
     args = parser.parse(code)
     anchors = get_default(args, "anchor", [])
@@ -1171,6 +1173,14 @@ class Editor(object):
         raise Exception("Index too large")
       self._marks.delete(index)
       return
+    elif "arc" in args:
+      arc_args = args["arc"]
+      assert len(arc_args) == 3, ("Invalid number of args for arc: "
+                                  f"expected 3, got {len(arc_args)}")
+      start = int(arc_args[0]) % 360
+      end = int(arc_args[1]) % 360
+      radius = arc_args[2]
+      mark = create_arc(start, end, radius)
     elif "cycle" in args:
       if self._marks.empty():
         raise Exception("No marks set yet")

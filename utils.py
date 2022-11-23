@@ -925,6 +925,15 @@ def create_coordinate(x, y):
   }
 
 
+def create_arc(start, end, radius):
+  return {
+      "type": "arc",
+      "start": start,
+      "end": end,
+      "radius": radius,
+  }
+
+
 def create_line():
   return {"type": "line"}
 
@@ -1060,6 +1069,8 @@ def get_bounding_box(data, bounding_boxes):
               x2, y2, x3, y3 = bb.get_bound()
               x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x2, y2)
               x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x3, y3)
+  if x0 is None:
+    return 0, 0, 0, 0
   return x0, y0, x1, y1
 
 
@@ -1093,6 +1104,17 @@ def next_line(items, position):
     if is_type(items[pos], "line") or is_type(items[pos], "rectangle"):
       return items[pos]
   return None
+
+
+def create_arc_curve(x0, y0, start, end, radius):
+  length = ((end - start) / 360) * 2 * math.pi * radius
+  steps = max(int(length / 0.1), 10)
+  dx1, dy1 = math.cos(start*math.pi/180), math.sin(start*math.pi/180)
+  dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
+  centerx, centery = x0 - dx1 * radius, y0 - dy1 * radius
+  return [(centerx+math.cos((t/steps*(end-start)+start)*math.pi/180) * radius,
+           centery+math.sin((t/steps*(end-start)+start)*math.pi/180) * radius)
+          for t in range(steps+1)]
 
 
 """

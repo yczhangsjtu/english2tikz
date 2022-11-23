@@ -391,6 +391,17 @@ class PathDrawer(Drawer):
       elif is_type(item, "rectangle"):
         assert to_draw is None, "Expected position, got rectangle"
         to_draw = item
+      elif is_type(item, "arc"):
+        assert to_draw is None, "Expected position, got arc"
+        to_draw = item
+        start = int(item["start"])
+        end = int(item["end"])
+        radius = dist_to_num(item["radius"])
+        assert starting_pos is not None, "Starting position not set yet"
+        x0, y0 = starting_pos
+        dx1, dy1 = math.cos(start*math.pi/180), math.sin(start*math.pi/180)
+        dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
+        new_pos = (x0+(dx2-dx1)*radius, y0+(dy2-dy1)*radius)
       else:
         raise Exception(f"Unsupported path item type {item['type']}")
 
@@ -607,6 +618,38 @@ class PathDrawer(Drawer):
         canvas.create_rectangle((x0p-5, y0p+5, x1p+5, y1p-5), **select_style)
       if draw:
         ret = canvas.create_rectangle((x0p, y0p, x1p, y1p), **line_style)
+    elif is_type(item, "arc"):
+      line_style = {
+          "outline": color_to_tk(color),
+          "width": line_width,
+          "arrow": arrow,
+          "dash": dash,
+      }
+      select_style = {
+          "outline": "red",
+          "width": int(none_or(line_width, 1)) + 4,
+          "dash": int(none_or(line_width, 1)) + 4,
+      }
+      start = int(item["start"])
+      end = int(item["end"])
+      radius = dist_to_num(item["radius"])
+      dx1, dy1 = math.cos(start*math.pi/180), math.sin(start*math.pi/180)
+      dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
+      centerx, centery = x0 - dx1 * radius, y0 - dy1 * radius
+      screenx0, screeny0 = cs.map_point(centerx - radius, centery - radius)
+      screenx1, screeny1 = cs.map_point(centerx + radius, centery + radius)
+      extent = end - start
+      if extent < 0:
+        extent += 360
+      bounding_boxes[segment_id] = BoundingBox(
+          0, 0, 0, 0, shape="curve",
+          points=create_arc_curve(x0, y0, start, end, radius), obj=path)
+      if is_selected:
+        canvas.create_arc(screenx0, screeny0, screenx1, screeny1, start=start,
+                          extent=extent, style=tk.ARC, **select_style)
+      if draw:
+        canvas.create_arc(screenx0, screeny0, screenx1, screeny1, start=start,
+                          extent=extent, style=tk.ARC, **line_style)
     else:
       raise Exception(f"Unknown type {item['type']}")
     return ret

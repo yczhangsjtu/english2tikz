@@ -314,3 +314,14 @@ class RectangleRenderer(Renderer):
 
   def render(self, obj):
     return "rectangle"
+
+
+class ArcRenderer(Renderer):
+  def match(self, obj):
+    return "type" in obj and obj["type"] == "arc"
+
+  def render(self, obj):
+    start = obj['start']
+    end = obj['end']
+    radius = obj['radius']
+    return f"arc ({start}:{end}:{radius})"
