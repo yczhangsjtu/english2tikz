@@ -304,6 +304,12 @@ def smart_key_value(key, value):
     return [(key, direction_to_angle(value))]
   if key in ["rectangle", "line"]:
     return [("type", key)]
+  if key == "->":
+    return [("stealth", True)]
+  if key == "<-":
+    return [("reversed.stealth", True)]
+  if key == "<->":
+    return [("double.stealth", True)]
   ret = [(key, value)]
   for s in mutually_exclusive:
     if key in s:
