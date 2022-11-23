@@ -8,21 +8,21 @@ mutually_exclusive = [
         "above", "below", "left", "right",
         "below.left", "below.right",
         "above.left", "above.right",
-    ]),
+        ]),
     set([
         "midway", "pos",
         "near.end", "near.start",
         "very.near.end", "very.near.start",
         "at.end", "at.start"
-    ]),
+        ]),
     set([
         "stealth", "arrow",
         "reversed.stealth", "reversed.arrow",
         "double.stealth", "double.arrow",
-    ]),
+        ]),
     set([
         "circle", "ellipse",
-    ]),
+        ]),
 ]
 
 
@@ -277,6 +277,8 @@ def smart_key_value(key, value):
   """
   Implement acronyms and aliases.
   """
+  if isinstance(value, list) and len(value) == 1:
+    value = value[0]
   if is_color(key) and value is True:
     """
     set blue <=> set color=blue

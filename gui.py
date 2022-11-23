@@ -22,7 +22,7 @@ if __name__ == "__main__":
     filename = args.filename
     editor.filename = filename
     if os.path.exists(filename):
-      editor._read(("command", filename))
+      editor._read(filename)
 
   root.title("Vim Draw")
   root.minsize(screen_width, screen_height)

@@ -805,14 +805,11 @@ class Editor(object):
       elif cmd_name == "read":
         self._read(code)
       elif cmd_name == "w":
-        if self.filename is None:
-          print("%%drawjson\n"+json.dumps(self._save()))
-        else:
-          data = json.dumps(self._save())
-          with open(self.filename, "w") as f:
-            f.write(data)
+        self._write(code)
       elif cmd_name == "sao":
         self._save_as_object(code)
+      elif cmd_name == "export":
+        self._export(code)
       elif cmd_name == "ro":
         self._read_object(code)
       elif cmd_name == "q":
@@ -837,17 +834,25 @@ class Editor(object):
     if self._selection.empty():
       raise Exception("No object selected")
     parser = Parser()
+    parser.require_arg("text", 1)
+    parser.require_arg("color", 1)
+    parser.require_arg("width", 1)
+    parser.require_arg("height", 1)
+    parser.require_arg("line.height", 1)
+    parser.require_arg("fill", 1)
     args = parser.parse(code)
-    for key, value in args.items():
-      self._set_selected_objects(key, value)
+    with self._modify_picture():
+      for key, value in args.items():
+        self._set_selected_objects(key, value)
 
   def _unset(self, code):
     if self._selection.empty():
       raise Exception("No object selected")
     parser = Parser()
     args = parser.parse(code)
-    for key, _ in args.items():
-      self._set_selected_objects(key, False)
+    with self._modify_picture():
+      for key, _ in args.items():
+        self._set_selected_objects(key, False)
 
   def _set_object(self, obj, key_values):
     for key, value in key_values:
@@ -859,36 +864,34 @@ class Editor(object):
   def _set_path_position(self, key, value):
     obj = self._selection.get_selected_path_item()
     key_values = smart_key_value(key, value)
-    with self._modify_picture():
-      if key in ["xshift", "yshift", "anchor"]:
-        if is_type(obj, "nodename"):
-          self._set_object(obj, key_values)
-        else:
-          raise Exception("Can only shift node name")
-      elif key in ["x", "y"]:
-        if is_type(obj, "coordinate"):
-          self._set_object(obj, key_values)
-        else:
-          raise Exception("Can only set x, y of coordinate")
-      elif key in ["in"]:
-        obj = self._selection.previous_line()
-        if obj is None:
-          raise Exception("Cannot set 'in' of a position not at end of line")
+    if key in ["xshift", "yshift", "anchor"]:
+      if is_type(obj, "nodename"):
         self._set_object(obj, key_values)
       else:
-        obj = self._selection.next_line()
-        if obj is None:
-          raise Exception("Cannot find segment following the position")
+        raise Exception("Can only shift node name")
+    elif key in ["x", "y"]:
+      if is_type(obj, "coordinate"):
         self._set_object(obj, key_values)
+      else:
+        raise Exception("Can only set x, y of coordinate")
+    elif key in ["in"]:
+      obj = self._selection.previous_line()
+      if obj is None:
+        raise Exception("Cannot set 'in' of a position not at end of line")
+      self._set_object(obj, key_values)
+    else:
+      obj = self._selection.next_line()
+      if obj is None:
+        raise Exception("Cannot find segment following the position")
+      self._set_object(obj, key_values)
 
   def _set_selected_objects(self, key, value):
     if self._selection.is_in_path_position_mode():
       self._set_path_position(key, value)
       return
-    with self._modify_picture():
-      key_values = smart_key_value(key, value)
-      for obj in self._selection.get_selected_objects():
-        self._set_object(obj, key_values)
+    key_values = smart_key_value(key, value)
+    for obj in self._selection.get_selected_objects():
+      self._set_object(obj, key_values)
 
   def _set_fill(self, code):
     parser = Parser()
@@ -1277,6 +1280,33 @@ class Editor(object):
     with open(self._get_object_path(object_name), "w") as f:
       f.write(data)
 
+  def _write(self, code):
+    filename = code
+
+    if self.filename is None and len(filename) > 0:
+      self.filename = filename
+
+    if len(filename) == 0 and self.filename is not None:
+      filename = self.filename
+
+    data = json.dumps(self._save())
+    if len(filename) == 0:
+      print(data)
+    else:
+      with open(filename, "w") as f:
+        f.write(data)
+
+  def _export(self, code):
+    filename = code
+    tikzcode = self._context.render()
+    data = json.dumps(self._context._picture)
+    if filename.endswith(".png"):
+      path = tikzimage(tikzcode)
+      os.system(f"cp {path} {filename}")
+    else:
+      with open(filename, "w") as f:
+        f.write(tikzcode)
+
   def _read_object(self, code):
     object_name = code
     with open(self._get_object_path(object_name)) as f:
@@ -1334,5 +1364,4 @@ class Editor(object):
 
   def _view(self):
     tikzcode = self._context.render()
-    tikzimage(tikzcode)
-    self._canvas_manager.preview("./view/view.png")
+    self._canvas_manager.preview(tikzimage(tikzcode))

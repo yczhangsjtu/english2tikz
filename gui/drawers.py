@@ -180,10 +180,10 @@ class BoxDrawer(Drawer):
     }
 
     if circle:
+      radius = width / 2 * cs_scale
+      rx0, ry0 = center_screen_x - radius, center_screen_y - radius
+      rx1, ry1 = center_screen_x + radius, center_screen_y + radius
       if fill or draw:
-        radius = width / 2 * cs_scale
-        rx0, ry0 = center_screen_x - radius, center_screen_y - radius
-        rx1, ry1 = center_screen_x + radius, center_screen_y + radius
         canvas.create_oval((rx0, ry0, rx1, ry1), **draw_fill_style)
       if selected:
         canvas.create_oval((rx0 - select_buff, ry0 - select_buff,
@@ -468,34 +468,43 @@ class PathDrawer(Drawer):
           "width": int(none_or(line_width, 1)) + 4,
           "dash": int(none_or(line_width, 1)) + 4,
       }
+      dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
 
-      if "in" in item and current_pos_clip:
-        diagnal = current_pos_clip.diameter()
-        start_point = current_pos_clip.get_point_at_direction(
-            x0 + dx * diagnal / dist * 3,
-            y0 + dy * diagnal / dist * 3)
-        assert start_point is not None
-        x0, y0 = start_point
+      if "out" in item:
+        out_degree = int(item["out"])
+        outdy = math.sin(out_degree / 180 * math.pi) * dist / 3
+        outdx = math.cos(out_degree / 180 * math.pi) * dist / 3
+        if current_pos_clip:
+          diagnal = current_pos_clip.diameter()
+          start_point = current_pos_clip.get_point_at_direction(
+              x0 + outdx * diagnal / dist * 3,
+              y0 + outdy * diagnal / dist * 3)
+          assert start_point is not None
+          x0, y0 = start_point
 
-      if "out" in item and new_pos_clip:
-        diagnal = new_pos_clip.diameter()
-        end_point = new_pos_clip.get_point_at_direction(
-            x1 + dx * diagnal / dist * 3,
-            y1 + dy * diagnal / dist * 3)
-        assert end_point is not None
-        x1, y1 = end_point
+      if "in" in item:
+        in_degree = int(item["in"])
+        indy = math.sin(in_degree / 180 * math.pi) * dist / 3
+        indx = math.cos(in_degree / 180 * math.pi) * dist / 3
+        if new_pos_clip:
+          diagnal = new_pos_clip.diameter()
+          end_point = new_pos_clip.get_point_at_direction(
+              x1 + indx * diagnal / dist * 3,
+              y1 + indy * diagnal / dist * 3)
+          assert end_point is not None
+          x1, y1 = end_point
 
-      if "in" not in item and current_pos_clip:
-        cliped_pos = current_pos_clip.get_point_at_direction(x1, y1)
-        if cliped_pos is None:
-          return ret
-        x0, y0 = cliped_pos
-
-      if "out" not in item and new_pos_clip:
-        cliped_pos = new_pos_clip.get_point_at_direction(x0, y0)
+      if "out" not in item and current_pos_clip:
+        cliped_pos = current_pos_clip.get_point_at_direction(x0, y0)
         if cliped_pos is None:
           return ret
         x1, y1 = cliped_pos
+
+      if "in" not in item and new_pos_clip:
+        cliped_pos = new_pos_clip.get_point_at_direction(x1, y1)
+        if cliped_pos is None:
+          return ret
+        x0, y0 = cliped_pos
 
       straight = "in" not in item and "out" not in item
       if straight:
@@ -507,24 +516,16 @@ class PathDrawer(Drawer):
         line_segments = (x0p, y0p, x1p, y1p)
       else:
         points = [[x0, y0]]
-        dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
-        steps = max(int(dist / 0.01) + 1, 20)
 
         if "out" in item:
-          out_degree = int(item["out"])
-          dy = math.sin(out_degree / 180 * math.pi) * dist / 3
-          dx = math.cos(out_degree / 180 * math.pi) * dist / 3
-          points[0] = [x0, y0]
-          points.append([x0 + dx, y0 + dy])
+          points.append([x0 + outdx, y0 + outdy])
 
         if "in" in item:
-          in_degree = int(item["in"])
-          dy = math.sin(in_degree / 180 * math.pi) * dist / 3
-          dx = math.cos(in_degree / 180 * math.pi) * dist / 3
-          points.append([x1 + dx, y1 + dy])
+          points.append([x1 + indx, y1 + indy])
         points.append([x1, y1])
 
-        curve = Bezier.generate_line_segments(*points, steps=steps)
+        curve = Bezier.generate_line_segments(
+            *points, steps=max(int(dist / 0.01) + 1, 20))
 
         """
         Don't know why still need to clip curve. Maybe forgot to delete
