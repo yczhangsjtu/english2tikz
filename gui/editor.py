@@ -24,6 +24,7 @@ from english2tikz.gui.pointer import Pointer
 from english2tikz.gui.mark import MarkManager
 from english2tikz.gui.visual import Visual
 from english2tikz.gui.command_parse import Parser
+from english2tikz.gui.suggest import Suggest
 
 
 class Editor(object):
@@ -177,6 +178,7 @@ class Editor(object):
                       partial(self._shift_selected_object_anchor, "up"))
     self.register_key("normal", "Ctrl-d",
                       partial(self._shift_selected_object_anchor, "right"))
+    self.register_key("normal", "s", self._enter_suggest_mode())
     self.register_key("visual", "i", self._enter_edit_mode_at_visual)
     self.register_key("visual", ":", self._enter_command_mode)
     self.register_key("visual", "/", self._enter_command_mode_and_search)
@@ -220,10 +222,12 @@ class Editor(object):
     self.register_key("visual", "G", self._reset_pointer_to_origin)
     self.register_key("visual", "Ctrl-g", partial(self._change_grid_size, 1))
     self.register_key("visual", "Ctrl-f", partial(self._change_grid_size, -1))
+    self.register_key("visual", "s", self._enter_suggest_mode())
     self.register_key("finding", "Printable", self._finding_narrow_down)
     self.register_key("finding", "BackSpace", self._finding_back)
     self.register_key("finding", "Ctrl-c", self._exit_finding_mode)
     self.register_key("preview", "Ctrl-c", self._exit_preview)
+    self.register_key("suggest", "Ctrl-c", self._exit_suggest_mode)
 
   @contextmanager
   def _modify_picture(self):
@@ -257,6 +261,7 @@ class Editor(object):
     except Exception as e:
       self._error_msg = f"Error: {e}"
       traceback.print_exc()
+
     self._canvas_manager.draw()
 
   def _scroll(self, dx, dy):
@@ -336,12 +341,16 @@ class Editor(object):
   def _is_in_finding_mode(self):
     return self._finding is not None
 
+  def _is_in_suggest_mode(self):
+    return self._suggest.active()
+
   def _is_in_normal_mode(self):
     return (not self._is_in_command_mode() and
             not self._is_in_editing_mode() and
             not self._is_in_visual_mode() and
             not self._is_in_finding_mode() and
-            not self._is_in_preview_mode())
+            not self._is_in_preview_mode() and
+            not self._is_in_suggest_mode())
 
   def _is_in_preview_mode(self):
     return self._canvas_manager._preview is not None
@@ -359,6 +368,8 @@ class Editor(object):
       return "preview"
     if self._is_in_normal_mode():
       return "normal"
+    if self._is_in_suggest_mode():
+      return "suggest"
     raise ValueError("Invalid mode")
 
   def _enter_edit_mode_without_visual(self):
@@ -468,6 +479,12 @@ class Editor(object):
 
   def _exit_preview(self):
     self._canvas_manager._preview = None
+
+  def _enter_suggest_mode(self):
+    self._suggest.activate()
+
+  def _exit_suggest_mode(self):
+    self._suggest.shutdown()
 
   def _deselect(self):
     if not self._selection.deselect():
