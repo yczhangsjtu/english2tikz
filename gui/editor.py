@@ -51,6 +51,7 @@ class Editor(object):
     self._editing_refreshing_timer_started = True
     self.filename = None
     self._selection = Selection(self._context)
+    self._suggest = Suggest(self)
     self._keyboard_managers = {
         "normal": KeyboardManager(),
         "visual": KeyboardManager(),
@@ -58,6 +59,7 @@ class Editor(object):
         "command": KeyboardManager(),
         "finding": KeyboardManager(),
         "preview": KeyboardManager(),
+        "suggest": KeyboardManager(),
     }
     self._canvas_manager = CanvasManager(root, canvas,
                                          screen_width, screen_height, self)

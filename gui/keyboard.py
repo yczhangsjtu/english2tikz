@@ -28,8 +28,11 @@ class KeyboardManager(object):
            if event.keysym and event.keysym in self._legal_keys
            else None)
     if not ctrl and char:
-      self._invoke(get_default(self._bindings, "Printable"), char)
-      self._invoke(get_default(self._bindings, char))
+      if char == "\n" or char == "\r":
+        self._invoke(get_default(self._bindings, "Return"))
+      else:
+        self._invoke(get_default(self._bindings, "Printable"), char)
+        self._invoke(get_default(self._bindings, char))
     elif not ctrl and sym:
       self._invoke(get_default(self._bindings, sym))
     elif ctrl and sym:
