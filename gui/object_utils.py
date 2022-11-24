@@ -86,6 +86,8 @@ def get_position_in_line(obj):
 
 
 def compute_arc_to_extend_path(path, x, y, hint):
+  if "last_path" not in hint:
+    return None, None, None
   last_path_hint = hint["last_path"]
   hint_directions = last_path_hint["directions"]
   hint_positions = last_path_hint["positions"]

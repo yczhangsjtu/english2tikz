@@ -241,6 +241,8 @@ class ExtendPathToPointerByArc(object):
     suggestion = current.copy()
     path = suggestion.get_single_path()
     start, end, radius = compute_arc_to_extend_path(path, x, y, hint)
+    if start is None:
+      return []
     path['items'].append(create_arc(start, end, radius))
     candcode = create_text(chr(index+ord('A')), x=x, y=y)
     candcode["id"] = "extend_path_to_pointer_by_arc_candcode_id"

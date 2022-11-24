@@ -839,6 +839,8 @@ def rotate(x, y, x0, y0, angle):
 
 def get_angle(x0, y0, x1, y1):
   dist = math.sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0))
+  if dist < 0.0001:
+    return None
   angle = int(math.asin((y1-y0)/dist) / math.pi * 180)
   if x1 < x0:
     angle = 180 - angle

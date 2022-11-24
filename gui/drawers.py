@@ -490,7 +490,7 @@ class PathDrawer(Drawer):
           "dash": int(none_or(line_width, 1)) + 4,
       }
       dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
-      hint_positions.append(x1, y1)
+      hint_positions.append((x1, y1))
 
       if "out" in item:
         out_degree = int(item["out"])
@@ -536,7 +536,7 @@ class PathDrawer(Drawer):
         x0p, y0p = cs.map_point(x0, y0)
         x1p, y1p = cs.map_point(x1, y1)
         line_segments = (x0p, y0p, x1p, y1p)
-        hint_directions.append(get_angle(x0p, y0p, x1p, y1p) % 360)
+        hint_directions.append(none_or(get_angle(x0p, y0p, x1p, y1p), 0) % 360)
       else:
         points = [[x0, y0]]
 
@@ -547,7 +547,8 @@ class PathDrawer(Drawer):
           points.append([x1 + indx, y1 + indy])
           hint_directions.append((int(item["in"]) + 180) % 360)
         else:
-          hint_directions.append(get_angle(x0+outdx, y0+outdy, x1, y1) % 360)
+          hint_directions.append(none_or(get_angle(x0+outdx, y0+outdy,
+                                                   x1, y1), 0) % 360)
         points.append([x1, y1])
 
         curve = Bezier.generate_line_segments(
@@ -601,7 +602,7 @@ class PathDrawer(Drawer):
                 ax0, ay0 = x, y
                 ax1, ay1 = curve[int((len(curve)-1) * (1-t))+1]
 
-            angle = get_angle(ax0, ay0, ax1, ay1) % 360
+            angle = none_or(get_angle(ax0, ay0, ax1, ay1), 0) % 360
             if angle < 270 and angle > 90:
               angle = (angle + 180) % 360
 
