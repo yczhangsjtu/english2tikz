@@ -47,7 +47,7 @@ class Drawer(object):
     raise ConfigurationError(
         "Cannot invoke match method from base class Drawer")
 
-  def draw(self, canvas, obj, env):
+  def draw(self, canvas, obj, env, hint={}):
     raise ConfigurationError(
         "Cannot invoke draw method from base class Drawer")
 
@@ -56,8 +56,8 @@ class BoxDrawer(Drawer):
   def match(self, obj):
     return "type" in obj and obj["type"] in ["box", "text"]
 
-  def draw(self, canvas, obj, env):
-    BoxDrawer._draw(canvas, obj, env)
+  def draw(self, canvas, obj, env, hint={}):
+    BoxDrawer._draw(canvas, obj, env, hint)
 
   def _precompute_text_size(canvas, obj, scale, cs_scale, inner_sep):
     text_width = get_default(obj, "text.width")
@@ -98,7 +98,7 @@ class BoxDrawer(Drawer):
 
     return width, height
 
-  def _draw(canvas, obj, env, position=None, slope=0):
+  def _draw(canvas, obj, env, position=None, slope=0, hint={}):
     id_ = get_default(obj, "id")
     assert id_ is not None
     selected = env["selection"].selected(obj)
@@ -317,7 +317,7 @@ class PathDrawer(Drawer):
   def match(self, obj):
     return "type" in obj and obj["type"] == "path"
 
-  def draw(self, canvas, obj, env):
+  def draw(self, canvas, obj, env, hint={}):
     draw = "draw" in obj
     fill = "fill" in obj
     fill_polygon = []
@@ -346,6 +346,10 @@ class PathDrawer(Drawer):
     finding = env["finding"]
     bounding_boxes = env["bounding box"]
     is_selected = selection.selected(obj)
+    hint["last_path"] = {
+        "positions": [],
+        "directions": [],
+    }
     for index, item in enumerate(obj["items"]):
       segment_id = f"segment_{id(obj)}_{index}"
       new_pos = None
@@ -412,7 +416,8 @@ class PathDrawer(Drawer):
         assert current_pos is not None, "No starting position for line"
         citem = PathDrawer._draw_item(canvas, to_draw, *current_pos, *new_pos,
                                       current_pos_clip, new_pos_clip,
-                                      is_selected, arrow, obj, segment_id, env)
+                                      is_selected, arrow, obj, segment_id, env,
+                                      hint)
         if first_segment is None:
           first_segment = citem
         to_draw = None
@@ -456,7 +461,9 @@ class PathDrawer(Drawer):
         canvas.tag_lower(fback, ftext)
 
   def _draw_item(canvas, item, x0, y0, x1, y1, current_pos_clip, new_pos_clip,
-                 is_selected, arrow, path, segment_id, env):
+                 is_selected, arrow, path, segment_id, env, hint={}):
+    hint_directions = hint["last_path"]["directions"]
+    hint_positions = hint["last_path"]["positions"]
     line_width = get_default(path, "line.width")
     if line_width is not None:
       line_width = dist_to_num(line_width) * line_width_ratio
@@ -483,6 +490,7 @@ class PathDrawer(Drawer):
           "dash": int(none_or(line_width, 1)) + 4,
       }
       dist = math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0))
+      hint_positions.append(x1, y1)
 
       if "out" in item:
         out_degree = int(item["out"])
@@ -528,6 +536,7 @@ class PathDrawer(Drawer):
         x0p, y0p = cs.map_point(x0, y0)
         x1p, y1p = cs.map_point(x1, y1)
         line_segments = (x0p, y0p, x1p, y1p)
+        hint_directions.append(get_angle(x0p, y0p, x1p, y1p) % 360)
       else:
         points = [[x0, y0]]
 
@@ -536,6 +545,9 @@ class PathDrawer(Drawer):
 
         if "in" in item:
           points.append([x1 + indx, y1 + indy])
+          hint_directions.append((int(item["in"]) + 180) % 360)
+        else:
+          hint_directions.append(get_angle(x0+outdx, y0+outdy, x1, y1) % 360)
         points.append([x1, y1])
 
         curve = Bezier.generate_line_segments(
@@ -594,9 +606,11 @@ class PathDrawer(Drawer):
               angle = (angle + 180) % 360
 
           BoxDrawer._draw(canvas, annotate, env,
-                          position=(x, y), slope=angle)
+                          position=(x, y), slope=angle, hint=hint)
 
     elif is_type(item, "rectangle"):
+      hint_directions.append((x1, y1))
+      hint_positions.append(None)
       line_style = {
           "fill": color_to_tk(fill),
           "outline": color_to_tk(color),
@@ -636,6 +650,9 @@ class PathDrawer(Drawer):
       start = int(item["start"])
       end = int(item["end"])
       radius = dist_to_num(item["radius"])
+      hint_directions.append((end + 90) % 360 if end > start else
+                             (end + 270) % 360)
+      hint_positions.append((x1, y1))
       bounding_boxes[segment_id] = BoundingBox(
           0, 0, 0, 0, shape="curve",
           points=create_arc_curve(x0, y0, start, end, radius), obj=path)
@@ -670,7 +687,8 @@ class PathDrawer(Drawer):
             if angle < 270 and angle > 90:
               angle = (angle + 180) % 360
 
-          BoxDrawer._draw(canvas, annotate, env, position=(x, y), slope=angle)
+          BoxDrawer._draw(canvas, annotate, env, position=(x, y),
+                          slope=angle, hint=hint)
     else:
       raise ValueError(f"Unknown type {item['type']}")
     return ret

@@ -1,6 +1,7 @@
 import string
 import copy
 from english2tikz.utils import *
+from english2tikz.gui.object_utils import *
 
 
 class Suggestion(object):
@@ -77,6 +78,7 @@ class Suggest(object):
     self._suggestion_history = []
     self._suggestion_history_index = 0
     self._register_suggestors()
+    self._hint = {}
 
   def _register_suggestor(self, suggestor):
     self._suggestors.append(suggestor)
@@ -85,6 +87,7 @@ class Suggest(object):
     self._register_suggestor(CreateTextAtPointer())
     self._register_suggestor(CreatePathAtPointer())
     self._register_suggestor(ExtendPathToPointer())
+    self._register_suggestor(ExtendPathToPointerByArc())
 
   def _context(self):
     return self._editor._context
@@ -103,19 +106,22 @@ class Suggest(object):
     self._suggestion_history = [self._current_suggestion]
     self._suggestion_history_index = 0
     self._propose_suggestions()
+    self._hint = {}
 
   def shutdown(self):
     self._current_suggestion = None
     self._new_suggestions = None
     self._suggestion_history = []
     self._suggestion_history_index = 0
+    self._hint = {}
 
   def _propose_suggestions(self):
     self._new_suggestions = []
     for suggestor in self._suggestors:
       self._new_suggestions += suggestor.suggest(
           self._editor, self._current_suggestion,
-          len(self._new_suggestions))
+          len(self._new_suggestions),
+          self._hint)
     if len(self._new_suggestions) > 26:
       self._editor._error_msg = ("Too many suggestions "
                                  f"{len(self._new_suggestions)}, only"
@@ -164,7 +170,7 @@ class Suggest(object):
 
 
 class CreateTextAtPointer(object):
-  def suggest(self, editor, current, index):
+  def suggest(self, editor, current, index, hint):
     if not current.empty():
       return []
     x, y = editor._pointer.pos()
@@ -186,7 +192,7 @@ class CreateTextAtPointer(object):
 
 
 class CreatePathAtPointer(object):
-  def suggest(self, editor, current, index):
+  def suggest(self, editor, current, index, hint):
     if not current.empty():
       return []
     x, y = editor._pointer.pos()
@@ -207,7 +213,7 @@ class CreatePathAtPointer(object):
 
 
 class ExtendPathToPointer(object):
-  def suggest(self, editor, current, index):
+  def suggest(self, editor, current, index, hint):
     if not current.single_path():
       return []
     x, y = editor._pointer.pos()
@@ -216,7 +222,28 @@ class ExtendPathToPointer(object):
     path['items'].append(create_line())
     path['items'].append(create_coordinate(x, y))
     candcode = create_text(chr(index+ord('A')), x=x, y=y)
-    candcode["id"] = "create_path_at_pointer_candcode_id"
+    candcode["id"] = "extend_path_to_pointer_candcode_id"
+    candcode["candcode"] = True
+    candcode["draw"] = True
+    candcode["fill"] = "orange"
+    candcode["scale"] = 0.3
+    candcode["anchor"] = "south.east"
+    suggestion.append(candcode)
+    suggestion.change_to_candidate_style()
+    return [suggestion]
+
+
+class ExtendPathToPointerByArc(object):
+  def suggest(self, editor, current, index, hint):
+    if not current.single_path():
+      return []
+    x, y = editor._pointer.pos()
+    suggestion = current.copy()
+    path = suggestion.get_single_path()
+    start, end, radius = compute_arc_to_extend_path(path, x, y, hint)
+    path['items'].append(create_arc(start, end, radius))
+    candcode = create_text(chr(index+ord('A')), x=x, y=y)
+    candcode["id"] = "extend_path_to_pointer_by_arc_candcode_id"
     candcode["candcode"] = True
     candcode["draw"] = True
     candcode["fill"] = "orange"

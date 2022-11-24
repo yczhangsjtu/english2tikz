@@ -1,3 +1,4 @@
+import math
 from english2tikz.utils import *
 
 
@@ -82,3 +83,41 @@ def get_position_in_line(obj):
   if "at.end" in obj:
     return 0
   return 0.5
+
+
+def compute_arc_to_extend_path(path, x, y, hint):
+  last_path_hint = hint["last_path"]
+  hint_directions = last_path_hint["directions"]
+  hint_positions = last_path_hint["positions"]
+  assert len(hint_positions) == len(hint_directions), "Mismatched hint sizes"
+  if len(hint_positions) == 0 or hint_directions[-1] is None:
+    return None, None, None
+  x0, y0 = hint_positions[-1]
+  deg = hint_directions[-1]
+  dx0, dy0 = math.sin(deg/180*math.pi), -math.cos(deg/180*math.pi)
+  xm, ym = (x + x0) / 2, (y + y0) / 2
+  dxm, dym = y - y0, x0 - y
+  if (dx0 * dym - dy0 * dxm) < 0.001:
+    return None, None, None
+  u = (x - y + y0 * dxm - x0 * dym) / (dx0 * dym - dy0 * dxm)
+  if u > 100 or u < 0.1:
+    return None, None, None
+  radius = abs(u)
+  centerx, centery = x0 + u * dx0, y0 + u * dy0
+  start = (deg + 270) % 360
+  if x == centerx:
+    if y > centery:
+      end = 90
+    else:
+      end = -90
+  else:
+    end = math.atan((y - centery) / (x - centerx))
+    if x < centerx:
+      end = (end + 180) % 360
+  if u > 0 and end > start:
+    end -= 360
+  elif u < 0 and end < start:
+    end += 360
+  if abs(end - start) < 3:
+    return None, None, None
+  return start, end, radius
