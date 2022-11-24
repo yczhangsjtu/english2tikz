@@ -37,6 +37,30 @@ class Suggestion(object):
     assert self.single_path(), "Suggestion is not single path"
     return self._content[-1]["items"]
 
+  def change_to_chosen_style(self):
+    self._content = [item for item in self._content if "candcode" not in item]
+    for item in self._content:
+      item["color"] = "green!50!black"
+      if is_type(item, "text"):
+        item["text.color"] = "green!50!black"
+
+  def change_to_candidate_style(self):
+    for item in self._content:
+      if "candcode" in item:
+        continue
+      item["color"] = "red!50"
+      if is_type(item, "text"):
+        item["text.color"] = "red!50"
+
+  def change_to_fix_style(self, context):
+    self._content = [item for item in self._content if "candcode" not in item]
+    for item in self._content:
+      item["color"] = "black"
+      if is_type(item, "text"):
+        item["text.color"] = "black"
+        item["id"] = context.getid()
+      del_if_has(item, "line.width")
+
 
 class Suggest(object):
   def __init__(self, editor):
@@ -82,28 +106,29 @@ class Suggest(object):
     self._new_suggestions = []
     for suggestor in self._suggestors:
       self._new_suggestions += suggestor.suggest(
-          self._editor, self._current_suggestion)
-    if len(self._new_suggestions) > 10:
+          self._editor, self._current_suggestion,
+          len(self._new_suggestions))
+    if len(self._new_suggestions) > 26:
       self._editor._error_msg = ("Too many suggestions "
                                  f"{len(self._new_suggestions)}, only"
-                                 f"take the first 10")
-      self._new_suggestions = self._new_suggestions[:10]
+                                 f"take the first 26")
+      self._new_suggestions = self._new_suggestions[:26]
 
   def take_suggestion(self, code):
-    if code in string.lowercase:
-      index = ord(code) - ord('a')
-    elif code in string.uppercase:
-      index = ord(code) - ord('A') + 26
+    if code in string.ascii_uppercase:
+      index = ord(code) - ord('A')
     else:
       raise ErrorMessage(f'Invalid code {code}')
     if index >= len(self._new_suggestions):
       raise ErrorMessage(f'Code {code} does not exist')
-    suggestion = self._new_suggestions(index)
+    suggestion = self._new_suggestions[index]
     self._suggestion_history = self._suggestion_history[
         :self._suggestion_history_index+1]
     self._suggestion_history.append(suggestion)
     self._current_suggestion = suggestion
+    self._current_suggestion.change_to_chosen_style()
     self._suggestion_history_index = len(self._suggestion_history) - 1
+    self._propose_suggestions()
 
   def revert(self):
     if self._suggestion_history_index == 0:
@@ -111,6 +136,7 @@ class Suggest(object):
     self._suggestion_history_index -= 1
     self._current_suggestion = self._suggestion_history[
         self._suggestion_history_index]
+    self._current_suggestion.change_to_chosen_style()
     self._propose_suggestions()
 
   def redo(self):
@@ -119,20 +145,33 @@ class Suggest(object):
     self._suggestion_history_index += 1
     self._current_suggestion = self._suggestion_history[
         self._suggestion_history_index]
+    self._current_suggestion.change_to_chosen_style()
     self._propose_suggestions()
+
+  def fix(self):
+    self._current_suggestion.change_to_fix_style(self._editor._context)
+    ret = self._current_suggestion._content
+    self.shutdown()
+    return ret
 
 
 class CreateTextAtPointer(object):
-  def suggest(self, editor, current):
+  def suggest(self, editor, current, index):
     if not current.empty():
       return []
     x, y = editor._pointer.pos()
     suggestion = Suggestion()
     text = create_text("A", x=x, y=y)
     text["id"] = "create_text_at_pointer_id"
-    text["color"] = "blue"
-    text["text.color"] = "blue!50"
     text["draw"] = True
-    text["dashed"] = True
+    text["line.width"] = 2
     suggestion.append(text)
+    candcode = create_text(chr(index+ord('A')), x=x-0.3, y=y+0.3)
+    candcode["id"] = "create_text_at_pointer_candcode_id"
+    candcode["candcode"] = True
+    candcode["draw"] = True
+    candcode["fill"] = "yellow"
+    candcode["scale"] = 0.3
+    suggestion.append(candcode)
+    suggestion.change_to_candidate_style()
     return [suggestion]

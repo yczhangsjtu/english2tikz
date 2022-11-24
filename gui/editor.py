@@ -180,7 +180,10 @@ class Editor(object):
                       partial(self._shift_selected_object_anchor, "up"))
     self.register_key("normal", "Ctrl-d",
                       partial(self._shift_selected_object_anchor, "right"))
-    self.register_key("normal", "s", self._enter_suggest_mode)
+    self.register_key("normal", "s", self._enter_or_exit_suggest_mode)
+    for c in string.ascii_uppercase:
+      self.register_key("normal", f"Ctrl-{c}",
+                        partial(self._take_suggestion, c))
     self.register_key("visual", "i", self._enter_edit_mode_at_visual)
     self.register_key("visual", ":", self._enter_command_mode)
     self.register_key("visual", "/", self._enter_command_mode_and_search)
@@ -224,7 +227,10 @@ class Editor(object):
     self.register_key("visual", "G", self._reset_pointer_to_origin)
     self.register_key("visual", "Ctrl-g", partial(self._change_grid_size, 1))
     self.register_key("visual", "Ctrl-f", partial(self._change_grid_size, -1))
-    self.register_key("visual", "s", self._enter_suggest_mode)
+    self.register_key("visual", "s", self._enter_or_exit_suggest_mode)
+    for c in string.ascii_uppercase:
+      self.register_key("visual", f"Ctrl-{c}",
+                        partial(self._take_suggestion, c))
     self.register_key("finding", "Printable", self._finding_narrow_down)
     self.register_key("finding", "BackSpace", self._finding_back)
     self.register_key("finding", "Ctrl-c", self._exit_finding_mode)
@@ -478,8 +484,20 @@ class Editor(object):
   def _exit_preview(self):
     self._canvas_manager._preview = None
 
-  def _enter_suggest_mode(self):
-    self._suggest.activate()
+  def _enter_or_exit_suggest_mode(self):
+    if self._suggest.active():
+      self._fix_suggestion()
+    else:
+      self._suggest.activate()
+
+  def _take_suggestion(self, code):
+    self._suggest.take_suggestion(code)
+
+  def _fix_suggestion(self):
+    new_objects = self._suggest.fix()
+    if len(new_objects) == 0:
+      raise ErrorMessage("No suggestion is taken.")
+    self._context._picture += new_objects
 
   def _exit_suggest_mode(self):
     self._suggest.shutdown()
