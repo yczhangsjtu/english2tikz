@@ -269,6 +269,8 @@ class Editor(object):
       self._error_msg = f"Error: {e}"
       traceback.print_exc()
 
+    if self._has_suggest():
+      self._suggest._propose_suggestions()
     self._canvas_manager.draw()
 
   def _scroll(self, dx, dy):
@@ -491,7 +493,10 @@ class Editor(object):
       self._suggest.activate()
 
   def _take_suggestion(self, code):
-    self._suggest.take_suggestion(code)
+    if self._has_suggest():
+      self._suggest.take_suggestion(code)
+    else:
+      raise ErrorMessage("Suggestion mode is not on. Press s.")
 
   def _fix_suggestion(self):
     new_objects = self._suggest.fix()

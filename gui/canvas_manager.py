@@ -75,13 +75,13 @@ class CanvasManager(object):
     self._draw_marks(self._canvas)
     self._draw_attributes(self._canvas)
     if self._editor._has_suggest():
-      self._draw_picture(self._canvas,
-                         self._editor._suggest.suggestion()._content,
-                         self._bounding_boxes)
       for candidate in self._editor._suggest._new_suggestions:
         self._draw_picture(self._canvas,
                            candidate._content,
                            self._bounding_boxes)
+      self._draw_picture(self._canvas,
+                         self._editor._suggest.suggestion()._content,
+                         self._bounding_boxes)
     if self._editing_text() is not None:
       self._draw_editing_text(self._canvas)
     else:

@@ -1,10 +1,16 @@
 import string
+import copy
 from english2tikz.utils import *
 
 
 class Suggestion(object):
   def __init__(self):
     self._content = []
+
+  def copy(self):
+    ret = Suggestion()
+    ret._content = copy.deepcopy(self._content)
+    return ret
 
   def append(self, item):
     self._content.append(item)
@@ -77,6 +83,8 @@ class Suggest(object):
 
   def _register_suggestors(self):
     self._register_suggestor(CreateTextAtPointer())
+    self._register_suggestor(CreatePathAtPointer())
+    self._register_suggestor(ExtendPathToPointer())
 
   def _context(self):
     return self._editor._context
@@ -172,6 +180,48 @@ class CreateTextAtPointer(object):
     candcode["draw"] = True
     candcode["fill"] = "yellow"
     candcode["scale"] = 0.3
+    suggestion.append(candcode)
+    suggestion.change_to_candidate_style()
+    return [suggestion]
+
+
+class CreatePathAtPointer(object):
+  def suggest(self, editor, current, index):
+    if not current.empty():
+      return []
+    x, y = editor._pointer.pos()
+    suggestion = Suggestion()
+    path = create_path([create_coordinate(x, y)])
+    path["line.width"] = 2
+    suggestion.append(path)
+    candcode = create_text(chr(index+ord('A'))+'(path)', x=x, y=y)
+    candcode["id"] = "create_path_at_pointer_candcode_id"
+    candcode["candcode"] = True
+    candcode["draw"] = True
+    candcode["fill"] = "orange"
+    candcode["scale"] = 0.3
+    candcode["anchor"] = "south.east"
+    suggestion.append(candcode)
+    suggestion.change_to_candidate_style()
+    return [suggestion]
+
+
+class ExtendPathToPointer(object):
+  def suggest(self, editor, current, index):
+    if not current.single_path():
+      return []
+    x, y = editor._pointer.pos()
+    suggestion = current.copy()
+    path = suggestion.get_single_path()
+    path['items'].append(create_line())
+    path['items'].append(create_coordinate(x, y))
+    candcode = create_text(chr(index+ord('A')), x=x, y=y)
+    candcode["id"] = "create_path_at_pointer_candcode_id"
+    candcode["candcode"] = True
+    candcode["draw"] = True
+    candcode["fill"] = "orange"
+    candcode["scale"] = 0.3
+    candcode["anchor"] = "south.east"
     suggestion.append(candcode)
     suggestion.change_to_candidate_style()
     return [suggestion]
