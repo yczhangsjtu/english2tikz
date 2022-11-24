@@ -180,7 +180,7 @@ class Editor(object):
                       partial(self._shift_selected_object_anchor, "up"))
     self.register_key("normal", "Ctrl-d",
                       partial(self._shift_selected_object_anchor, "right"))
-    self.register_key("normal", "s", self._enter_suggest_mode())
+    self.register_key("normal", "s", self._enter_suggest_mode)
     self.register_key("visual", "i", self._enter_edit_mode_at_visual)
     self.register_key("visual", ":", self._enter_command_mode)
     self.register_key("visual", "/", self._enter_command_mode_and_search)
@@ -224,7 +224,7 @@ class Editor(object):
     self.register_key("visual", "G", self._reset_pointer_to_origin)
     self.register_key("visual", "Ctrl-g", partial(self._change_grid_size, 1))
     self.register_key("visual", "Ctrl-f", partial(self._change_grid_size, -1))
-    self.register_key("visual", "s", self._enter_suggest_mode())
+    self.register_key("visual", "s", self._enter_suggest_mode)
     self.register_key("finding", "Printable", self._finding_narrow_down)
     self.register_key("finding", "BackSpace", self._finding_back)
     self.register_key("finding", "Ctrl-c", self._exit_finding_mode)
@@ -368,10 +368,10 @@ class Editor(object):
       return "finding"
     if self._is_in_preview_mode():
       return "preview"
-    if self._is_in_normal_mode():
-      return "normal"
     if self._is_in_suggest_mode():
       return "suggest"
+    if self._is_in_normal_mode():
+      return "normal"
     raise ValueError("Invalid mode")
 
   def _enter_edit_mode_without_visual(self):
