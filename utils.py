@@ -932,9 +932,9 @@ def create_coordinate(x, y):
 def create_arc(start, end, radius):
   return {
       "type": "arc",
-      "start": start,
-      "end": end,
-      "radius": radius,
+      "start": str(start),
+      "end": str(end),
+      "radius": num_to_dist(radius),
   }
 
 

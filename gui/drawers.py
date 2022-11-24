@@ -532,11 +532,10 @@ class PathDrawer(Drawer):
       if straight:
         bounding_boxes[segment_id] = BoundingBox.from_rect(
             x0, y0, x1, y1, shape="line", obj=path)
-
+        hint_directions.append(none_or(get_angle(x0, y0, x1, y1), 0) % 360)
         x0p, y0p = cs.map_point(x0, y0)
         x1p, y1p = cs.map_point(x1, y1)
         line_segments = (x0p, y0p, x1p, y1p)
-        hint_directions.append(none_or(get_angle(x0p, y0p, x1p, y1p), 0) % 360)
       else:
         points = [[x0, y0]]
 

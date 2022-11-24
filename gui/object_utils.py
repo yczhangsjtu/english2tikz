@@ -98,22 +98,25 @@ def compute_arc_to_extend_path(path, x, y, hint):
   deg = hint_directions[-1]
   dx0, dy0 = math.sin(deg/180*math.pi), -math.cos(deg/180*math.pi)
   xm, ym = (x + x0) / 2, (y + y0) / 2
-  dxm, dym = y - y0, x0 - y
-  if (dx0 * dym - dy0 * dxm) < 0.001:
+  dxm, dym = y - y0, x0 - x
+  if abs(dx0 * dym - dy0 * dxm) < 0.01:
     return None, None, None
-  u = (x - y + y0 * dxm - x0 * dym) / (dx0 * dym - dy0 * dxm)
-  if u > 100 or u < 0.1:
-    return None, None, None
+  u = (dym * xm - dxm * ym + y0 * dxm - x0 * dym) / (dx0 * dym - dy0 * dxm)
   radius = abs(u)
+  if radius > 20 or radius < 0.1:
+    return None, None, None
   centerx, centery = x0 + u * dx0, y0 + u * dy0
-  start = (deg + 270) % 360
+  if u > 0:
+    start = (deg + 90) % 360
+  else:
+    start = (deg + 270) % 360
   if x == centerx:
     if y > centery:
       end = 90
     else:
       end = -90
   else:
-    end = math.atan((y - centery) / (x - centerx))
+    end = int(math.atan((y - centery) / (x - centerx)) * 180 / math.pi)
     if x < centerx:
       end = (end + 180) % 360
   if u > 0 and end > start:
