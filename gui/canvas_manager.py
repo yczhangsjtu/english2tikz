@@ -78,11 +78,13 @@ class CanvasManager(object):
       for candidate in self._editor._suggest._new_suggestions:
         self._draw_picture(self._canvas,
                            candidate._content,
-                           self._bounding_boxes)
+                           self._bounding_boxes,
+                           no_new_bound_box=True)
       self._draw_picture(self._canvas,
                          self._editor._suggest.suggestion()._content,
                          self._bounding_boxes,
-                         hint=self._editor._suggest._hint)
+                         hint=self._editor._suggest._hint,
+                         no_new_bound_box=True)
     if self._editing_text() is not None:
       self._draw_editing_text(self._canvas)
     else:
@@ -149,7 +151,8 @@ class CanvasManager(object):
     c.create_line(self._cs().center_vertical_line(),
                   fill="#888888", width=1.5)
 
-  def _draw_picture(self, c, picture, bounding_box, hint={}):
+  def _draw_picture(self, c, picture, bounding_box, hint={},
+                    no_new_bound_box=False):
     env = {
         "bounding box": bounding_box,
         "coordinate system": self._cs(),
@@ -159,17 +162,17 @@ class CanvasManager(object):
     }
     try:
       for obj in picture:
-        self._draw_obj(c, obj, env, hint)
+        self._draw_obj(c, obj, env, hint, no_new_bound_box)
     except Exception as e:
       traceback.print_exc()
       self._editor._error_msg = f"Error in drawing {obj}: {e}"
     self._bounding_boxes = env["bounding box"]
 
-  def _draw_obj(self, c, obj, env, hint={}):
+  def _draw_obj(self, c, obj, env, hint={}, no_new_bound_box=False):
     for drawer in self._drawers:
       if not drawer.match(obj):
         continue
-      drawer.draw(c, obj, env, hint)
+      drawer.draw(c, obj, env, hint, no_new_bound_box)
       return
     raise ConfigurationError(f"Cannot find drawer for obj {obj}")
 

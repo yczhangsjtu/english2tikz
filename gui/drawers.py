@@ -56,8 +56,9 @@ class BoxDrawer(Drawer):
   def match(self, obj):
     return "type" in obj and obj["type"] in ["box", "text"]
 
-  def draw(self, canvas, obj, env, hint={}):
-    BoxDrawer._draw(canvas, obj, env, hint)
+  def draw(self, canvas, obj, env, hint={}, no_new_bound_box=False):
+    BoxDrawer._draw(canvas, obj, env,
+                    hint=hint, no_new_bound_box=no_new_bound_box)
 
   def _precompute_text_size(canvas, obj, scale, cs_scale, inner_sep):
     text_width = get_default(obj, "text.width")
@@ -98,7 +99,8 @@ class BoxDrawer(Drawer):
 
     return width, height
 
-  def _draw(canvas, obj, env, position=None, slope=0, hint={}):
+  def _draw(canvas, obj, env, position=None, slope=0, hint={},
+            no_new_bound_box=False):
     id_ = get_default(obj, "id")
     assert id_ is not None
     selected = env["selection"].selected(obj)
@@ -150,7 +152,8 @@ class BoxDrawer(Drawer):
     bb = BoundingBox(x, y, width, height, shape=get_shape(obj),
                      angle=none_or(angle, 0), center=(anchorx, anchory),
                      obj=obj)
-    bounding_boxes[obj["id"]] = bb
+    if not no_new_bound_box:
+      bounding_boxes[obj["id"]] = bb
     centerx, centery = bb.get_anchor_pos("center")
 
     x0, y0 = cs.map_point(x, y)
@@ -317,7 +320,7 @@ class PathDrawer(Drawer):
   def match(self, obj):
     return "type" in obj and obj["type"] == "path"
 
-  def draw(self, canvas, obj, env, hint={}):
+  def draw(self, canvas, obj, env, hint={}, no_new_bound_box=False):
     draw = "draw" in obj
     fill = "fill" in obj
     fill_polygon = []
@@ -418,7 +421,7 @@ class PathDrawer(Drawer):
         citem = PathDrawer._draw_item(canvas, to_draw, *current_pos, *new_pos,
                                       current_pos_clip, new_pos_clip,
                                       is_selected, arrow, obj, segment_id, env,
-                                      hint)
+                                      hint, no_new_bound_box)
         if first_segment is None:
           first_segment = citem
         to_draw = None
@@ -464,7 +467,8 @@ class PathDrawer(Drawer):
         canvas.tag_lower(fback, ftext)
 
   def _draw_item(canvas, item, x0, y0, x1, y1, current_pos_clip, new_pos_clip,
-                 is_selected, arrow, path, segment_id, env, hint={}):
+                 is_selected, arrow, path, segment_id, env, hint={},
+                 no_new_bound_box=False):
     hint_directions = hint["last_path"]["directions"]
     hint_positions = hint["last_path"]["positions"]
     line_width = get_default(path, "line.width")
@@ -533,8 +537,9 @@ class PathDrawer(Drawer):
 
       straight = "in" not in item and "out" not in item
       if straight:
-        bounding_boxes[segment_id] = BoundingBox.from_rect(
-            x0, y0, x1, y1, shape="line", obj=path)
+        if not no_new_bound_box:
+          bounding_boxes[segment_id] = BoundingBox.from_rect(
+              x0, y0, x1, y1, shape="line", obj=path)
         hint_directions.append(none_or(get_angle(x0, y0, x1, y1), 0) % 360)
         x0p, y0p = cs.map_point(x0, y0)
         x1p, y1p = cs.map_point(x1, y1)
@@ -573,8 +578,9 @@ class PathDrawer(Drawer):
             return
         """
 
-        bounding_boxes[segment_id] = BoundingBox(
-            0, 0, 0, 0, shape="curve", points=curve, obj=path)
+        if not no_new_bound_box:
+          bounding_boxes[segment_id] = BoundingBox(
+              0, 0, 0, 0, shape="curve", points=curve, obj=path)
         screen_curve = [cs.map_point(x, y) for x, y in curve]
         line_segments = [e for x, y in screen_curve for e in (x, y)]
 
@@ -609,7 +615,8 @@ class PathDrawer(Drawer):
               angle = (angle + 180) % 360
 
           BoxDrawer._draw(canvas, annotate, env,
-                          position=(x, y), slope=angle, hint=hint)
+                          position=(x, y), slope=angle, hint=hint,
+                          no_new_bound_box=no_new_bound_box)
 
     elif is_type(item, "rectangle"):
       hint_directions.append((x1, y1))
@@ -628,8 +635,9 @@ class PathDrawer(Drawer):
       x0, x1 = min(x0, x1), max(x0, x1)
       y0, y1 = min(y0, y1), max(y0, y1)
 
-      bounding_boxes[segment_id] = BoundingBox.from_rect(
-          x0, y0, x1, y1, shape="rectangle", obj=path)
+      if not no_new_bound_box:
+        bounding_boxes[segment_id] = BoundingBox.from_rect(
+            x0, y0, x1, y1, shape="rectangle", obj=path)
 
       x0p, y0p = cs.map_point(x0, y0)
       x1p, y1p = cs.map_point(x1, y1)
@@ -656,9 +664,10 @@ class PathDrawer(Drawer):
       hint_directions.append((end + 90) % 360 if end > start else
                              (end + 270) % 360)
       hint_positions.append((x1, y1))
-      bounding_boxes[segment_id] = BoundingBox(
-          0, 0, 0, 0, shape="curve",
-          points=create_arc_curve(x0, y0, start, end, radius), obj=path)
+      if not no_new_bound_box:
+        bounding_boxes[segment_id] = BoundingBox(
+            0, 0, 0, 0, shape="curve",
+            points=create_arc_curve(x0, y0, start, end, radius), obj=path)
       dx1, dy1 = math.cos(start*math.pi/180), math.sin(start*math.pi/180)
       dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
       centerx, centery = x0 - dx1 * radius, y0 - dy1 * radius
@@ -691,7 +700,8 @@ class PathDrawer(Drawer):
               angle = (angle + 180) % 360
 
           BoxDrawer._draw(canvas, annotate, env, position=(x, y),
-                          slope=angle, hint=hint)
+                          slope=angle, hint=hint,
+                          no_new_bound_box=no_new_bound_box)
     else:
       raise ValueError(f"Unknown type {item['type']}")
     return ret
