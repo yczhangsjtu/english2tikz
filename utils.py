@@ -9,21 +9,21 @@ mutually_exclusive = [
         "above", "below", "left", "right",
         "below.left", "below.right",
         "above.left", "above.right",
-    ]),
+        ]),
     set([
         "midway", "pos",
         "near.end", "near.start",
         "very.near.end", "very.near.start",
         "at.end", "at.start"
-    ]),
+        ]),
     set([
         "stealth", "arrow",
         "reversed.stealth", "reversed.arrow",
         "double.stealth", "double.arrow",
-    ]),
+        ]),
     set([
         "circle", "ellipse",
-    ]),
+        ]),
 ]
 
 
@@ -1113,7 +1113,7 @@ def previous_line(items, position):
 def next_line(items, position):
   for pos in range(position, len(items)):
     if (is_type(items[pos], "line") or is_type(items[pos], "rectangle") or
-            is_type(items[pos], "arc")):
+        is_type(items[pos], "arc")):
       return items[pos]
   return None
 
@@ -1178,11 +1178,11 @@ class Bezier():
     newpoints = points
     while len(newpoints) > 1:
       newpoints = Bezier.Points(t, *newpoints)
-    assert len(newpoints) == 1
-    assert isinstance(newpoints[0], list)
-    assert len(newpoints[0]) == 2
+    assert len(newpoints) == 1, f"Got new points = {newpoints}"
+    assert isinstance(newpoints[0], list), f"Got newpoints[0] = {newpoints[0]}"
+    assert len(newpoints[0]) == 2, f"Got newpoints[0] = {newpoints[0]}"
     assert isinstance(newpoints[0][0], float) or isinstance(
-        newpoints[0][0], int)
+        newpoints[0][0], int), f"Got type {type(newpoints[0][0])}"
     return newpoints[0]
 
   def Curve(t_values, *points):

@@ -88,6 +88,7 @@ class Suggest(object):
     self._register_suggestor(CreatePathAtPointer())
     self._register_suggestor(ExtendPathToPointer())
     self._register_suggestor(ExtendPathToPointerByArc())
+    self._register_suggestor(MakeLastLineSmooth())
 
   def _context(self):
     return self._editor._context
@@ -265,6 +266,63 @@ class ExtendPathToPointerByArc(object):
     candcode["candcode"] = True
     candcode["draw"] = True
     candcode["fill"] = "orange!20"
+    candcode["scale"] = 0.3
+    suggestion.append(candcode)
+    suggestion.change_to_candidate_style()
+    return [suggestion]
+
+
+class MakeLastLineSmooth(object):
+  def suggest(self, editor, current, index, hint):
+    if not current.single_path():
+      return []
+    x, y = editor._pointer.pos()
+    suggestion = current.copy()
+    items = suggestion.get_path_items()
+    if len(items) < 3:
+      return []
+    if (not is_type(items[-2], "line") or
+        not is_type(items[-1], "coordinate")):
+      return []
+    if "in" in items[-2] or "out" in items[-2]:
+      return []
+    if ("last_path" not in hint or
+        "positions" not in hint["last_path"] or
+        "directions" not in hint["last_path"]):
+      return []
+    hint_positions = hint["last_path"]["positions"]
+    hint_directions = hint["last_path"]["directions"]
+    assert len(hint_positions) == len(hint_directions), (
+        "Mismatched hint lengths")
+    if len(hint_positions) < 2:
+      return []
+    x0, y0 = hint_positions[-2]
+    x1, y1 = hint_positions[-1]
+    x2, y2 = editor._pointer.pos()
+    deg2 = get_angle(x1, y1, x2, y2)
+    if deg2 is None:
+      return []
+    deg1, deg2 = hint_directions[-1], deg2 % 360
+    path = suggestion.get_single_path()
+    items.pop()
+    items.pop()
+    line = create_line()
+    line["out"] = deg1
+    line["in"] = (deg2 + 180) % 360
+    items.append(line)
+    items.append(create_coordinate(x, y))
+    dist = euclidean_dist((x0, y0), (x2, y2))
+    ix0 = x0 + math.cos(deg1/180*math.pi) * dist/3
+    iy0 = y0 + math.sin(deg1/180*math.pi) * dist/3
+    ix2 = x2 - math.cos(deg2/180*math.pi) * dist/3
+    iy2 = y2 - math.sin(deg2/180*math.pi) * dist/3
+    candpos = Bezier.Point(0.5, (x0, y0), (ix0, iy0), (ix2, iy2), (x2, y2))
+    candcode = create_text(chr(index+ord('A')),
+                           x=candpos[0], y=candpos[1])
+    candcode["id"] = "make_last_line_smooth_candcode_id"
+    candcode["candcode"] = True
+    candcode["draw"] = True
+    candcode["fill"] = "yellow"
     candcode["scale"] = 0.3
     suggestion.append(candcode)
     suggestion.change_to_candidate_style()
