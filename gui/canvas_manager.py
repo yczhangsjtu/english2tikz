@@ -97,7 +97,7 @@ class CanvasManager(object):
       w, h = self._cs()._view_width, h / w * self._cs()._view_width
     if h >= self._cs()._view_height:
       w, h = w / h * self._cs()._view_height, self._cs()._view_height
-    w, h = int(w), int(h)
+    w, h = int(0.95 * w), int(0.95 * h)
     x0 = self._cs()._view_width / 2
     y0 = self._cs()._view_height / 2
     img = img.resize((w, h))

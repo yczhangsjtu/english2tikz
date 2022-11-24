@@ -246,6 +246,9 @@ class Editor(object):
     self._history_index = len(self._history) - 1
 
   def _undo(self):
+    if self._has_suggest():
+      self._suggest.revert()
+      return
     if self._history_index == 0:
       self._error_msg = "Already the oldest"
       return
@@ -254,6 +257,9 @@ class Editor(object):
     self._context._picture = self._history[self._history_index]
 
   def _redo(self):
+    if self._has_suggest():
+      self._suggest.redo()
+      return
     if self._history_index >= len(self._history) - 1:
       self._error_msg = "Already at newest change"
       return

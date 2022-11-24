@@ -142,6 +142,7 @@ class Suggest(object):
     self._current_suggestion = suggestion
     self._current_suggestion.change_to_chosen_style()
     self._suggestion_history_index = len(self._suggestion_history) - 1
+    self._hint = {}
     self._propose_suggestions()
 
   def revert(self):
@@ -217,17 +218,24 @@ class ExtendPathToPointer(object):
     if not current.single_path():
       return []
     x, y = editor._pointer.pos()
+    candpos = (x, y)
+    if "last_path" in hint and "positions" in hint["last_path"]:
+      if len(hint["last_path"]["positions"]) > 0:
+        x0, y0 = hint["last_path"]["positions"][-1]
+        dist = euclidean_dist((x, y), (x0, y0))
+        if dist < 0.01:
+          return []
+        candpos = ((x+x0)/2, (y+y0)/2)
     suggestion = current.copy()
     path = suggestion.get_single_path()
     path['items'].append(create_line())
     path['items'].append(create_coordinate(x, y))
-    candcode = create_text(chr(index+ord('A')), x=x, y=y)
+    candcode = create_text(chr(index+ord('A')), x=candpos[0], y=candpos[1])
     candcode["id"] = "extend_path_to_pointer_candcode_id"
     candcode["candcode"] = True
     candcode["draw"] = True
     candcode["fill"] = "orange"
     candcode["scale"] = 0.3
-    candcode["anchor"] = "south.east"
     suggestion.append(candcode)
     suggestion.change_to_candidate_style()
     return [suggestion]
@@ -244,13 +252,20 @@ class ExtendPathToPointerByArc(object):
     if start is None:
       return []
     path['items'].append(create_arc(start, end, radius))
-    candcode = create_text(chr(index+ord('A')), x=x, y=y)
+    dx, dy = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
+    centerx, centery = x - dx * radius, y - dy * radius
+    if start > end:
+      deg = end/180*math.pi+0.3/radius
+    else:
+      deg = end/180*math.pi-0.3/radius
+    candpos = (centerx+math.cos(deg)*radius, centery+math.sin(deg)*radius)
+    candcode = create_text(chr(index+ord('A'))+'(arc)',
+                           x=candpos[0], y=candpos[1])
     candcode["id"] = "extend_path_to_pointer_by_arc_candcode_id"
     candcode["candcode"] = True
     candcode["draw"] = True
-    candcode["fill"] = "orange"
+    candcode["fill"] = "orange!20"
     candcode["scale"] = 0.3
-    candcode["anchor"] = "south.east"
     suggestion.append(candcode)
     suggestion.change_to_candidate_style()
     return [suggestion]

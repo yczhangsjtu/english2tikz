@@ -346,9 +346,10 @@ class PathDrawer(Drawer):
     finding = env["finding"]
     bounding_boxes = env["bounding box"]
     is_selected = selection.selected(obj)
+    hint_positions, hint_directions = [], []
     hint["last_path"] = {
-        "positions": [],
-        "directions": [],
+        "positions": hint_positions,
+        "directions": hint_directions,
     }
     for index, item in enumerate(obj["items"]):
       segment_id = f"segment_{id(obj)}_{index}"
@@ -436,6 +437,8 @@ class PathDrawer(Drawer):
                                y+radius, outline="red", dash=2)
         if starting_pos is None:
           starting_pos = new_pos
+          hint_positions.append(starting_pos)
+          hint_directions.append(None)
         current_pos = new_pos
         current_pos_clip = new_pos_clip
         position_number += 1
