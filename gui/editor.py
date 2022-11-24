@@ -596,15 +596,12 @@ class Editor(object):
   def _finding_narrow_down(self, char):
     try:
       obj = self._finding.narrow_down(char)
+      if obj is not None:
+        if self._finding.is_toggle():
+          self._selection.toggle(obj)
+        else:
+          self._selection.select(obj)
     finally:
-      self._exit_finding_mode()
-      return
-
-    if obj is not None:
-      if self._finding.is_toggle():
-        self._selection.toggle(obj)
-      else:
-        self._selection.select(obj)
       self._exit_finding_mode()
 
   def _finding_back(self):
