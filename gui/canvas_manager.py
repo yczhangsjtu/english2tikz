@@ -64,35 +64,45 @@ class CanvasManager(object):
     self._canvas.delete("all")
 
     if self._preview is not None:
-      img = Image.open(self._preview)
-      img = img.convert("RGBA")
-      w, h = img.size
-      if w >= self._cs()._view_width:
-        w, h = self._cs()._view_width, h / w * self._cs()._view_width
-      if h >= self._cs()._view_height:
-        w, h = w / h * self._cs()._view_height, self._cs()._view_height
-      w, h = int(w), int(h)
-      x0 = self._cs()._view_width / 2
-      y0 = self._cs()._view_height / 2
-      img = img.resize((w, h))
-      image = ImageTk.PhotoImage(img)
-      self._image_references["view"] = image
-      self._canvas.create_image(x0, y0, image=image)
+      self._draw_preview()
       return
-
     if self._show_grid:
       self._draw_grid(self._canvas)
     if self._show_axes:
       self._draw_axes(self._canvas)
-    self._draw_picture(self._canvas, self._editor._context)
+    self._draw_picture(self._canvas, self._editor._context._picture, {})
     self._draw_visual(self._canvas)
     self._draw_marks(self._canvas)
     self._draw_attributes(self._canvas)
+    if self._editor._has_suggest():
+      self._draw_picture(self._canvas,
+                         self._editor._suggest.suggestion()._content,
+                         self._bounding_boxes)
+      for candidate in self._editor._suggest._new_suggestions:
+        self._draw_picture(self._canvas,
+                           candidate._content,
+                           self._bounding_boxes)
     if self._editing_text() is not None:
       self._draw_editing_text(self._canvas)
     else:
       self._draw_pointer_indicator(self._canvas)
     self._draw_command(self._canvas)
+
+  def _draw_preview(self):
+    img = Image.open(self._preview)
+    img = img.convert("RGBA")
+    w, h = img.size
+    if w >= self._cs()._view_width:
+      w, h = self._cs()._view_width, h / w * self._cs()._view_width
+    if h >= self._cs()._view_height:
+      w, h = w / h * self._cs()._view_height, self._cs()._view_height
+    w, h = int(w), int(h)
+    x0 = self._cs()._view_width / 2
+    y0 = self._cs()._view_height / 2
+    img = img.resize((w, h))
+    image = ImageTk.PhotoImage(img)
+    self._image_references["view"] = image
+    self._canvas.create_image(x0, y0, image=image)
 
   def _draw_animated(self):
     if self._end:
@@ -138,16 +148,16 @@ class CanvasManager(object):
     c.create_line(self._cs().center_vertical_line(),
                   fill="#888888", width=1.5)
 
-  def _draw_picture(self, c, ctx):
+  def _draw_picture(self, c, picture, bounding_box):
     env = {
-        "bounding box": {},
+        "bounding box": bounding_box,
         "coordinate system": self._cs(),
         "selection": self._selection(),
         "image references": self._image_references,
         "finding": self._editor._finding,
     }
     try:
-      for obj in ctx._picture:
+      for obj in picture:
         self._draw_obj(c, obj, env)
     except Exception as e:
       traceback.print_exc()

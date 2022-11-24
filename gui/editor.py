@@ -229,7 +229,6 @@ class Editor(object):
     self.register_key("finding", "BackSpace", self._finding_back)
     self.register_key("finding", "Ctrl-c", self._exit_finding_mode)
     self.register_key("preview", "Ctrl-c", self._exit_preview)
-    self.register_key("suggest", "Ctrl-c", self._exit_suggest_mode)
 
   @contextmanager
   def _modify_picture(self):
@@ -343,19 +342,18 @@ class Editor(object):
   def _is_in_finding_mode(self):
     return self._finding is not None
 
-  def _is_in_suggest_mode(self):
-    return self._suggest.active()
-
   def _is_in_normal_mode(self):
     return (not self._is_in_command_mode() and
             not self._is_in_editing_mode() and
             not self._is_in_visual_mode() and
             not self._is_in_finding_mode() and
-            not self._is_in_preview_mode() and
-            not self._is_in_suggest_mode())
+            not self._is_in_preview_mode())
 
   def _is_in_preview_mode(self):
     return self._canvas_manager._preview is not None
+
+  def _has_suggest(self):
+    return self._suggest.active()
 
   def _get_mode(self):
     if self._is_in_command_mode():
@@ -368,8 +366,6 @@ class Editor(object):
       return "finding"
     if self._is_in_preview_mode():
       return "preview"
-    if self._is_in_suggest_mode():
-      return "suggest"
     if self._is_in_normal_mode():
       return "normal"
     raise ValueError("Invalid mode")
@@ -489,8 +485,12 @@ class Editor(object):
     self._suggest.shutdown()
 
   def _deselect(self):
-    if not self._selection.deselect():
+    if self._selection.deselect():
+      return
+    if not self._marks.empty():
       self._marks.clear()
+      return
+    self._suggest.shutdown()
 
   def _delete_selected_objects(self):
     with self._modify_picture():

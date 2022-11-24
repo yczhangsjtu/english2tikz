@@ -922,8 +922,8 @@ def order(a, b):
 def create_coordinate(x, y):
   return {
       "type": "coordinate",
-      "x": num_to_dist(x),
-      "y": num_to_dist(y),
+      "x": num_to_dist(none_or(x, 0)),
+      "y": num_to_dist(none_or(y, 0)),
   }
 
 
@@ -953,6 +953,13 @@ def create_path(items, arrow=None):
       ret[arrow_symbols[arrow]] = True
     else:
       raise ValueError(f"Invalid arrow type: {arrow}")
+  return ret
+
+
+def create_text(text, x=None, y=None):
+  ret = {"type": "text", "text": text}
+  if x is not None or y is not None:
+    ret["at"] = create_coordinate(x, y)
   return ret
 
 
