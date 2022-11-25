@@ -189,7 +189,7 @@ class BoxDrawer(Drawer):
       radius = width / 2 * cs_scale
       rx0, ry0 = center_screen_x - radius, center_screen_y - radius
       rx1, ry1 = center_screen_x + radius, center_screen_y + radius
-      if fill or draw:
+      if (fill or draw) and "hidden" not in obj:
         canvas.create_oval((rx0, ry0, rx1, ry1), **draw_fill_style)
       if selected:
         canvas.create_oval((rx0 - select_buff, ry0 - select_buff,
@@ -197,7 +197,7 @@ class BoxDrawer(Drawer):
                            **select_style)
     elif ellipse:
       if angle != 0:
-        if fill or draw:
+        if (fill or draw) and "hidden" not in obj:
           BoxDrawer.rotated_oval(canvas, x0, y0, x1, y1,
                                  **rotate_draw_fill_style)
         if selected:
@@ -205,14 +205,14 @@ class BoxDrawer(Drawer):
                                  x1 + select_buff, y1 - select_buff,
                                  **rotate_select_style)
       else:
-        if fill or draw:
+        if (fill or draw) and "hidden" not in obj:
           canvas.create_oval((x0, y0, x1, y1), **draw_fill_style)
         if selected:
           canvas.create_oval(x0 - select_buff, y0 + select_buff,
                              x1 + select_buff, y1 - select_buff,
                              **select_style)
     elif rounded_corners:
-      if fill or draw:
+      if (fill or draw) and "hidden" not in obj:
         BoxDrawer.round_rectangle(canvas, x0, y0, x1, y1,
                                   radius=rounded_corners*cs._scale,
                                   **rotate_draw_fill_style)
@@ -222,7 +222,7 @@ class BoxDrawer(Drawer):
                                   **rotate_select_style)
     else:
       if angle != 0:
-        if fill or draw:
+        if (fill or draw) and "hidden" not in obj:
           canvas.create_polygon(
               BoxDrawer.rotate_rect(x0, y0, x1, y1, anchor_screen_x,
                                     anchor_screen_y, angle),
@@ -234,14 +234,14 @@ class BoxDrawer(Drawer):
                                     anchor_screen_x, anchor_screen_y, angle),
               **select_style)
       else:
-        if fill or draw:
+        if (fill or draw) and "hidden" not in obj:
           canvas.create_rectangle((x0, y0, x1, y1), **draw_fill_style)
         if selected:
           canvas.create_rectangle(x0 - select_buff, y0 + select_buff,
                                   x1 + select_buff, y1 - select_buff,
                                   **select_style)
 
-    if text:
+    if text and "hidden" not in obj:
       create_text(canvas, center_screen_x, center_screen_y,
                   obj, scale, cs_scale, text_color, text_width, angle)
 
@@ -321,7 +321,7 @@ class PathDrawer(Drawer):
     return "type" in obj and obj["type"] == "path"
 
   def draw(self, canvas, obj, env, hint={}, no_new_bound_box=False):
-    draw = "draw" in obj
+    draw = "draw" in obj and "hidden" not in obj
     fill = "fill" in obj
     fill_polygon = []
     line_width = get_default(obj, "line.width")
@@ -478,7 +478,7 @@ class PathDrawer(Drawer):
     if line_width is not None and dash is not None:
       dash = int(dash * line_width)
     color = get_default(path, "color", "black")
-    draw = "draw" in path
+    draw = "draw" in path and "hidden" not in path
     fill = get_default(path, "fill", "")
     cs = env["coordinate system"]
     bounding_boxes = env["bounding box"]

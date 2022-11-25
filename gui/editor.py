@@ -53,13 +53,13 @@ class Editor(object):
     self._selection = Selection(self._context)
     self._suggest = Suggest(self)
     self._keyboard_managers = {
-        "normal": KeyboardManager(),
-        "visual": KeyboardManager(),
-        "editing": KeyboardManager(),
-        "command": KeyboardManager(),
-        "finding": KeyboardManager(),
-        "preview": KeyboardManager(),
-        "suggest": KeyboardManager(),
+        "normal": KeyboardManager(","),
+        "visual": KeyboardManager(","),
+        "editing": KeyboardManager(","),
+        "command": KeyboardManager(","),
+        "finding": KeyboardManager(","),
+        "preview": KeyboardManager(","),
+        "suggest": KeyboardManager(","),
     }
     self._canvas_manager = CanvasManager(root, canvas,
                                          screen_width, screen_height, self)
@@ -181,8 +181,8 @@ class Editor(object):
     self.register_key("normal", "Ctrl-d",
                       partial(self._shift_selected_object_anchor, "right"))
     self.register_key("normal", "s", self._enter_or_exit_suggest_mode)
-    for c in string.ascii_uppercase:
-      self.register_key("normal", f"Ctrl-{c}",
+    for c in string.ascii_lowercase:
+      self.register_key("normal", f"<leader>{c}",
                         partial(self._take_suggestion, c))
     self.register_key("visual", "i", self._enter_edit_mode_at_visual)
     self.register_key("visual", ":", self._enter_command_mode)
@@ -228,8 +228,8 @@ class Editor(object):
     self.register_key("visual", "Ctrl-g", partial(self._change_grid_size, 1))
     self.register_key("visual", "Ctrl-f", partial(self._change_grid_size, -1))
     self.register_key("visual", "s", self._enter_or_exit_suggest_mode)
-    for c in string.ascii_uppercase:
-      self.register_key("visual", f"Ctrl-{c}",
+    for c in string.ascii_lowercase:
+      self.register_key("visual", f"<leader>{c}",
                         partial(self._take_suggestion, c))
     self.register_key("finding", "Printable", self._finding_narrow_down)
     self.register_key("finding", "BackSpace", self._finding_back)

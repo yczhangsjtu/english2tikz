@@ -8,11 +8,13 @@ class KeyboardManager(object):
   ALT = 16
   SHIFT = 1
 
-  def __init__(self):
+  def __init__(self, leader=None):
     self._bindings = {}
     self._legal_keys = ([c for c in string.printable] +
                         ["Up", "Down", "Left", "Right"] +
                         ["Return", "Tab", "BackSpace"])
+    self._leader = leader
+    self._in_leader_mode = False
 
   def bind(self, keyname, callback):
     self._bindings[keyname] = callback
@@ -27,16 +29,33 @@ class KeyboardManager(object):
     sym = (event.keysym
            if event.keysym and event.keysym in self._legal_keys
            else None)
-    if not ctrl and char:
-      if char == "\n" or char == "\r":
-        self._invoke(get_default(self._bindings, "Return"))
-      else:
-        self._invoke(get_default(self._bindings, "Printable"), char)
-        self._invoke(get_default(self._bindings, char))
-    elif not ctrl and sym:
-      self._invoke(get_default(self._bindings, sym))
-    elif ctrl and sym:
-      self._invoke(get_default(self._bindings, f"Ctrl-{sym}"))
+    if not self._in_leader_mode:
+      if not ctrl and char:
+        if char == self._leader:
+          self._in_leader_mode = True
+          return
+        if char == "\n" or char == "\r":
+          self._invoke(get_default(self._bindings, "Return"))
+        else:
+          self._invoke(get_default(self._bindings, "Printable"), char)
+          self._invoke(get_default(self._bindings, char))
+      elif not ctrl and sym:
+        self._invoke(get_default(self._bindings, sym))
+      elif ctrl and sym:
+        self._invoke(get_default(self._bindings, f"Ctrl-{sym}"))
+    else:
+      if not ctrl and char:
+        self._in_leader_mode = False
+        if char == "\n" or char == "\r":
+          self._invoke(get_default(self._bindings, "<leader>Return"))
+        else:
+          self._invoke(get_default(self._bindings, "<leader>"+char))
+      elif not ctrl and sym:
+        self._in_leader_mode = False
+        self._invoke(get_default(self._bindings, "<leader>"+sym))
+      elif ctrl and sym:
+        self._in_leader_mode = False
+        self._invoke(get_default(self._bindings, f"<leader>Ctrl-{sym}"))
 
   def _invoke(self, f, *args, **kwargs):
     if f is not None:

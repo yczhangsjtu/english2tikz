@@ -921,12 +921,15 @@ def order(a, b):
   return min(a, b), max(a, b)
 
 
-def create_coordinate(x, y):
-  return {
+def create_coordinate(x, y, relative=False):
+  ret = {
       "type": "coordinate",
       "x": num_to_dist(none_or(x, 0)),
       "y": num_to_dist(none_or(y, 0)),
   }
+  if relative:
+    ret["relative"] = True
+  return ret
 
 
 def create_arc(start, end, radius):

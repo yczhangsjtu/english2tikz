@@ -48,6 +48,7 @@ class Suggestion(object):
     self._content = [item for item in self._content if "candcode" not in item]
     for item in self._content:
       item["color"] = "green!50!black"
+      del_if_has(item, "hidden")
       if is_type(item, "text"):
         item["text.color"] = "green!50!black"
 
@@ -130,8 +131,8 @@ class Suggest(object):
       self._new_suggestions = self._new_suggestions[:26]
 
   def take_suggestion(self, code):
-    if code in string.ascii_uppercase:
-      index = ord(code) - ord('A')
+    if code in string.ascii_lowercase:
+      index = ord(code) - ord('a')
     else:
       raise ErrorMessage(f'Invalid code {code}')
     if index >= len(self._new_suggestions):
@@ -219,14 +220,16 @@ class ExtendPathToPointer(object):
     if not current.single_path():
       return []
     x, y = editor._pointer.pos()
+    if "last_path" not in hint or "positions" not in hint["last_path"]:
+      return []
+    hint_positions = hint["last_path"]["positions"]
     candpos = (x, y)
-    if "last_path" in hint and "positions" in hint["last_path"]:
-      if len(hint["last_path"]["positions"]) > 0:
-        x0, y0 = hint["last_path"]["positions"][-1]
-        dist = euclidean_dist((x, y), (x0, y0))
-        if dist < 0.01:
-          return []
-        candpos = ((x+x0)/2, (y+y0)/2)
+    if len(hint_positions) > 0:
+      x0, y0 = hint["last_path"]["positions"][-1]
+      dist = euclidean_dist((x, y), (x0, y0))
+      if dist < 0.01:
+        return []
+      candpos = ((x+x0)/2, (y+y0)/2)
     suggestion = current.copy()
     path = suggestion.get_single_path()
     path['items'].append(create_line())
@@ -239,7 +242,25 @@ class ExtendPathToPointer(object):
     candcode["scale"] = 0.3
     suggestion.append(candcode)
     suggestion.change_to_candidate_style()
-    return [suggestion]
+    ret = [suggestion]
+
+    if len(hint_positions) > 0:
+      suggestion = current.copy()
+      path = suggestion.get_single_path()
+      path['items'].append(create_line())
+      path['items'].append(create_coordinate(x-x0, y-y0, relative=True))
+      path['hidden'] = True
+      candcode = create_text(chr(index+1+ord('A'))+'(rel)',
+                             x=candpos[0]+0.3, y=candpos[1])
+      candcode["id"] = "extend_path_to_pointer_relative_candcode_id"
+      candcode["candcode"] = True
+      candcode["draw"] = True
+      candcode["fill"] = "orange"
+      candcode["scale"] = 0.3
+      suggestion.append(candcode)
+      suggestion.change_to_candidate_style()
+      ret.append(suggestion)
+    return ret
 
 
 class ExtendPathToPointerByArc(object):
