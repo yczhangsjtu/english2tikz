@@ -128,6 +128,9 @@ class Selection(object):
   def num_paths(self):
     return len(self._selected_paths)
 
+  def num_selected(self):
+    return self.num_ids() + self.num_paths()
+
   def is_in_path_position_mode(self):
     if self._selected_path_position is not None:
       assert len(self._selected_ids) == 0

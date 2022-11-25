@@ -595,12 +595,15 @@ class Editor(object):
   def _finding_narrow_down(self, char):
     try:
       obj = self._finding.narrow_down(char)
-      if obj is not None:
-        if self._finding.is_toggle():
-          self._selection.toggle(obj)
-        else:
-          self._selection.select(obj)
-    finally:
+    except ErrorMessage as e:
+      self._exit_finding_mode()
+      raise e
+
+    if obj is not None:
+      if self._finding.is_toggle():
+        self._selection.toggle(obj)
+      else:
+        self._selection.select(obj)
       self._exit_finding_mode()
 
   def _finding_back(self):
@@ -757,19 +760,21 @@ class Editor(object):
     self._selection.select(self._obj_to_edit_text)
 
   def _shift_selected_objects(self, dx, dy):
+    round_by = self._pointer.grid_size()
+    if self._selection.num_selected() > 1:
+      round_by = None
     if self._selection.has_id():
       with self._modify_picture():
         for id_ in self._selection.ids():
-          shift_object(self._context.find_object_by_id(id_),
-                       dx, dy, self._pointer.grid_size())
+          shift_object(self._context.find_object_by_id(id_), dx, dy, round_by)
     elif self._selection.is_in_path_position_mode():
       with self._modify_picture():
         shift_path_position(self._selection.get_path_position(), dx, dy,
-                            self._pointer.grid_size())
+                            round_by)
     elif self._selection.has_path():
       with self._modify_picture():
         for path in self._selection.paths():
-          shift_object(path, dx, dy, self._pointer.grid_size())
+          shift_object(path, dx, dy)
 
   def _shift_selected_objects_by_grid(self, dx, dy):
     return self._shift_selected_objects(dx * self._pointer.grid_size(),
