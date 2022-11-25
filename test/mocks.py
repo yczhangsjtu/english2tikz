@@ -14,6 +14,15 @@ class MockCanvas(object):
   def create_line(self, *args, **kwargs):
     pass
 
+  def delete(self, *args, **kwargs):
+    pass
+
+  def bbox(self, *args, **kwargs):
+    return 0, 0, 1, 1
+
+  def tag_lower(self, *args, **kwargs):
+    pass
+
 
 class MockTk(object):
   def bind(self, *args, **kwargs):

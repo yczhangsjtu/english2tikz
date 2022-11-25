@@ -1,0 +1,2 @@
+i A B C Ctrl-c
+[{"id": "id0", "type": "text", "text": "ABC", "at": {"type": "coordinate", "x": "0", "y": "0"}, "align": "left"}]
