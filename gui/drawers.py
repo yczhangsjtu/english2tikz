@@ -10,6 +10,7 @@ from english2tikz.gui.object_utils import *
 from english2tikz.gui.image_utils import *
 from english2tikz.gui.bezier import *
 from english2tikz.gui.bounding_box import *
+from english2tikz.gui.geometry import *
 
 
 """
@@ -20,8 +21,8 @@ latex_scale_ratio = 0.42
 font_size = 40
 
 
-def create_text(canvas, x, y, obj, scale, cs_scale,
-                text_color, text_width, angle=0):
+def draw_text(canvas, x, y, obj, scale, cs_scale,
+              text_color, text_width, angle=0):
   if need_latex(obj["text"]):
     try:
       return canvas.create_image(
@@ -64,8 +65,8 @@ class BoxDrawer(Drawer):
 
   def _precompute_text_size(canvas, obj, scale, cs_scale, inner_sep):
     text_width = obj.get("text.width")
-    tmptext = create_text(canvas, 0, 0, obj, scale,
-                          cs_scale, "black", text_width)
+    tmptext = draw_text(canvas, 0, 0, obj, scale,
+                        cs_scale, "black", text_width)
     x0, y0, x1, y1 = canvas.bbox(tmptext)
     canvas.delete(tmptext)
     width = (x1 - x0) / cs_scale + inner_sep * 2 * scale
@@ -244,8 +245,8 @@ class BoxDrawer(Drawer):
                                   **select_style)
 
     if text and "hidden" not in obj:
-      create_text(canvas, center_screen_x, center_screen_y,
-                  obj, scale, cs_scale, text_color, text_width, angle)
+      draw_text(canvas, center_screen_x, center_screen_y,
+                obj, scale, cs_scale, text_color, text_width, angle)
 
     if selected:
       canvas.create_oval(anchor_screen_x - 3, anchor_screen_y - 3,
