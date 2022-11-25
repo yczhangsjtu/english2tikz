@@ -267,6 +267,19 @@ class Editor(object):
     self._history_index += 1
     self._context._picture = self._history[self._history_index]
 
+  def invoke_key_by_code(self, keycode):
+    try:
+      self._keyboard_managers[self._get_mode()].handle_key_by_code(keycode)
+    except ErrorMessage as e:
+      self._error_msg = f"Error: {e}"
+    except Exception as e:
+      self._error_msg = f"Error: {e}"
+      traceback.print_exc()
+
+    if self._has_suggest():
+      self._suggest._propose_suggestions()
+    self._canvas_manager.draw()
+
   def handle_key(self, event):
     try:
       self._keyboard_managers[self._get_mode()].handle_key(event)
