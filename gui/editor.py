@@ -25,6 +25,7 @@ from english2tikz.gui.mark import MarkManager
 from english2tikz.gui.visual import Visual
 from english2tikz.gui.command_parse import Parser
 from english2tikz.gui.suggest import Suggest
+from english2tikz.gui.object_utils import *
 
 
 class Editor(object):
@@ -931,7 +932,7 @@ class Editor(object):
   def _set_object(self, obj, key_values):
     for key, value in key_values:
       if value is None or value is False:
-        del_if_has(obj, key)
+        obj.pop(key, None)
       else:
         obj[key] = value
 

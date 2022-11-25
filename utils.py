@@ -252,8 +252,7 @@ def shift_path(path, dx, dy, round_by=None):
       raise ErrorMessage("Cannot shift path containing "
                          "nodename without anchor")
   for item in path["items"]:
-    if is_type(item, "coordinate") and not get_default(
-            item, "relative", False):
+    if is_type(item, "coordinate") and not item.get("relative", False):
       shift_path_position(item, dx, dy, round_by)
     elif is_type(item, "nodename"):
       if item.get("anchor") is not None:
@@ -906,11 +905,6 @@ def get_default_of_type(dic, key, type_, default=None):
   return default
 
 
-def del_if_has(dic, key):
-  if key in dic:
-    del dic[key]
-
-
 def bound_by(x, a, b):
   return max(min(x, b), a)
 
@@ -921,63 +915,6 @@ def is_bound_by(x, a, b):
 
 def order(a, b):
   return min(a, b), max(a, b)
-
-
-def create_nodename(name, anchor=None):
-  ret = {
-      "type": "nodename",
-      "name": name
-  }
-  if anchor is not None:
-    ret["anchor"] = anchor
-  return ret
-
-
-def create_coordinate(x, y, relative=False):
-  ret = {
-      "type": "coordinate",
-      "x": num_to_dist(none_or(x, 0)),
-      "y": num_to_dist(none_or(y, 0)),
-  }
-  if relative:
-    ret["relative"] = True
-  return ret
-
-
-def create_arc(start, end, radius):
-  return {
-      "type": "arc",
-      "start": str(start),
-      "end": str(end),
-      "radius": num_to_dist(radius),
-  }
-
-
-def create_line():
-  return {"type": "line"}
-
-
-def create_rectangle():
-  return {"type": "rectangle"}
-
-
-def create_path(items, arrow=None):
-  ret = {"type": "path", "draw": True, "items": items}
-  if arrow is not None:
-    if arrow in arrow_types:
-      ret[arrow] = True
-    elif arrow in arrow_symbols:
-      ret[arrow_symbols[arrow]] = True
-    else:
-      raise ValueError(f"Invalid arrow type: {arrow}")
-  return ret
-
-
-def create_text(text, x=None, y=None):
-  ret = {"type": "text", "text": text}
-  if x is not None or y is not None:
-    ret["at"] = create_coordinate(x, y)
-  return ret
 
 
 def get_type_if_dict(dic):
@@ -992,7 +929,7 @@ def is_type(dic, type_):
 
 def set_or_del(dic, key, value, empty):
   if value == empty:
-    del_if_has(dic, key)
+    dic.pop(key, None)
   else:
     dic[key] = value
 

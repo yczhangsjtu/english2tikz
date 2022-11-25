@@ -126,3 +126,60 @@ def compute_arc_to_extend_path(path, x, y, hint):
   if abs(end - start) < 3:
     return None, None, None
   return start, end, radius
+
+
+def create_nodename(name, anchor=None):
+  ret = {
+      "type": "nodename",
+      "name": name
+  }
+  if anchor is not None:
+    ret["anchor"] = anchor
+  return ret
+
+
+def create_coordinate(x, y, relative=False):
+  ret = {
+      "type": "coordinate",
+      "x": num_to_dist(none_or(x, 0)),
+      "y": num_to_dist(none_or(y, 0)),
+  }
+  if relative:
+    ret["relative"] = True
+  return ret
+
+
+def create_arc(start, end, radius):
+  return {
+      "type": "arc",
+      "start": str(start),
+      "end": str(end),
+      "radius": num_to_dist(radius),
+  }
+
+
+def create_line():
+  return {"type": "line"}
+
+
+def create_rectangle():
+  return {"type": "rectangle"}
+
+
+def create_path(items, arrow=None):
+  ret = {"type": "path", "draw": True, "items": items}
+  if arrow is not None:
+    if arrow in arrow_types:
+      ret[arrow] = True
+    elif arrow in arrow_symbols:
+      ret[arrow_symbols[arrow]] = True
+    else:
+      raise ValueError(f"Invalid arrow type: {arrow}")
+  return ret
+
+
+def create_text(text, x=None, y=None):
+  ret = {"type": "text", "text": text}
+  if x is not None or y is not None:
+    ret["at"] = create_coordinate(x, y)
+  return ret

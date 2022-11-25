@@ -48,7 +48,7 @@ class Suggestion(object):
     self._content = [item for item in self._content if "candcode" not in item]
     for item in self._content:
       item["color"] = "green!50!black"
-      del_if_has(item, "hidden")
+      item.pop("hidden", None)
       if is_type(item, "text"):
         item["text.color"] = "green!50!black"
 
@@ -67,7 +67,7 @@ class Suggestion(object):
       if is_type(item, "text"):
         item["text.color"] = "black"
         item["id"] = context.getid()
-      del_if_has(item, "line.width")
+      item.pop("line.width", None)
 
 
 class Suggest(object):

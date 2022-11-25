@@ -8,6 +8,7 @@ from english2tikz.object_renderers import SupportMultipleRenderer
 from english2tikz.preprocessor import *
 from english2tikz.utils import *
 from english2tikz.errors import *
+from english2tikz.gui.object_utils import *
 
 
 class DescribeIt(object):
@@ -465,7 +466,7 @@ class DescribeIt(object):
         anchor = item.get("at.anchor", "center")
         x, y = bb.get_anchor_pos(anchor)
         item["at"] = create_coordinate(x + dx, y + dy)
-        del_if_has(item, "at.anchor")
+        item.pop("at.anchor", None)
       else:
         raise ConfigurationError("This branch should not be reached at all, "
                                  "unless something is wrong")

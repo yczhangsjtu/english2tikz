@@ -1,4 +1,5 @@
 from english2tikz.utils import *
+from english2tikz.gui.object_utils import *
 
 
 class Visual(object):
