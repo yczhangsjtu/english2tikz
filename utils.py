@@ -933,6 +933,16 @@ def order(a, b):
   return min(a, b), max(a, b)
 
 
+def create_nodename(name, anchor=None):
+  ret = {
+      "type": "nodename",
+      "name": name
+  }
+  if anchor is not None:
+    ret["anchor"] = anchor
+  return ret
+
+
 def create_coordinate(x, y, relative=False):
   ret = {
       "type": "coordinate",

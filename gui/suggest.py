@@ -89,6 +89,7 @@ class Suggest(object):
     self._register_suggestor(CreatePathAtPointer())
     self._register_suggestor(ExtendPathToPointer())
     self._register_suggestor(ExtendPathToPointerByArc())
+    self._register_suggestor(ExtendPathToSelectedNode())
     self._register_suggestor(MakeLastLineSmooth())
 
   def _context(self):
@@ -291,6 +292,31 @@ class ExtendPathToPointerByArc(object):
     suggestion.append(candcode)
     suggestion.change_to_candidate_style()
     return [suggestion]
+
+
+class ExtendPathToSelectedNode(object):
+  def suggest(self, editor, current, index, hint):
+    if not current.single_path():
+      return []
+    if not editor._selection.has_id():
+      return []
+    id_ = editor._selection.get_id(0)
+    suggestion = current.copy()
+    path = suggestion.get_single_path()
+    path['items'].append(create_line())
+    path['items'].append(create_nodename(id_))
+    candcode = create_text(chr(index+ord('A')))
+    candcode["id"] = "extend_path_to_node_candcode_id"
+    candcode["candcode"] = True
+    candcode["draw"] = True
+    candcode["fill"] = "red!20"
+    candcode["scale"] = 0.3
+    candcode["at"] = id_
+    candcode["anchor"] = "north"
+    suggestion.append(candcode)
+    suggestion.change_to_candidate_style()
+    ret = [suggestion]
+    return ret
 
 
 class MakeLastLineSmooth(object):

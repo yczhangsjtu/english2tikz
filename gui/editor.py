@@ -638,11 +638,19 @@ class Editor(object):
     return self._selection.get_selected_objects()
 
   def _shift_selected_object_at_anchor(self, direction):
-    with self._modify_picture():
-      for id_ in self._selection.ids():
-        if not self._context.shift_object_at_anchor(id_, direction):
-          self._error_msg = f"Object {id_} is not anchored to " \
-              "another object, nor at intersection"
+    if self._selection.has_id():
+      with self._modify_picture():
+        for id_ in self._selection.ids():
+          if not self._context.shift_object_at_anchor(id_, direction):
+            raise ErrorMessage(f"Object {id_} is not anchored to "
+                               "another object, nor at intersection")
+    elif self._selection.is_in_path_position_mode():
+      pos = self._selection.get_path_position()
+      if not is_type(pos, "nodename"):
+        raise ErrorMessage("Selected position is not at node")
+      with self._modify_picture():
+        pos["anchor"] = shift_anchor(get_default(pos, "anchor", "center"),
+                                     direction)
 
   def _shift_selected_object_anchor(self, direction):
     with self._modify_picture():

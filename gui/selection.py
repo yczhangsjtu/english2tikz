@@ -20,6 +20,9 @@ class Selection(object):
   def get_id(self, index):
     return self._selected_ids[index]
 
+  def get_object(self, index):
+    return self._context.find_object_by_id(self.get_id(index))
+
   def get_path(self, index):
     return self._selected_paths[index]
 
