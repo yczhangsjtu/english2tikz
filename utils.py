@@ -780,20 +780,6 @@ def count_path_segment_items(path):
   return len(get_path_segment_items(path))
 
 
-def previous_line(items, position):
-  for pos in reversed(range(0, position+1)):
-    if is_type(items[pos], "line") or is_type(items[pos], "arc"):
-      return items[pos]
-  return None
-
-
-def next_line(items, position):
-  for pos in range(position, len(items)):
-    if items[pos].get("type") in ["line", "rectangle", "arc"]:
-      return items[pos]
-  return None
-
-
 def create_arc_curve(x0, y0, start, end, radius):
   length = (abs(end - start) / 360) * 2 * math.pi * radius
   steps = max(int(length / 0.1), 10)

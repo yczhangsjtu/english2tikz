@@ -183,3 +183,17 @@ def create_text(text, x=None, y=None):
   if x is not None or y is not None:
     ret["at"] = create_coordinate(x, y)
   return ret
+
+
+def previous_line(items, position):
+  for pos in reversed(range(0, position+1)):
+    if is_type(items[pos], "line") or is_type(items[pos], "arc"):
+      return items[pos]
+  return None
+
+
+def next_line(items, position):
+  for pos in range(position, len(items)):
+    if items[pos].get("type") in ["line", "rectangle", "arc"]:
+      return items[pos]
+  return None
