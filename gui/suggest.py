@@ -2,6 +2,7 @@ import string
 import copy
 from english2tikz.utils import *
 from english2tikz.gui.object_utils import *
+from english2tikz.gui.bezier import *
 
 
 class Suggestion(object):
