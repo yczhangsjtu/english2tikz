@@ -421,7 +421,7 @@ class PathDrawer(Drawer):
         citem = PathDrawer._draw_item(canvas, to_draw, *current_pos, *new_pos,
                                       current_pos_clip, new_pos_clip,
                                       is_selected, arrow, obj, segment_id, env,
-                                      hint, no_new_bound_box)
+                                      hint, no_new_bound_box, fill_polygon)
         if first_segment is None:
           first_segment = citem
         to_draw = None
@@ -468,7 +468,7 @@ class PathDrawer(Drawer):
 
   def _draw_item(canvas, item, x0, y0, x1, y1, current_pos_clip, new_pos_clip,
                  is_selected, arrow, path, segment_id, env, hint={},
-                 no_new_bound_box=False):
+                 no_new_bound_box=False, fill_polygon=[]):
     hint_directions = hint["last_path"]["directions"]
     hint_positions = hint["last_path"]["positions"]
     line_width = get_default(path, "line.width")
@@ -537,6 +537,7 @@ class PathDrawer(Drawer):
 
       straight = "in" not in item and "out" not in item
       if straight:
+        fill_polygon.append((x1, y1))
         if not no_new_bound_box:
           bounding_boxes[segment_id] = BoundingBox.from_rect(
               x0, y0, x1, y1, shape="line", obj=path)
@@ -578,6 +579,7 @@ class PathDrawer(Drawer):
             return
         """
 
+        fill_polygon += curve
         if not no_new_bound_box:
           bounding_boxes[segment_id] = BoundingBox(
               0, 0, 0, 0, shape="curve", points=curve, obj=path)
@@ -619,6 +621,7 @@ class PathDrawer(Drawer):
                           no_new_bound_box=no_new_bound_box)
 
     elif is_type(item, "rectangle"):
+      fill_polygon.append((x1, y1))
       hint_directions.append((x1, y1))
       hint_positions.append(None)
       line_style = {
@@ -664,10 +667,11 @@ class PathDrawer(Drawer):
       hint_directions.append((end + 90) % 360 if end > start else
                              (end + 270) % 360)
       hint_positions.append((x1, y1))
+      curve = create_arc_curve(x0, y0, start, end, radius)
+      fill_polygon += curve
       if not no_new_bound_box:
         bounding_boxes[segment_id] = BoundingBox(
-            0, 0, 0, 0, shape="curve",
-            points=create_arc_curve(x0, y0, start, end, radius), obj=path)
+            0, 0, 0, 0, shape="curve", points=curve, obj=path)
       dx1, dy1 = math.cos(start*math.pi/180), math.sin(start*math.pi/180)
       dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
       centerx, centery = x0 - dx1 * radius, y0 - dy1 * radius
