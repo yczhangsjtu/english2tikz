@@ -96,7 +96,7 @@ def index_two_lists(a, b, i):
 
 
 def add_to_key(item, key, delta):
-  item[key] = num_to_dist(dist_to_num(get_default(item, key, 0)) + delta)
+  item[key] = num_to_dist(dist_to_num(item.get(key, 0)) + delta)
 
 
 def default_font(font_size):
@@ -211,7 +211,7 @@ def shift_by_anchor(x, y, anchor, width, height):
 def shift_dist(obj, key, delta, round_by=None, empty_val=None):
   if delta == 0:
     return
-  val = dist_to_num(get_default(obj, key, 0)) + delta
+  val = dist_to_num(obj.get(key, 0)) + delta
   if round_by is not None:
     val = round(val / round_by) * round_by
   val = num_to_dist(val)
@@ -222,11 +222,11 @@ def shift_object(obj, dx, dy, round_by=None):
   if is_type(obj, "path"):
     shift_path(obj, dx, dy, round_by)
     return
-  at = get_default(obj, "at")
+  at = obj.get("at")
   if is_type(at, "coordinate"):
     shift_dist(at, "x", dx, round_by=round_by)
     shift_dist(at, "y", dy, round_by=round_by)
-  elif get_default(obj, "in_path", False):
+  elif obj.get("in_path", False):
     shift_dist(obj, "xshift", dx, round_by=round_by, empty_val="0")
     shift_dist(obj, "yshift", dy, round_by=round_by, empty_val="0")
   elif isinstance(at, str):
@@ -248,7 +248,7 @@ def shift_object(obj, dx, dy, round_by=None):
 
 def shift_path(path, dx, dy, round_by=None):
   for item in path["items"]:
-    if is_type(item, "nodename") and get_default(item, "anchor") is None:
+    if is_type(item, "nodename") and item.get("anchor") is None:
       raise ErrorMessage("Cannot shift path containing "
                          "nodename without anchor")
   for item in path["items"]:
@@ -256,7 +256,7 @@ def shift_path(path, dx, dy, round_by=None):
             item, "relative", False):
       shift_path_position(item, dx, dy, round_by)
     elif is_type(item, "nodename"):
-      if get_default(item, "anchor") is not None:
+      if item.get("anchor") is not None:
         shift_path_position(item, dx, dy, round_by)
 
 
@@ -892,12 +892,6 @@ def satisfy_filters(obj, filters):
   return True
 
 
-def get_default(dic, key, default=None):
-  if key in dic:
-    return dic[key]
-  return default
-
-
 def ensure_key(dic, key, default):
   if key not in dic:
     dic[key] = default
@@ -907,13 +901,13 @@ def ensure_key(dic, key, default):
 
 def get_direction_of(obj):
   for direction in directions:
-    if get_default(obj, direction) is not None:
+    if obj.get(direction) is not None:
       return direction
   return None
 
 
 def get_default_of_type(dic, key, type_, default=None):
-  ret = get_default(dic, key, default)
+  ret = dic.get(key, default)
   if isinstance(ret, type_):
     return ret
   return default
@@ -1048,20 +1042,20 @@ def clear_dict(d):
 
 def get_first_absolute_coordinate(data):
   for obj in data:
-    at = get_default(obj, "at")
+    at = obj.get("at")
     if is_type(at, "coordinate"):
-      if get_default(at, "relative", False):
+      if at.get("relative", False):
         raise ValueError("An object cannot have relative coordinate")
-      return dist_to_num(get_default(at, "x", 0), get_default(at, "y", 0))
+      return dist_to_num(at.get("x", 0), at.get("y", 0))
     if "id" in obj and at is None:
       return 0, 0
-    items = get_default(obj, "items")
+    items = obj.get("items")
     if items is not None:
       for item in items:
         if both(is_type(item, "coordinate"),
-                not get_default(item, "relative", False)):
-          return dist_to_num(get_default(item, "x", 0),
-                             get_default(item, "y", 0))
+                not item.get("relative", False)):
+          return dist_to_num(item.get("x", 0),
+                             item.get("y", 0))
   return None
 
 
@@ -1085,9 +1079,9 @@ def enlarge_bound_box(x0, y0, x1, y1, x, y):
 def get_bounding_box(data, bounding_boxes):
   x0, y0, x1, y1 = None, None, None, None
   for obj in data:
-    id_ = get_default(obj, "id")
+    id_ = obj.get("id")
     if id_ is not None:
-      id_ = get_default(obj, "id")
+      id_ = obj.get("id")
       bb = bounding_boxes[id_]
       x2, y2, x3, y3 = bb.get_bound()
       x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x2, y2)
@@ -1102,7 +1096,7 @@ def get_bounding_box(data, bounding_boxes):
       for item in obj["items"]:
         if "annotates" in item:
           for annotate in item["annotates"]:
-            id_ = get_default(annotate, "id")
+            id_ = annotate.get("id")
             if id_ is not None:
               bb = bounding_boxes[id_]
               x2, y2, x3, y3 = bb.get_bound()
@@ -1140,7 +1134,7 @@ def previous_line(items, position):
 
 def next_line(items, position):
   for pos in range(position, len(items)):
-    if get_default(items[pos], "type") in ["line", "rectangle", "arc"]:
+    if items[pos].get("type") in ["line", "rectangle", "arc"]:
       return items[pos]
   return None
 
