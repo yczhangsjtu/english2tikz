@@ -9,6 +9,7 @@ from english2tikz.latex import text_to_latex_image_path
 from english2tikz.gui.object_utils import *
 from english2tikz.gui.image_utils import *
 from english2tikz.gui.bezier import *
+from english2tikz.gui.bounding_box import *
 
 
 """
