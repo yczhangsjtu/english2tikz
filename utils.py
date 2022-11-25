@@ -892,13 +892,6 @@ def satisfy_filters(obj, filters):
   return True
 
 
-def ensure_key(dic, key, default):
-  if key not in dic:
-    dic[key] = default
-    return default
-  return dic[key]
-
-
 def get_direction_of(obj):
   for direction in directions:
     if obj.get(direction) is not None:

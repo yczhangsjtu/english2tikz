@@ -694,7 +694,7 @@ class Editor(object):
     elif len(lines) > 1:
       self._error_msg = "Selected path has multiple segments"
       return
-    annotates = ensure_key(lines[0], "annotates", [])
+    annotates = lines[0].setdefault("annotates", [])
     annotate = {
         "id": self._context.getid(),
         "type": "text",
@@ -1286,7 +1286,7 @@ class Editor(object):
     args = parser.parse(code)
     text = args.get("positionals", [""])[0]
     with self._modify_picture():
-      ensure_key(line, "annotates", [])
+      line.setdefault("annotates", [])
       line["annotates"].append({
           "id": self._context.getid(),
           "type": "text",
