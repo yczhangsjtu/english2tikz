@@ -539,6 +539,9 @@ class BoundingBox(object):
       and scale it simultaneously with this bounding box,
       such that this bounding box becomes a unit circle
       """
+      x, y = self.rotated_geometry_center()
+      if bb.contain_point(x, y):
+        return True
       cx, cy = self.geometry_center()
       a, b = self.radius()
       segs = bb.segments()
@@ -582,8 +585,8 @@ class BoundingBox(object):
       sx1p = (x1p - x0p) / a + x0p
       sy1p = (y1p - y0p) / b + y0p
       distance = euclidean_dist((x0p, y0p), (sx1p, sy1p))
-      sx1p = (x1p - x0p) / distance * a + x0p
-      sy1p = (y1p - y0p) / distance * b + y0p
+      sx1p = (sx1p - x0p) / distance * a + x0p
+      sy1p = (sy1p - y0p) / distance * b + y0p
       return self.rotate(sx1p, sy1p)
 
     raise ValueError(f"Cannot compute direction from a shape: {self._shape}")
