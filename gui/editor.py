@@ -759,6 +759,10 @@ class Editor(object):
       with self._modify_picture():
         shift_path_position(self._selection.get_path_position(), dx, dy,
                             self._pointer.grid_size())
+    elif self._selection.has_path():
+      with self._modify_picture():
+        for path in self._selection.paths():
+          shift_object(path, dx, dy, self._pointer.grid_size())
 
   def _shift_selected_objects_by_grid(self, dx, dy):
     return self._shift_selected_objects(dx * self._pointer.grid_size(),

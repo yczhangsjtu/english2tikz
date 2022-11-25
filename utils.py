@@ -8,22 +8,17 @@ mutually_exclusive = [
     set([
         "above", "below", "left", "right",
         "below.left", "below.right",
-        "above.left", "above.right",
-        ]),
+        "above.left", "above.right"]),
     set([
         "midway", "pos",
         "near.end", "near.start",
         "very.near.end", "very.near.start",
-        "at.end", "at.start"
-        ]),
+        "at.end", "at.start"]),
     set([
         "stealth", "arrow",
         "reversed.stealth", "reversed.arrow",
-        "double.stealth", "double.arrow",
-        ]),
-    set([
-        "circle", "ellipse",
-        ]),
+        "double.stealth", "double.arrow"]),
+    set(["circle", "ellipse"]),
 ]
 
 
@@ -224,6 +219,9 @@ def shift_dist(obj, key, delta, round_by=None, empty_val=None):
 
 
 def shift_object(obj, dx, dy, round_by=None):
+  if is_type(obj, "path"):
+    shift_path(obj, dx, dy, round_by)
+    return
   at = get_default(obj, "at")
   if is_type(at, "coordinate"):
     shift_dist(at, "x", dx, round_by=round_by)
@@ -246,6 +244,20 @@ def shift_object(obj, dx, dy, round_by=None):
         "x": dx,
         "y": dy,
     }
+
+
+def shift_path(path, dx, dy, round_by=None):
+  for item in path["items"]:
+    if is_type(item, "nodename") and get_default(item, "anchor") is None:
+      raise ErrorMessage("Cannot shift path containing "
+                         "nodename without anchor")
+  for item in path["items"]:
+    if is_type(item, "coordinate") and not get_default(
+            item, "relative", False):
+      shift_path_position(item, dx, dy, round_by)
+    elif is_type(item, "nodename"):
+      if get_default(item, "anchor") is not None:
+        shift_path_position(item, dx, dy, round_by)
 
 
 def shift_path_position(item, dx, dy, round_by=None):
@@ -1115,8 +1127,7 @@ def previous_line(items, position):
 
 def next_line(items, position):
   for pos in range(position, len(items)):
-    if (is_type(items[pos], "line") or is_type(items[pos], "rectangle") or
-        is_type(items[pos], "arc")):
+    if get_default(items[pos], "type") in ["line", "rectangle", "arc"]:
       return items[pos]
   return None
 

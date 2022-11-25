@@ -118,7 +118,7 @@ class MarkManager(object):
       raise ErrorMessage(f"Expect at least two marks")
     items = []
     for i, mark in enumerate(self._marks):
-      items.append(mark)
+      items.append(copy.deepcopy(mark))
       if i < len(self._marks) - 1 and not is_type(self._marks[i+1], "arc"):
         items.append(create_line())
     return create_path(items, arrow)
