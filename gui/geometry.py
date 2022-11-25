@@ -93,8 +93,8 @@ def point_line_dist(x, y, line):
 def intersect(rect1, rect2):
   x0, y0, x1, y1 = rect1
   x2, y2, x3, y3 = rect2
-  return both(intersect_interval((x0, x1), (x2, x3)),
-              intersect_interval((y0, y1), (y2, y3)))
+  return (intersect_interval((x0, x1), (x2, x3)) and
+          intersect_interval((y0, y1), (y2, y3)))
 
 
 def intersect_interval(interval1, interval2):

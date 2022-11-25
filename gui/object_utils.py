@@ -212,8 +212,7 @@ def get_first_absolute_coordinate(data):
     items = obj.get("items")
     if items is not None:
       for item in items:
-        if both(is_type(item, "coordinate"),
-                not item.get("relative", False)):
+        if is_type(item, "coordinate") and not item.get("relative", False):
           return dist_to_num(item.get("x", 0), item.get("y", 0))
   return None
 

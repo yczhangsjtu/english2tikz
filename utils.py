@@ -77,22 +77,10 @@ def now():
   return int(datetime.now().timestamp() * 1000)
 
 
-def mutex(a, b, c):
-  return b if a else c
-
-
 def none_or(a, default):
   if a is None:
     return default
   return a
-
-
-def index_two_lists(a, b, i):
-  if i >= 0 and i < len(a):
-    return a[i]
-  if i >= len(a) and i < len(a) + len(b):
-    return b[i-len(a)]
-  raise IndexError(f"Expected [0, {len(a)+len(b)}), got {i}")
 
 
 def add_to_key(item, key, delta):
@@ -117,10 +105,6 @@ def is_long_str(s):
     if s.startswith(mark) and s.endswith(mark):
       return True
   return False
-
-
-def both(a, b):
-  return a and b
 
 
 def dump_options(o):
