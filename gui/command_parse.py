@@ -98,7 +98,7 @@ class Parser(object):
         is_flag_group = False
         for name, values in self._flag_groups.items():
           if v in values:
-            ensure_key(ret, name, [])
+            ret.setdefault(name, [])
             ret[name].append(v)
             is_flag_group = True
             break
@@ -111,7 +111,7 @@ class Parser(object):
           continue
 
         if expected_args_count is not None and expected_args_count != "*":
-          ensure_key(ret, expected_args_name, [])
+          ret.setdefault(expected_args_name, [])
           ret[expected_args_name].append(v)
           if expected_args_count == "+":
             expected_args_count = "*"
@@ -129,7 +129,7 @@ class Parser(object):
         if v in self._require_args:
           expected_args_count = self._require_args[v]
           expected_args_name = v
-          ensure_key(ret, expected_args_name, [])
+          ret.setdefault(expected_args_name, [])
           continue
 
         if expected_args_count == "*":
@@ -145,7 +145,7 @@ class Parser(object):
 
       elif t == "text":
         if expected_args_count is not None:
-          ensure_key(ret, expected_args_name, [])
+          ret.setdefault(expected_args_name, [])
           ret[expected_args_name].append(v)
           if expected_args_count == "+":
             expected_args_count = "*"
@@ -161,6 +161,6 @@ class Parser(object):
           positional_index += 1
           continue
 
-        ensure_key(ret, "positionals", [])
+        ret.setdefault("positionals", [])
         ret["positionals"].append(v)
     return ret

@@ -990,9 +990,7 @@ def create_text(text, x=None, y=None):
 def get_type_if_dict(dic):
   if not isinstance(dic, dict):
     return None
-  if "type" not in dic:
-    return None
-  return dic["type"]
+  return dic.get("type")
 
 
 def is_type(dic, type_):
