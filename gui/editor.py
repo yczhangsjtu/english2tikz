@@ -55,11 +55,10 @@ class Editor(object):
     self._keyboard_managers = {
         "normal": KeyboardManager(","),
         "visual": KeyboardManager(","),
-        "editing": KeyboardManager(","),
-        "command": KeyboardManager(","),
+        "editing": KeyboardManager(),
+        "command": KeyboardManager(),
         "finding": KeyboardManager(","),
         "preview": KeyboardManager(","),
-        "suggest": KeyboardManager(","),
     }
     self._canvas_manager = CanvasManager(root, canvas,
                                          screen_width, screen_height, self)
