@@ -651,7 +651,7 @@ class Editor(object):
       if not is_type(pos, "nodename"):
         raise ErrorMessage("Selected position is not at node")
       with self._modify_picture():
-        pos["anchor"] = shift_anchor(get_default(pos, "anchor", "center"),
+        pos["anchor"] = shift_anchor(pos.get("anchor", "center"),
                                      direction)
 
   def _shift_selected_object_anchor(self, direction):
@@ -824,7 +824,7 @@ class Editor(object):
                                         self._canvas_manager._bounding_boxes)
     return {
         "picture": self._context._picture,
-        "nextid": get_default(self._context._state, "nextid", 0),
+        "nextid": self._context._state.get("nextid", 0),
         "bound_box": [x0, y0, x1, y1],
         "width": x1 - x0,
         "height": y1 - y0,
@@ -841,7 +841,7 @@ class Editor(object):
 
   def _fix_id_and_names(self):
     for item in self._context._picture:
-      id_ = get_default(item, "id")
+      id_ = item.get("id")
       if id_ is not None:
         item["name"] = id_
 
@@ -971,7 +971,7 @@ class Editor(object):
     parser = Parser()
     parser.positional("color")
     args = parser.parse(code)
-    color = get_default(args, "color", None)
+    color = args.get("color", None)
     if color is None:
       raise ErrorMessage("Expected a color name")
     self._set_selected_objects("fill", color)
@@ -990,7 +990,7 @@ class Editor(object):
     elif "path" in args:
       obj = "path"
 
-    arrow = get_default(args, "arrow", [None])[0]
+    arrow = args.get("arrow", [None])[0]
 
     if obj == "path":
       with self._modify_picture():
@@ -1020,7 +1020,7 @@ class Editor(object):
     parser.flag_group("anchor", anchor_list + list(short_anchor_dict.keys()))
     args = parser.parse(code)
 
-    arrow = get_default(args, "arrow", [""])[0]
+    arrow = args.get("arrow", [""])[0]
     if arrow:
       arrow = f"with.{arrow_symbols[arrow]}"
 
@@ -1035,7 +1035,7 @@ class Editor(object):
     else:
       pairs = [(0, i) for i in range(1, len(ids))]
 
-    anchors = get_default(args, "anchor", [])
+    anchors = args.get("anchor", [])
     anchors = [short_anchor_dict[anchor]
                if anchor in short_anchor_dict else anchor
                for anchor in anchors]
@@ -1043,15 +1043,15 @@ class Editor(object):
     while len(anchors) < len(ids):
       anchors.append("")
 
-    out = get_default(args, "out", None)
-    in_ = get_default(args, "in", None)
+    out = args.get("out", None)
+    in_ = args.get("in", None)
     start_out, close_in = "", ""
     if out is not None:
       start_out = f"start.out.{out}"
     if in_ is not None:
       close_in = f"close.in.{in_}"
 
-    annotates = get_default(args, "positionals", [])
+    annotates = args.get("positionals", [])
     annotates = [f"with.annotate '{v}'" for v in annotates]
     while len(annotates) < len(ids):
       annotates.append("")
@@ -1096,7 +1096,7 @@ class Editor(object):
     parser.flag_group("anchor", anchor_list + list(short_anchor_dict.keys()))
     args = parser.parse(code)
 
-    arrow = get_default(args, "arrow", [""])[0]
+    arrow = args.get("arrow", [""])[0]
     if arrow:
       arrow = f"with.{arrow_symbols[arrow]}"
 
@@ -1106,20 +1106,20 @@ class Editor(object):
     elif "v" in args:
       action = "line.vertical"
 
-    anchor = get_default(args, "anchor", [""])[0]
+    anchor = args.get("anchor", [""])[0]
     anchor = (short_anchor_dict[anchor]
               if anchor in short_anchor_dict else anchor)
     anchor = f".{anchor}" if anchor != "" else ""
 
-    out = get_default(args, "out", None)
-    in_ = get_default(args, "in", None)
+    out = args.get("out", None)
+    in_ = args.get("in", None)
     start_out, close_in = "", ""
     if out is not None:
       start_out = f"start.out.{out}"
     if in_ is not None:
       close_in = f"close.in.{in_}"
 
-    annotates = get_default(args, "positionals", [])
+    annotates = args.get("positionals", [])
     annotates = [f"with.annotate '{v}'" for v in annotates]
     while len(annotates) < len(ids):
       annotates.append("")
@@ -1182,7 +1182,7 @@ class Editor(object):
     parser.require_arg("arc", 3)
 
     args = parser.parse(code)
-    anchors = get_default(args, "anchor", [])
+    anchors = args.get("anchor", [])
     if len(anchors) > 2:
       raise ErrorMessage("Too many anchors. Expect no more than two.")
     elif len(anchors) > 0:
@@ -1284,7 +1284,7 @@ class Editor(object):
 
     parser = Parser()
     args = parser.parse(code)
-    text = get_default(args, "positionals", [""])[0]
+    text = args.get("positionals", [""])[0]
     with self._modify_picture():
       ensure_key(line, "annotates", [])
       line["annotates"].append({
