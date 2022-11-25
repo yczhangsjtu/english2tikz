@@ -3,6 +3,7 @@ import copy
 from english2tikz.utils import *
 from english2tikz.gui.object_utils import *
 from english2tikz.gui.bezier import *
+from english2tikz.gui.geometry import *
 
 
 class Suggestion(object):
