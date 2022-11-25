@@ -239,3 +239,19 @@ def count_path_position_items(path):
 
 def count_path_segment_items(path):
   return len(get_path_segment_items(path))
+
+
+def satisfy_filters(obj, filters):
+  for key, value in filters:
+    satisfied = False
+    for k, v in obj.items():
+      if value is not None:
+        if not isinstance(v, str) or v.find(value) < 0:
+          continue
+      if key is not None and k.find(key) < 0:
+        continue
+      satisfied = True
+      break
+    if not satisfied:
+      return False
+  return True

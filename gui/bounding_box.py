@@ -1,4 +1,5 @@
 from english2tikz.utils import *
+from english2tikz.gui.geometry import *
 
 
 class BoundingBox(object):
