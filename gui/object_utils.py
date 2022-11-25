@@ -1,5 +1,6 @@
 import math
 from english2tikz.utils import *
+from english2tikz.gui.bounding_box import *
 
 
 def draw_border(obj):
@@ -215,3 +216,26 @@ def get_first_absolute_coordinate(data):
                 not item.get("relative", False)):
           return dist_to_num(item.get("x", 0), item.get("y", 0))
   return None
+
+
+def get_top_left_corner(data, bounding_boxes):
+  x0, y0, x1, y1 = get_bounding_box(data, bounding_boxes)
+  return x0, y0
+
+
+def get_path_position_items(path):
+  return [(i, item) for (i, item) in enumerate(path["items"])
+          if item["type"] in ["nodename", "coordinate", "intersection"]]
+
+
+def get_path_segment_items(path):
+  return [(i, item) for (i, item) in enumerate(path["items"])
+          if item["type"] in ["line", "rectangle"]]
+
+
+def count_path_position_items(path):
+  return len(get_path_position_items(path))
+
+
+def count_path_segment_items(path):
+  return len(get_path_segment_items(path))

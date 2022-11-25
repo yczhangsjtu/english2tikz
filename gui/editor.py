@@ -26,6 +26,7 @@ from english2tikz.gui.visual import Visual
 from english2tikz.gui.command_parse import Parser
 from english2tikz.gui.suggest import Suggest
 from english2tikz.gui.object_utils import *
+from english2tikz.gui.bounding_box import *
 
 
 class Editor(object):

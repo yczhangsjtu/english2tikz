@@ -272,3 +272,46 @@ def shift_by_anchor(x, y, anchor, width, height):
   anchor_x, anchor_y = BoundingBox._get_anchor_pos(
       (x, y, width, height), anchor)
   return 2 * x - anchor_x, 2 * y - anchor_y
+
+
+def enlarge_bound_box(x0, y0, x1, y1, x, y):
+  if x0 is None or x < x0:
+    x0 = x
+  if y0 is None or y < y0:
+    y0 = y
+  if x1 is None or x > x1:
+    x1 = x
+  if y1 is None or y > y1:
+    y1 = y
+  return x0, y0, x1, y1
+
+
+def get_bounding_box(data, bounding_boxes):
+  x0, y0, x1, y1 = None, None, None, None
+  for obj in data:
+    id_ = obj.get("id")
+    if id_ is not None:
+      id_ = obj.get("id")
+      bb = bounding_boxes[id_]
+      x2, y2, x3, y3 = bb.get_bound()
+      x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x2, y2)
+      x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x3, y3)
+    else:
+      for id_, bb in bounding_boxes.items():
+        if obj == bb._obj:
+          x2, y2, x3, y3 = bb.get_bound()
+          x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x2, y2)
+          x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x3, y3)
+    if "items" in obj:
+      for item in obj["items"]:
+        if "annotates" in item:
+          for annotate in item["annotates"]:
+            id_ = annotate.get("id")
+            if id_ is not None:
+              bb = bounding_boxes[id_]
+              x2, y2, x3, y3 = bb.get_bound()
+              x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x2, y2)
+              x0, y0, x1, y1 = enlarge_bound_box(x0, y0, x1, y1, x3, y3)
+  if x0 is None:
+    return 0, 0, 0, 0
+  return x0, y0, x1, y1
