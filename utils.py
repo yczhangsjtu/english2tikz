@@ -695,25 +695,6 @@ def clear_dict(d):
     del d[key]
 
 
-def get_first_absolute_coordinate(data):
-  for obj in data:
-    at = obj.get("at")
-    if is_type(at, "coordinate"):
-      if at.get("relative", False):
-        raise ValueError("An object cannot have relative coordinate")
-      return dist_to_num(at.get("x", 0), at.get("y", 0))
-    if "id" in obj and at is None:
-      return 0, 0
-    items = obj.get("items")
-    if items is not None:
-      for item in items:
-        if both(is_type(item, "coordinate"),
-                not item.get("relative", False)):
-          return dist_to_num(item.get("x", 0),
-                             item.get("y", 0))
-  return None
-
-
 def get_top_left_corner(data, bounding_boxes):
   x0, y0, x1, y1 = get_bounding_box(data, bounding_boxes)
   return x0, y0
