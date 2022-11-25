@@ -61,7 +61,7 @@ class BoxDrawer(Drawer):
                     hint=hint, no_new_bound_box=no_new_bound_box)
 
   def _precompute_text_size(canvas, obj, scale, cs_scale, inner_sep):
-    text_width = get_default(obj, "text.width")
+    text_width = obj.get("text.width")
     tmptext = create_text(canvas, 0, 0, obj, scale,
                           cs_scale, "black", text_width)
     x0, y0, x1, y1 = canvas.bbox(tmptext)
@@ -73,9 +73,9 @@ class BoxDrawer(Drawer):
   def _compute_object_size(canvas, obj, cs_scale):
     circle = "circle" in obj
     ellipse = "ellipse" in obj
-    text = get_default(obj, "text")
-    inner_sep = dist_to_num(get_default(obj, "inner.sep", 0.1))
-    scale = float(get_default(obj, "scale", 1))
+    text = obj.get("text")
+    inner_sep = dist_to_num(obj.get("inner.sep", 0.1))
+    scale = float(obj.get("scale", 1))
     if text:
       width, height = BoxDrawer._precompute_text_size(
           canvas, obj, scale, cs_scale, inner_sep)
@@ -90,8 +90,8 @@ class BoxDrawer(Drawer):
       width *= 1.414
       height *= 1.414
 
-    width = max(dist_to_num(get_default(obj, "width", 0)) * scale, width)
-    height = max(dist_to_num(get_default(obj, "height", 0)) * scale, height)
+    width = max(dist_to_num(obj.get("width", 0)) * scale, width)
+    height = max(dist_to_num(obj.get("height", 0)) * scale, height)
 
     if circle:
       width = max(width, height)
@@ -101,19 +101,19 @@ class BoxDrawer(Drawer):
 
   def _draw(canvas, obj, env, position=None, slope=0, hint={},
             no_new_bound_box=False):
-    id_ = get_default(obj, "id")
+    id_ = obj.get("id")
     assert id_ is not None
     selected = env["selection"].selected(obj)
     finding = env["finding"]
     cs = env["coordinate system"]
     cs_scale = cs._scale
 
-    angle = dist_to_num(get_default(obj, "rotate", 0)) + slope
-    scale = float(get_default(obj, "scale", 1))
+    angle = dist_to_num(obj.get("rotate", 0)) + slope
+    scale = float(obj.get("scale", 1))
     circle = "circle" in obj
     ellipse = "ellipse" in obj
-    fill = get_default(obj, "fill", "")
-    line_width = get_default(obj, "line.width")
+    fill = obj.get("fill", "")
+    line_width = obj.get("line.width")
     if line_width is not None:
       line_width = dist_to_num(line_width) * line_width_ratio
     dash = 2 if "dashed" in obj else None
@@ -123,13 +123,13 @@ class BoxDrawer(Drawer):
     draw = draw_border(obj)
     color = get_draw_color(obj)
     text_color = get_text_color(obj)
-    text = get_default(obj, "text")
-    text_width = get_default(obj, "text.width")
+    text = obj.get("text")
+    text_width = obj.get("text.width")
     width, height = BoxDrawer._compute_object_size(canvas, obj, cs_scale)
     direction = get_direction_of(obj)
     bounding_boxes = env["bounding box"]
 
-    anchor = get_default(obj, "anchor")
+    anchor = obj.get("anchor")
     if anchor is None and direction is not None:
       anchor = direction_to_anchor(flipped(direction))
     anchor = anchor if anchor is not None else "center"
@@ -140,8 +140,8 @@ class BoxDrawer(Drawer):
     x, y = shift_by_anchor(x, y, anchor, width, height)
 
     if "xshift" in obj or "yshift" in obj:
-      dx, dy = dist_to_num(get_default(obj, "xshift", 0),
-                           get_default(obj, "yshift", 0))
+      dx, dy = dist_to_num(obj.get("xshift", 0),
+                           obj.get("yshift", 0))
       if slope is not None:
         dx, dy = rotate(dx, dy, 0, 0, slope % 360)
       x += dx
@@ -324,7 +324,7 @@ class PathDrawer(Drawer):
     draw = "draw" in obj and "hidden" not in obj
     fill = "fill" in obj
     fill_polygon = []
-    line_width = get_default(obj, "line.width")
+    line_width = obj.get("line.width")
     if line_width is not None:
       line_width = dist_to_num(line_width) * line_width_ratio
     arrow = "stealth" in obj or "arrow" in obj
@@ -360,9 +360,9 @@ class PathDrawer(Drawer):
       new_pos_clip = None
       if is_type(item, "nodename"):
         name = item["name"]
-        anchor = get_default(item, "anchor")
-        xshift = dist_to_num(get_default(item, "xshift", 0))
-        yshift = dist_to_num(get_default(item, "yshift", 0))
+        anchor = item.get("anchor")
+        xshift = dist_to_num(item.get("xshift", 0))
+        yshift = dist_to_num(item.get("yshift", 0))
         if anchor is None:
           """
           anchor = None or anchor = "center" is different here, and only here:
@@ -377,9 +377,9 @@ class PathDrawer(Drawer):
       elif is_type(item, "point"):
         bounding_boxes[item["id"]] = BoundingBox(*current_pos, 0, 0)
       elif is_type(item, "coordinate"):
-        dx = dist_to_num(get_default(item, "x", 0))
-        dy = dist_to_num(get_default(item, "y", 0))
-        if get_default(item, "relative", False):
+        dx = dist_to_num(item.get("x", 0))
+        dy = dist_to_num(item.get("y", 0))
+        if item.get("relative", False):
           if current_pos is None:
             raise ValueError("Current position is None")
           x, y = current_pos
@@ -388,8 +388,8 @@ class PathDrawer(Drawer):
           new_pos = (dx, dy)
       elif is_type(item, "intersection"):
         name1, name2 = item["name1"], item["name2"]
-        anchor1 = get_default(item, "anchor1", "center")
-        anchor2 = get_default(item, "anchor2", "center")
+        anchor1 = item.get("anchor1", "center")
+        anchor2 = item.get("anchor2", "center")
         x, _ = bounding_boxes[name1].get_anchor_pos(anchor1)
         _, y = bounding_boxes[name2].get_anchor_pos(anchor2)
         new_pos = (x, y)
@@ -471,15 +471,15 @@ class PathDrawer(Drawer):
                  no_new_bound_box=False, fill_polygon=[]):
     hint_directions = hint["last_path"]["directions"]
     hint_positions = hint["last_path"]["positions"]
-    line_width = get_default(path, "line.width")
+    line_width = path.get("line.width")
     if line_width is not None:
       line_width = dist_to_num(line_width) * line_width_ratio
     dash = 2 if "dashed" in path else None
     if line_width is not None and dash is not None:
       dash = int(dash * line_width)
-    color = get_default(path, "color", "black")
+    color = path.get("color", "black")
     draw = "draw" in path and "hidden" not in path
-    fill = get_default(path, "fill", "")
+    fill = path.get("fill", "")
     cs = env["coordinate system"]
     bounding_boxes = env["bounding box"]
     ret = None

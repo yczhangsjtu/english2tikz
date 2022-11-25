@@ -48,30 +48,30 @@ class MarkManager(object):
     mark = self._marks[i]
 
     if is_type(mark, "nodename"):
-      bb = get_default(bounding_boxes, mark["name"])
+      bb = bounding_boxes.get(mark["name"])
       if bb is None:
         return None
-      x, y = bb.get_anchor_pos(get_default(mark, "anchor", "center"))
+      x, y = bb.get_anchor_pos(mark.get("anchor", "center"))
       if "anchor" in mark:
         """
         It's useless in tikz to shift a node name coordinate without specifying
         the anchor.
         """
-        x += dist_to_num(get_default(mark, "xshift", 0))
-        y += dist_to_num(get_default(mark, "yshift", 0))
+        x += dist_to_num(mark.get("xshift", 0))
+        y += dist_to_num(mark.get("yshift", 0))
       buffer[i] = (x, y)
       return x, y
     elif is_type(mark, "intersection"):
-      bb1 = get_default(bounding_boxes, mark["name1"])
-      bb2 = get_default(bounding_boxes, mark["name2"])
+      bb1 = bounding_boxes.get(mark["name1"])
+      bb2 = bounding_boxes.get(mark["name2"])
       if bb1 is None or bb2 is None:
         return None
-      x, _ = bb1.get_anchor_pos(get_default(mark, "anchor1", "center"))
-      _, y = bb2.get_anchor_pos(get_default(mark, "anchor2", "center"))
+      x, _ = bb1.get_anchor_pos(mark.get("anchor1", "center"))
+      _, y = bb2.get_anchor_pos(mark.get("anchor2", "center"))
       buffer[i] = (x, y)
       return x, y
     elif is_type(mark, "coordinate"):
-      if get_default(mark, "relative", False):
+      if mark.get("relative", False):
         if i == 0:
           return None
         previous = self._get_pos(i-1, buffer)

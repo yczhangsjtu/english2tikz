@@ -35,27 +35,27 @@ class KeyboardManager(object):
           self._in_leader_mode = True
           return
         if char == "\n" or char == "\r":
-          self._invoke(get_default(self._bindings, "Return"))
+          self._invoke(self._bindings.get("Return"))
         else:
-          self._invoke(get_default(self._bindings, "Printable"), char)
-          self._invoke(get_default(self._bindings, char))
+          self._invoke(self._bindings.get("Printable"), char)
+          self._invoke(self._bindings.get(char))
       elif not ctrl and sym:
-        self._invoke(get_default(self._bindings, sym))
+        self._invoke(self._bindings.get(sym))
       elif ctrl and sym:
-        self._invoke(get_default(self._bindings, f"Ctrl-{sym}"))
+        self._invoke(self._bindings.get(f"Ctrl-{sym}"))
     else:
       if not ctrl and char:
         self._in_leader_mode = False
         if char == "\n" or char == "\r":
-          self._invoke(get_default(self._bindings, "<leader>Return"))
+          self._invoke(self._bindings.get("<leader>Return"))
         else:
-          self._invoke(get_default(self._bindings, "<leader>"+char))
+          self._invoke(self._bindings.get("<leader>"+char))
       elif not ctrl and sym:
         self._in_leader_mode = False
-        self._invoke(get_default(self._bindings, "<leader>"+sym))
+        self._invoke(self._bindings.get("<leader>"+sym))
       elif ctrl and sym:
         self._in_leader_mode = False
-        self._invoke(get_default(self._bindings, f"<leader>Ctrl-{sym}"))
+        self._invoke(self._bindings.get(f"<leader>Ctrl-{sym}"))
 
   def _invoke(self, f, *args, **kwargs):
     if f is not None:

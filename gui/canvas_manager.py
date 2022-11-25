@@ -200,7 +200,7 @@ class CanvasManager(object):
       x, y = self._cs().map_point(*coord)
       radius = 10
       if is_type(mark, "coordinate"):
-        if get_default(mark, "relative", False):
+        if mark.get("relative", False):
           fill, outline = "#ff7777", "red"
         else:
           fill, outline = "#77ff77", "green"

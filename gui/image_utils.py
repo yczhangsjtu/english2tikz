@@ -17,7 +17,7 @@ def get_image_from_path(path, scale, id_, angle=0, recreate=False):
   each image can appear in at most one place
   """
   if not recreate:
-    image = get_default(image_references, (path, scale, id_, angle))
+    image = image_references.get((path, scale, id_, angle))
     if image is not None:
       return image
   img = Image.open(path)

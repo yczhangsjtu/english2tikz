@@ -59,7 +59,7 @@ class Finding(object):
       if not key.startswith(self._prefix):
         continue
       if isinstance(value, str):
-        if get_default(obj, "id") == value:
+        if obj.get("id") == value:
           return key
       elif obj == value:
         return key
