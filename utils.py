@@ -123,13 +123,6 @@ def both(a, b):
   return a and b
 
 
-def getid():
-  global counter
-  ret = f"id{counter}"
-  counter += 1
-  return ret
-
-
 def dump_options(o):
   return ", ".join([key if isinstance(value, bool) and value
                     else f"{key}={value}"
