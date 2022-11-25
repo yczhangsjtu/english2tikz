@@ -156,7 +156,7 @@ class Selection(object):
   def selected(self, obj_or_id):
     if isinstance(obj_or_id, str):
       return self.selected_id(obj_or_id)
-    id_ = get_default(obj_or_id, "id")
+    id_ = obj_or_id.get("id")
     if id_:
       return self.selected_id(id_)
     assert is_type(obj_or_id, "path")

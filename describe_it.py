@@ -292,12 +292,12 @@ class DescribeIt(object):
 
   def find_object_by_id(self, id_):
     for obj in self._picture:
-      if get_default(obj, "id") == id_:
+      if obj.get("id") == id_:
         return obj
       if "items" in obj:
         items = obj["items"]
         for item in items:
-          if get_default(item, "id") == id_:
+          if item.get("id") == id_:
             return item
           if "annotates" in item:
             for annotate in item["annotates"]:
@@ -355,17 +355,17 @@ class DescribeIt(object):
     old_to_new_id_dict = {}
     to_replace = []
     for obj in data:
-      id_ = get_default(obj, "id")
+      id_ = obj.get("id")
       if id_ is not None:
         new_id = self.getid()
         old_to_new_id_dict[id_] = new_id
-        at = get_default(obj, "at")
+        at = obj.get("at")
         obj["id"] = new_id
         obj["name"] = new_id
         if at is None:
           obj["at"] = create_coordinate(dx, dy)
         elif is_type(at, "coordinate"):
-          assert not get_default(at, "relative", False)
+          assert not at.get("relative", False)
           add_to_key(at, "x", dx)
           add_to_key(at, "y", dy)
         elif isinstance(at, str):
@@ -376,7 +376,7 @@ class DescribeIt(object):
           to_replace.append((at, "name2"))
       elif is_type(obj, "path"):
         for item in obj["items"]:
-          id_ = get_default(item, "id")
+          id_ = item.get("id")
           if id_ is not None:
             new_id = self.getid()
             old_to_new_id_dict[id_] = new_id
@@ -387,13 +387,13 @@ class DescribeIt(object):
             to_replace.append((item, "name1"))
             to_replace.append((item, "name2"))
           elif is_type(item, "coordinate"):
-            if not get_default(item, "relative", False):
+            if not item.get("relative", False):
               add_to_key(item, "x", dx)
               add_to_key(item, "y", dy)
           elif "annotates" in item:
             annotates = item["annotates"]
             for annotate in annotates:
-              id_ = get_default(annotate, "id")
+              id_ = annotate.get("id")
               if id_ is not None:
                 new_id = self.getid()
                 old_to_new_id_dict[id_] = new_id
@@ -425,7 +425,7 @@ class DescribeIt(object):
           raise ValueError("Must provide the bounding boxes "
                            "if not check relative positions")
         bb = bounding_boxes[old_id]
-        anchor = get_default(item, "anchor", "center")
+        anchor = item.get("anchor", "center")
         x, y = bb.get_anchor_pos(anchor)
         """
         We can only modify 'item' in place, because we cannot
@@ -444,7 +444,7 @@ class DescribeIt(object):
         key is "name1" or "name2", and the key for anchor is respectively
         "anchor1" "anchor2"
         """
-        anchor = get_default(item, f"anchor{key[4]}", "center")
+        anchor = item.get(f"anchor{key[4]}", "center")
         x, y = bb.get_anchor_pos(anchor)
         """
         We can only modify 'item' in place, because we cannot overwrite item
@@ -462,7 +462,7 @@ class DescribeIt(object):
           raise ValueError("Must provide the bounding boxes "
                            "if not check relative positions")
         bb = bounding_boxes[old_id]
-        anchor = get_default(item, "at.anchor", "center")
+        anchor = item.get("at.anchor", "center")
         x, y = bb.get_anchor_pos(anchor)
         item["at"] = create_coordinate(x + dx, y + dy)
         del_if_has(item, "at.anchor")
@@ -475,7 +475,7 @@ class DescribeIt(object):
     if obj is None:
       return
 
-    obj["anchor"] = shift_anchor(get_default(obj, "anchor", "center"),
+    obj["anchor"] = shift_anchor(obj.get("anchor", "center"),
                                  flipped(direction))
 
   def shift_object_at_anchor(self, id_, direction):
@@ -485,16 +485,16 @@ class DescribeIt(object):
 
     if get_default_of_type(obj, "at", str):
       obj["at.anchor"] = shift_anchor(
-          get_default(obj, "at.anchor", "center"),
+          obj.get("at.anchor", "center"),
           direction)
     elif "at" in obj and is_type(obj["at"], "intersection"):
       if direction == "left" or direction == "right":
         obj["at"]["anchor1"] = shift_anchor(
-            get_default(obj["at"], "anchor1", "center"),
+            obj["at"].get("anchor1", "center"),
             direction)
       elif direction == "up" or direction == "down":
         obj["at"]["anchor2"] = shift_anchor(
-            get_default(obj["at"], "anchor2", "center"),
+            obj["at"].get("anchor2", "center"),
             direction)
       else:
         raise ValueError(f"Unknown direction {direction}")
