@@ -7,6 +7,7 @@ from english2tikz.test.mocks import *
 class TestEditor(unittest.TestCase):
   def _create_editor_and_run_keys(self, keys, init_data=None):
     editor = Editor(MockTk(), MockCanvas(), 1200, 800)
+    keys = [' ' if key == "Space" else key for key in keys]
     if init_data is not None:
       editor.load(init_data)
     for key in keys:

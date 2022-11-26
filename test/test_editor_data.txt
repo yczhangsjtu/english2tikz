@@ -1,2 +1,5 @@
 i A B C Ctrl-c
 [{"id": "id0", "type": "text", "text": "ABC", "at": {"type": "coordinate", "x": "0", "y": "0"}, "align": "left"}]
+
+i A B C Ctrl-c f a a D E F Ctrl-c f b F a : s e t Space b l u e Return
+[{"id": "id0", "type": "text", "text": "ABC", "at": {"type": "coordinate", "x": "0", "y": "0"}, "align": "left", "name": "id0", "color": "blue"}, {"id": "id1", "type": "text", "text": "DEF", "anchor": "west", "at": "id0", "at.anchor": "east", "color": "blue"}]
