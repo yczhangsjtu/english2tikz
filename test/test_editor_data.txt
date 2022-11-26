@@ -9,3 +9,12 @@ s , b l , a s
 
 i A B C Ctrl-c v v a D E F Ctrl-c / A B C Return K / D E F Return >
 [{"id": "id0", "type": "text", "text": "ABC", "at": {"type": "coordinate", "x": "0", "y": "1cm"}, "align": "left", "name": "id0"}, {"id": "id1", "type": "text", "text": "DEF", "anchor": "west", "at": "id0", "at.anchor": "east", "xshift": "1cm"}]
+
+i A B C Ctrl-c v v a D E F Ctrl-c / A B C Return K / D E F Return > k v j l l l l l Return : c n Space - > Return
+[{"id": "id0", "type": "text", "text": "ABC", "at": {"type": "coordinate", "x": "0", "y": "1cm"}, "align": "left", "name": "id0"}, {"id": "id1", "type": "text", "text": "DEF", "anchor": "west", "at": "id0", "at.anchor": "east", "xshift": "1cm", "name": "id1"}, {"type": "path", "draw": true, "items": [{"type": "nodename", "name": "id0"}, {"type": "line"}, {"type": "nodename", "name": "id1"}], "stealth": true}]
+
+i A B C Ctrl-c v v a D E F Ctrl-c / A B C Return K / D E F Return > k v j l l l l l Return : c n Space - > Return h h h h h k v Return : s e t Space d r a w Space c o l o r = r e d ! 2 0 Return
+[{"id": "id0", "type": "text", "text": "ABC", "at": {"type": "coordinate", "x": "0", "y": "1cm"}, "align": "left", "name": "id0", "draw": true, "color": "red!20"}, {"id": "id1", "type": "text", "text": "DEF", "anchor": "west", "at": "id0", "at.anchor": "east", "xshift": "1cm", "name": "id1"}, {"type": "path", "draw": true, "items": [{"type": "nodename", "name": "id0"}, {"type": "line"}, {"type": "nodename", "name": "id1"}], "stealth": true}]
+
+i A B C Ctrl-c v v a D E F Ctrl-c / A B C Return K / D E F Return > k v j l l l l l Return : c n Space - > Return h h h h h k v Return : s e t Space d r a w Space c o l o r = r e d ! 2 0 Return f c n : s e t Space o u t = 9 0 Return n : Up Return
+[{"id": "id0", "type": "text", "text": "ABC", "at": {"type": "coordinate", "x": "0", "y": "1cm"}, "align": "left", "name": "id0", "draw": true, "color": "red!20"}, {"id": "id1", "type": "text", "text": "DEF", "anchor": "west", "at": "id0", "at.anchor": "east", "xshift": "1cm", "name": "id1"}, {"type": "path", "draw": true, "items": [{"type": "nodename", "name": "id0"}, {"type": "line", "out": "90"}, {"type": "nodename", "name": "id1"}], "stealth": true}]
