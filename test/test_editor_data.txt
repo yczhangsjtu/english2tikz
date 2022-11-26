@@ -6,3 +6,6 @@ i A B C Ctrl-c f a a D E F Ctrl-c f b F a : s e t Space b l u e Return
 
 s , b l , a s
 [{"type": "path", "draw": true, "items": [{"type": "coordinate", "x": "0", "y": "0"}, {"type": "line"}, {"type": "coordinate", "x": "1cm", "y": "0"}], "color": "black"}]
+
+i A B C Ctrl-c v v a D E F Ctrl-c / A B C Return K / D E F Return >
+[{"id": "id0", "type": "text", "text": "ABC", "at": {"type": "coordinate", "x": "0", "y": "1cm"}, "align": "left", "name": "id0"}, {"id": "id1", "type": "text", "text": "DEF", "anchor": "west", "at": "id0", "at.anchor": "east", "xshift": "1cm"}]
