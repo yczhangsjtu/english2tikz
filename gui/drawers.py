@@ -603,7 +603,7 @@ class PathDrawer(Drawer):
           else:
             x, y = curve[int((len(curve)-1) * (1-t))]
 
-          angle = None
+          angle = 0
           if "sloped" in annotate:
             if straight:
               ax0, ay0, ax1, ay1 = x0, y0, x1, y1
@@ -700,7 +700,7 @@ class PathDrawer(Drawer):
           x = centerx + math.cos(deg/180*math.pi) * radius
           y = centery + math.sin(deg/180*math.pi) * radius
 
-          angle = None
+          angle = 0
           if "sloped" in annotate:
             angle = (deg + 360 + 270) % 360
             if angle < 270 and angle > 90:
