@@ -101,6 +101,7 @@ class Editor(object):
                       partial(self._move_command_cursor, 1))
     self.register_key("command", "Ctrl-0", self._move_command_cursor_start)
     self.register_key("command", "Ctrl-g", self._move_command_cursor_end)
+    self.register_key("command", "Tab", self._complete_command)
     self.register_key("normal", "i", self._enter_edit_mode_without_visual)
     self.register_key("normal", "a",
                       partial(self._append_to_selected_object, "right"))
@@ -354,6 +355,9 @@ class Editor(object):
 
   def _move_command_cursor_end(self):
     self._command_line.move_to_end()
+  
+  def _complete_command(self):
+    self._command_line.complete()
 
   def _is_in_command_mode(self):
     return self._command_line.active()

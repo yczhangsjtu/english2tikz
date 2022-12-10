@@ -9,6 +9,9 @@ class CommandLine(object):
     self._command_history_index = None
     self._path = os.path.join(path, "history")
     self._command_history = self._read_command_history()
+    self._matches = None
+    self._match_index = None
+    self._match_base = None
 
   def active(self):
     return self._editor is not None
@@ -25,9 +28,15 @@ class CommandLine(object):
     self._editor.insert(c)
     self._command_line_buffer = str(self._editor)
     self._command_history_index = None
+    self._matches = None
+    self._match_index = None
+    self._match_base = None
 
   def delete(self):
     self._command_history_index = None
+    self._matches = None
+    self._match_index = None
+    self._match_base = None
     if len(self._editor) > 0:
       self._editor.delete()
       self._command_line_buffer = str(self._editor)
@@ -38,6 +47,9 @@ class CommandLine(object):
     self._editor = None
     self._command_line_buffer = None
     self._command_history_index = None
+    self._matches = None
+    self._match_index = None
+    self._match_base = None
 
   def __str__(self):
     return str(self._editor)
@@ -78,6 +90,8 @@ class CommandLine(object):
     current_index = self.find_previous_with_prefix(
       self._command_line_buffer, current_index)
     if current_index is not None:
+      if self._command_history_index is None:
+        self._command_line_buffer = str(self._editor)
       self._command_history_index = current_index
       self._editor.set(self._command_history[self._command_history_index])
       self._editor.move_to_end()
@@ -94,6 +108,43 @@ class CommandLine(object):
     else:
       self._editor.set(self._command_history[self._command_history_index])
       self._editor.move_to_end()
+  
+  def complete(self):
+    if self._matches is None:
+      current = str(self._editor).lstrip()
+      current = current.split(' ')[-1]
+      directory = os.path.join('.', os.path.dirname(current))
+      prefix = os.path.basename(current)
+      matches = [file for file in os.listdir(directory)
+                if file.startswith(prefix)]
+      for i in range(len(matches)):
+        if os.path.isdir(os.path.join(directory, matches[i])):
+          matches[i] += '/'
+      if len(matches) > 0:
+        self._matches = matches
+        self._match_index = 0
+        self._command_line_buffer = str(self._editor)
+        if len(prefix) > 0:
+          self._match_base = self._command_line_buffer[:-len(prefix)]
+        else:
+          self._match_base = self._command_line_buffer
+        self._command_history_index = None
+        self._editor.set(self._match_base + self._matches[0])
+        self._editor.move_to_end()
+    elif self._match_index is None:
+      if len(self._matches) > 0:
+        self._match_index = 0
+        self._editor.set(self._match_base + self._matches[0])
+        self._editor.move_to_end()
+    else:
+      self._match_index += 1
+      if self._match_index >= len(self._matches):
+        self._match_index = None
+        self._editor.set(self._command_line_buffer)
+        self._editor.move_to_end()
+      else:
+        self._editor.set(self._match_base + self._matches[self._match_index])
+        self._editor.move_to_end()
 
   def set(self, content):
     self._editor.set(content)
