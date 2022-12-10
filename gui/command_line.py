@@ -54,24 +54,45 @@ class CommandLine(object):
   def activate(self, init=""):
     self._editor = TextEditor(init)
     self._command_line_buffer = init
+  
+  def find_previous_with_prefix(self, prefix, index):
+    for i in reversed(range(index)):
+      if self._command_history[i].startswith(prefix):
+        return i
+    return None
+  
+  def find_next_with_prefix(self, prefix, index):
+    for i in range(index+1, len(self._command_history)):
+      if self._command_history[i].startswith(prefix):
+        return i
+    return None
 
   def fetch_previous(self):
     if self._command_history_index is None:
       if len(self._command_history) > 0:
-        self._command_history_index = len(self._command_history) - 1
+        current_index = len(self._command_history)
+      else:
+        return
     else:
-      self._command_history_index = max(0, self._command_history_index - 1)
-    self._editor.set(self._command_history[self._command_history_index])
-    self._editor.move_to_end()
+      current_index = self._command_history_index
+    current_index = self.find_previous_with_prefix(
+      self._command_line_buffer, current_index)
+    if current_index is not None:
+      self._command_history_index = current_index
+      self._editor.set(self._command_history[self._command_history_index])
+      self._editor.move_to_end()
 
   def fetch_next(self):
-    if self._command_history_index is not None:
-      self._command_history_index += 1
-      if self._command_history_index >= len(self._command_history):
-        self._command_history_index = None
-        self._editor.set(self._command_line_buffer)
-      else:
-        self._editor.set(self._command_history[self._command_history_index])
+    if self._command_history_index is None:
+      return
+    current_index = self.find_next_with_prefix(
+      self._command_line_buffer,
+      self._command_history_index)
+    self._command_history_index = current_index
+    if current_index is None:
+      self._editor.set(self._command_line_buffer)
+    else:
+      self._editor.set(self._command_history[self._command_history_index])
       self._editor.move_to_end()
 
   def set(self, content):
