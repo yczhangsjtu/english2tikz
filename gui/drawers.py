@@ -23,6 +23,7 @@ font_size = 40
 
 def draw_text(canvas, x, y, obj, scale, cs_scale,
               text_color, text_width, angle=0, temp=False):
+  should_compile = False
   if need_latex(obj["text"]):
     should_compile = True
     image_path, ready = text_to_latex_image_path(obj["text"],
