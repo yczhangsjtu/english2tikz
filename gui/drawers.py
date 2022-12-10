@@ -24,18 +24,24 @@ font_size = 40
 def draw_text(canvas, x, y, obj, scale, cs_scale,
               text_color, text_width, angle=0):
   if need_latex(obj["text"]):
-    try:
-      return canvas.create_image(
-          x, y,
-          image=get_image_from_path(
-              text_to_latex_image_path(obj["text"], text_color, text_width),
-              scale * latex_scale_ratio, obj["id"], angle))
-    except tk.TclError:
-      return canvas.create_image(
-          x, y,
-          image=get_image_from_path(
-              text_to_latex_image_path(obj["text"], text_color, text_width),
-              scale * latex_scale_ratio, obj["id"], angle, recreate=True))
+    image_path, ready = text_to_latex_image_path(obj["text"],
+                                                 text_color,
+                                                 text_width)
+    if ready:
+      try:
+        return canvas.create_image(
+            x, y,
+            image=get_image_from_path(
+                image_path,
+                scale * latex_scale_ratio, obj["id"],
+                angle))
+      except tk.TclError:
+        return canvas.create_image(
+            x, y,
+            image=get_image_from_path(
+                image_path,
+                scale * latex_scale_ratio, obj["id"],
+                angle, recreate=True))
   return canvas.create_text(
       x, y, text=obj["text"],
       fill=color_to_tk(text_color),
