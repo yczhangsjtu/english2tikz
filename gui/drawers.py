@@ -22,8 +22,9 @@ font_size = 40
 
 
 def draw_text(canvas, x, y, obj, scale, cs_scale,
-              text_color, text_width, angle=0):
+              text_color, text_width, angle=0, temp=False):
   if need_latex(obj["text"]):
+    should_compile = True
     image_path, ready = text_to_latex_image_path(obj["text"],
                                                  text_color,
                                                  text_width)
@@ -42,13 +43,19 @@ def draw_text(canvas, x, y, obj, scale, cs_scale,
                 image_path,
                 scale * latex_scale_ratio, obj["id"],
                 angle, recreate=True))
-  return canvas.create_text(
+  ret = canvas.create_text(
       x, y, text=obj["text"],
       fill=color_to_tk(text_color),
       font=("Times New Roman", int(font_size * scale), "normal"),
       width=dist_to_num(text_width) * scale * cs_scale
       if text_width is not None else None,
       angle=angle % 360)
+  if not temp and should_compile:
+    canvas.create_oval(x - 10, y - 10, x + 10, y + 10,
+                       fill="white", outline="black")
+    canvas.create_line(x, y, x, y - 8, fill="black")
+    canvas.create_line(x, y, x + 4, y - 4 * 1.732, fill="black")
+  return ret
 
 
 class Drawer(object):
@@ -72,7 +79,8 @@ class BoxDrawer(Drawer):
   def _precompute_text_size(canvas, obj, scale, cs_scale, inner_sep):
     text_width = obj.get("text.width")
     tmptext = draw_text(canvas, 0, 0, obj, scale,
-                        cs_scale, "black", text_width)
+                        cs_scale, "black", text_width,
+                        temp=True)
     x0, y0, x1, y1 = canvas.bbox(tmptext)
     canvas.delete(tmptext)
     width = (x1 - x0) / cs_scale + inner_sep * 2 * scale
