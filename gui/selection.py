@@ -14,6 +14,7 @@ class Selection(object):
     self._selected_path_position_index = 0
     self._selected_path_position = None
     self._jump_to_select_index = 0
+    self._selected_anchor = None
 
   def picture(self):
     return self._context._picture
@@ -30,6 +31,9 @@ class Selection(object):
   def get_single_path(self):
     assert len(self._selected_paths) == 1
     return self._selected_paths[0]
+  
+  def get_single_node(self):
+    return self._context.find_object_by_id(self.get_single_id())
 
   def get_single_object(self):
     if self.single_id() and not self.has_path():
@@ -123,6 +127,15 @@ class Selection(object):
     assert self.is_in_path_position_mode()
     return self.get_path_items()[self._selected_path_position]
 
+  def get_node_anchor(self):
+    assert self.is_in_node_anchor_mode()
+    return create_nodename(self.get_single_id(), self._selected_anchor)
+  
+  def selected_node_anchor(self, id_):
+    if self.is_in_node_anchor_mode() and self.get_single_id() == id_:
+      return self._selected_anchor
+    return None
+  
   def num_ids(self):
     return len(self._selected_ids)
 
@@ -138,6 +151,13 @@ class Selection(object):
       assert len(self._selected_paths) == 1
       return True
     return False
+  
+  def is_in_node_anchor_mode(self):
+    if self._selected_anchor is not None:
+      assert len(self._selected_ids) == 1
+      assert len(self._selected_paths) == 0
+      return True
+    return False
 
   def empty(self):
     return not self.has_id() and not self.has_path()
@@ -148,6 +168,9 @@ class Selection(object):
   def deselect(self):
     if self.is_in_path_position_mode():
       self._selected_path_position = None
+      return True
+    elif self.is_in_node_anchor_mode():
+      self._selected_anchor = None
       return True
     elif self.nonempty():
       self.clear()
@@ -280,6 +303,11 @@ class Selection(object):
       self._selected_path_position_index %= len(position_items)
       self._selected_path_position = position_items[
           self._selected_path_position_index][0]
+  
+  def _select_anchor(self):
+    if not self.single_id() or self.has_path():
+      return
+    self._selected_anchor = "center"
 
   def search(self, positionals=[], **kwargs):
     self.clear()
