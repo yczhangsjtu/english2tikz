@@ -163,6 +163,7 @@ class Editor(object):
                       partial(self._move_pointer_to_screen_boundary, "middle"))
     self.register_key("normal", "n", partial(self._jump_to_next_selected, 1))
     self.register_key("normal", "N", partial(self._jump_to_next_selected, -1))
+    self.register_key("normal", "Ctrl-n", self._selected_closest_point)
     self.register_key("normal", "G", self._reset_pointer_to_origin)
     self.register_key("normal", "Ctrl-e", partial(self._scroll, 0, -100))
     self.register_key("normal", "Ctrl-y", partial(self._scroll, 0, 100))
@@ -502,6 +503,14 @@ class Editor(object):
   def _enter_node_anchor_mode(self):
     self._selection._select_anchor()
     self._clear_error_message()
+  
+  def _selected_closest_point(self):
+    if self._pointer.has_closest():
+      item, pos, obj, index = self._pointer.closest()
+      if obj is not None:
+        self._selection.select_path_and_index(obj, index)
+      else:
+        self._selection.select_node_and_anchor(item)
 
   def _clear_error_message(self):
     self._error_msg = None

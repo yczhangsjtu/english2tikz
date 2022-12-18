@@ -176,7 +176,8 @@ class BoxDrawer(Drawer):
       bounding_boxes[obj["id"]] = bb
       for a in anchor_list:
         point_collection.append((create_nodename(id_, a),
-                                bb.get_anchor_pos(a)))
+                                bb.get_anchor_pos(a),
+                                None, None))
     centerx, centery = bb.get_anchor_pos("center")
 
     x0, y0 = cs.map_point(x, y)
@@ -386,8 +387,8 @@ class PathDrawer(Drawer):
       hint_directions.append(None)
     
     if not no_new_bound_box:
-      for pos, _, item, _ in positions:
-        point_collection.append((item, pos))
+      for pos, _, item, index in positions:
+        point_collection.append((item, pos, obj, index))
 
     fill_polygon = []
     first_item = None

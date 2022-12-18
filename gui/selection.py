@@ -350,3 +350,17 @@ class Selection(object):
               if satisfy_filters(annotate, filters):
                 if "id" in annotate:
                   self._selected_ids.append(annotate["id"])
+
+  def select_path(self, path):
+    self.clear()
+    self._selected_paths = [path]
+  
+  def select_path_and_index(self, path, index):
+    self.clear()
+    self._selected_paths = [path]
+    self._selected_path_position = index
+  
+  def select_node_and_anchor(self, nodename):
+    self.clear()
+    self._selected_ids = [nodename["name"]]
+    self._selected_anchor = nodename.get("anchor", "center")

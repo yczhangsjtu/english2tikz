@@ -90,12 +90,12 @@ class Pointer(object):
           *self._cs.closest_in_view(*self.vpos()))))
 
   def find_closest(self, point_collection):
-    target_item, mindist, target_pos = None, None, None
-    for item, pos in point_collection:
+    target_item, mindist, target_pos, target_obj, target_index = None, None, None, None, None
+    for item, pos, obj, index in point_collection:
       if mindist is None or euclidean_dist(pos, self.pos()) < mindist:
-        target_item, mindist, target_pos = item, euclidean_dist(pos, self.pos()), pos
+        target_item, mindist, target_pos, target_obj, target_index = item, euclidean_dist(pos, self.pos()), pos, obj, index
     if target_item is not None:
-      self._closest = (target_item, target_pos)
+      self._closest = (target_item, target_pos, target_obj, target_index)
     else:
       self._closest = None
   
@@ -108,5 +108,5 @@ class Pointer(object):
   def closest_vpos(self):
     if not self.has_closest():
       return None
-    _, pos = self.closest()
+    _, pos, _, _ = self.closest()
     return self._cs.map_point(*pos)
