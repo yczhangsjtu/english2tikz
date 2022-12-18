@@ -174,6 +174,7 @@ class CanvasManager(object):
       self._editor._error_msg = f"Error in drawing {obj}: {e}"
     self._bounding_boxes = env["bounding box"]
     self._point_collection = env["point collection"]
+    self._pointer().find_closest(self._point_collection)
 
   def _draw_obj(self, c, obj, env, hint={}, no_new_bound_box=False):
     for drawer in self._drawers:
@@ -193,7 +194,6 @@ class CanvasManager(object):
     return self._marks().get_pos(i, self._bounding_boxes)
 
   def _draw_marks(self, c):
-    buffer = {}
     for i, mark in enumerate(self._marks().marks()):
       coord = self._get_mark_pos(i)
       if coord is None:
@@ -254,6 +254,14 @@ class CanvasManager(object):
                              fill="red", width=2))
     ret.append(c.create_line((x+dx2, y+dy2, x-dx2, y-dy2),
                              fill="red", width=2))
+    if self._pointer().has_closest():
+      x1, y1 = self._pointer().closest_vpos()
+      ret.append(c.create_line(x, y, x1, y1, fill="blue",
+                               dash=4, width=1.5,
+                               dashoffset=int(self._elapsed()/100)%8))
+      radius = int(self._elapsed()/100) % 5
+      ret.append(c.create_oval(x1-radius, y1-radius, x1+radius, y1+radius,
+                               fill="blue", outline="red"))
     return ret
 
   def _draw_attributes(self, c):

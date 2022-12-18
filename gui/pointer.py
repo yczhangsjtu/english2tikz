@@ -1,5 +1,6 @@
 from english2tikz.utils import *
 from english2tikz.gui.grid import Grid
+from english2tikz.gui.geometry import *
 
 
 class Pointer(object):
@@ -8,6 +9,7 @@ class Pointer(object):
     self._y = 0
     self._grid = Grid()
     self._cs = cs
+    self._closest = None
 
   def ix(self):
     return self._x
@@ -86,3 +88,25 @@ class Pointer(object):
   def reset_into_view(self):
     self.set(*self._grid.closest_int_coord(*self._cs.reverse_map_point(
           *self._cs.closest_in_view(*self.vpos()))))
+
+  def find_closest(self, point_collection):
+    target_item, mindist, target_pos = None, None, None
+    for item, pos in point_collection:
+      if mindist is None or euclidean_dist(pos, self.pos()) < mindist:
+        target_item, mindist, target_pos = item, euclidean_dist(pos, self.pos()), pos
+    if target_item is not None:
+      self._closest = (target_item, target_pos)
+    else:
+      self._closest = None
+  
+  def has_closest(self):
+    return self._closest is not None
+  
+  def closest(self):
+    return self._closest
+  
+  def closest_vpos(self):
+    if not self.has_closest():
+      return None
+    _, pos = self.closest()
+    return self._cs.map_point(*pos)
