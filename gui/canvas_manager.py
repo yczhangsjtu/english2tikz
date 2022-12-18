@@ -173,6 +173,7 @@ class CanvasManager(object):
       traceback.print_exc()
       self._editor._error_msg = f"Error in drawing {obj}: {e}"
     self._bounding_boxes = env["bounding box"]
+    self._point_collection = env["point collection"]
 
   def _draw_obj(self, c, obj, env, hint={}, no_new_bound_box=False):
     for drawer in self._drawers:
