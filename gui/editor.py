@@ -133,7 +133,7 @@ class Editor(object):
     self.register_key("normal", "p", self._paste)
     self.register_key("normal", "Ctrl-g", partial(self._change_grid_size, 1))
     self.register_key("normal", "Ctrl-f", partial(self._change_grid_size, -1))
-    self.register_key("normal", "Return", partial(self._clear_error_message))
+    self.register_key("normal", "Return", partial(self._enter_node_anchor_mode))
     self.register_key("normal", "j", partial(self._move_pointer, 0, -1))
     self.register_key("normal", "k", partial(self._move_pointer, 0, 1))
     self.register_key("normal", "h", partial(self._move_pointer, -1, 0))
@@ -497,6 +497,10 @@ class Editor(object):
     self._clear_error_message()
     self._intersect_select_targets()
     self._exit_visual_mode()
+  
+  def _enter_node_anchor_mode(self):
+    self._selection._select_anchor()
+    self._clear_error_message()
 
   def _clear_error_message(self):
     self._error_msg = None
@@ -656,7 +660,9 @@ class Editor(object):
     return self._selection.get_selected_objects()
 
   def _shift_selected_object_at_anchor(self, direction):
-    if self._selection.has_id():
+    if self._selection.is_in_node_anchor_mode():
+      self._selection.shift_selected_anchor(direction)
+    elif self._selection.has_id():
       with self._modify_picture():
         for id_ in self._selection.ids():
           if not self._context.shift_object_at_anchor(id_, direction):

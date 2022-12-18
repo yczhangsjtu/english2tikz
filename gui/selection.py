@@ -288,6 +288,10 @@ class Selection(object):
     else:
       self._jump_to_select_index = 0
     return False
+  
+  def shift_selected_anchor(self, direction):
+    assert self.is_in_node_anchor_mode()
+    self._selected_anchor = shift_anchor(self._selected_anchor, direction)
 
   def id_to_jump(self):
     return self._selected_ids[self._jump_to_select_index]

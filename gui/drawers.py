@@ -122,6 +122,7 @@ class BoxDrawer(Drawer):
     id_ = obj.get("id")
     assert id_ is not None
     selected = env["selection"].selected(obj)
+    selected_anchor = env["selection"].selected_node_anchor(id_)
     finding = env["finding"]
     cs = env["coordinate system"]
     cs_scale = cs._scale
@@ -267,7 +268,13 @@ class BoxDrawer(Drawer):
       canvas.create_oval(anchor_screen_x - 3, anchor_screen_y - 3,
                          anchor_screen_x + 3, anchor_screen_y + 3,
                          fill="#77ff77", outline="green")
-
+      if selected_anchor is not None:
+        selected_anchor_x, selected_anchor_y = cs.map_point(
+          *bb.get_anchor_pos(selected_anchor))
+        canvas.create_oval(selected_anchor_x - 5, selected_anchor_y - 5,
+                           selected_anchor_x + 5, selected_anchor_y + 5,
+                           fill="#ff7733", outline="green")
+      
     if finding is not None:
       candidate_code = finding.get_chopped_code(obj)
       if candidate_code is not None:
