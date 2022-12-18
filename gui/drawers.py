@@ -147,6 +147,7 @@ class BoxDrawer(Drawer):
     width, height = BoxDrawer._compute_object_size(canvas, obj, cs_scale)
     direction = get_direction_of(obj)
     bounding_boxes = env["bounding box"]
+    point_collection = env["point collection"]
 
     anchor = obj.get("anchor")
     if anchor is None and direction is not None:
@@ -174,6 +175,9 @@ class BoxDrawer(Drawer):
     if not no_new_bound_box:
       bounding_boxes[obj["id"]] = bb
     centerx, centery = bb.get_anchor_pos("center")
+    for a in anchor_list:
+      point_collection.append((create_nodename(id_, a),
+                               bb.get_anchor_pos(a)))
 
     x0, y0 = cs.map_point(x, y)
     x1, y1 = cs.map_point(x + width, y + height)
@@ -368,6 +372,7 @@ class PathDrawer(Drawer):
     selection = env["selection"]
     finding = env["finding"]
     bounding_boxes = env["bounding box"]
+    point_collection = env["point collection"]
     is_selected = selection.selected(obj)
     hint_positions, hint_directions = [], []
     hint["last_path"] = {
@@ -379,6 +384,9 @@ class PathDrawer(Drawer):
     if len(positions) > 0:
       hint_positions.append(positions[0][0])
       hint_directions.append(None)
+    
+    for pos, _, item, _ in positions:
+      point_collection.append((item, pos))
 
     fill_polygon = []
     first_item = None

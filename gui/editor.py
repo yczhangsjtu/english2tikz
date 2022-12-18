@@ -54,6 +54,7 @@ class Editor(object):
     self.filename = None
     self._selection = Selection(self._context)
     self._suggest = Suggest(self)
+    self._point_collection = []
     self._keyboard_managers = {
         "normal": KeyboardManager(","),
         "visual": KeyboardManager(","),

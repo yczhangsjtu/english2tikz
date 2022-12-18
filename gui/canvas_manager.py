@@ -70,7 +70,9 @@ class CanvasManager(object):
       self._draw_grid(self._canvas)
     if self._show_axes:
       self._draw_axes(self._canvas)
-    self._draw_picture(self._canvas, self._editor._context._picture, {})
+    self._draw_picture(self._canvas,
+                       self._editor._context._picture,
+                       {}, [])
     self._draw_visual(self._canvas)
     self._draw_marks(self._canvas)
     self._draw_attributes(self._canvas)
@@ -79,10 +81,12 @@ class CanvasManager(object):
         self._draw_picture(self._canvas,
                            candidate._content,
                            self._bounding_boxes,
+                           self._point_collection,
                            no_new_bound_box=True)
       self._draw_picture(self._canvas,
                          self._editor._suggest.suggestion()._content,
                          self._bounding_boxes,
+                         self._point_collection,
                          hint=self._editor._suggest._hint,
                          no_new_bound_box=True)
     if self._editing_text() is not None:
@@ -151,10 +155,12 @@ class CanvasManager(object):
     c.create_line(self._cs().center_vertical_line(),
                   fill="#888888", width=1.5)
 
-  def _draw_picture(self, c, picture, bounding_box, hint={},
+  def _draw_picture(self, c, picture, bounding_box,
+                    point_collection=[], hint={},
                     no_new_bound_box=False):
     env = {
         "bounding box": bounding_box,
+        "point collection": point_collection,
         "coordinate system": self._cs(),
         "selection": self._selection(),
         "image references": self._image_references,
