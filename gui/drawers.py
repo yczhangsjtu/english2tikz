@@ -402,6 +402,7 @@ class PathDrawer(Drawer):
         first_item = citem
 
     if fill:
+      fill_polygon = [e for x, y in fill_polygon for e in cs.map_point(x, y)]
       polygon = canvas.create_polygon(fill_polygon, fill=color_to_tk(obj["fill"]), outline="")
       if first_item is not None:
         canvas.tag_lower(polygon, first_item)
