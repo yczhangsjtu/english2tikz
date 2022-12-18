@@ -321,3 +321,73 @@ def related_to(obj, id_):
         if item["name1"] == id_ or item["name2"] == id_:
           return True
   return False
+
+
+def generate_path_positions_and_draws(path, bounding_boxes):
+  positions, draws = [], []
+  current_pos = None
+  for index, item in enumerate(path["items"]):
+    if is_type(item, "nodename"):
+      name = item["name"]
+      anchor = item.get("anchor")
+      if anchor is None:
+        """
+        anchor = None or anchor = "center" is different here, and only here:
+        1. if the line is clipped by the bounding box of the node
+        2. if the xshift and yshift take affect
+        """
+        anchor = "center"
+        xshift, yshift = 0, 0
+        new_pos_clip = bounding_boxes[name]
+      else:
+        xshift = dist_to_num(item.get("xshift", 0))
+        yshift = dist_to_num(item.get("yshift", 0))
+        new_pos_clip = None
+      x, y = bounding_boxes[name].get_anchor_pos(anchor)
+      positions.append(((x + xshift, y + yshift), new_pos_clip, item, index))
+      current_pos = (x + xshift, y + yshift)
+    elif is_type(item, "point"):
+      bounding_boxes[item["id"]] = BoundingBox(*current_pos, 0, 0)
+    elif is_type(item, "coordinate"):
+      dx = dist_to_num(item.get("x", 0))
+      dy = dist_to_num(item.get("y", 0))
+      if item.get("relative", False):
+        assert current_pos is not None, "Relative position without current position"
+        x, y = current_pos
+        new_pos = (x + dx, y + dy)
+      else:
+        new_pos = (dx, dy)
+      positions.append((new_pos, None, item, index))
+      current_pos = new_pos
+    elif is_type(item, "intersection"):
+      name1, name2 = item["name1"], item["name2"]
+      anchor1 = item.get("anchor1", "center")
+      anchor2 = item.get("anchor2", "center")
+      x, _ = bounding_boxes[name1].get_anchor_pos(anchor1)
+      _, y = bounding_boxes[name2].get_anchor_pos(anchor2)
+      positions.append(((x, y), None, item, index))
+      current_pos = (x, y)
+    elif is_type(item, "cycle"):
+      assert len(positions) > 0, "Starting position not set yet"
+      positions.append((positions[0][0], positions[0][1], item, index))
+    elif is_type(item, "line") or is_type(item, "rectangle"):
+      assert len(positions) > 0, "Starting position not set yet"
+      assert len(draws) == 0 or draws[-1][1] < len(positions), "The last item to draw is waiting for positions"
+      draws.append((len(positions)-1, len(positions), item, index))
+    elif is_type(item, "arc"):
+      assert len(positions) > 0, "Starting position not set yet"
+      draws.append((len(positions)-1, len(positions), item, index))
+      start = int(item["start"])
+      end = int(item["end"])
+      radius = dist_to_num(item["radius"])
+      assert current_pos is not None, "Starting position not set yet"
+      x0, y0 = current_pos
+      dx1, dy1 = math.cos(start*math.pi/180), math.sin(start*math.pi/180)
+      dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
+      new_pos = (x0+(dx2-dx1)*radius, y0+(dy2-dy1)*radius)
+      positions.append((new_pos, None, item, index))
+      current_pos = new_pos
+    else:
+      raise ValueError(f"Unsupported path item type {item['type']}")
+  assert len(draws) == 0 or draws[-1][1] < len(positions), "The last item to draw is waiting for positions"
+  return positions, draws

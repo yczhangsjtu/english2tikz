@@ -363,12 +363,7 @@ class PathDrawer(Drawer):
       arrow = tk.BOTH
     else:
       arrow = None
-    starting_pos = None
-    current_pos = None
-    current_pos_clip = None
-    position_number = 0
     to_draw = None
-    first_segment = None
     cs = env["coordinate system"]
     selection = env["selection"]
     finding = env["finding"]
@@ -379,121 +374,69 @@ class PathDrawer(Drawer):
         "positions": hint_positions,
         "directions": hint_directions,
     }
-    for index, item in enumerate(obj["items"]):
+    positions, draws = generate_path_positions_and_draws(obj, bounding_boxes)
+
+    if len(positions) > 0:
+      hint_positions.append(positions[0][0])
+      hint_directions.append(None)
+
+    fill_polygon = []
+    first_item = None
+    polygon_pos_index = 0
+    for draw_index, draw_item in enumerate(draws):
+      start_index, to_index, to_draw, index = draw_item
+      while polygon_pos_index <= start_index:
+        fill_polygon.append(positions[polygon_pos_index][0])
+        polygon_pos_index += 1
+      start_pos = positions[start_index]
+      end_pos = positions[to_index]
       segment_id = f"segment_{id(obj)}_{index}"
-      new_pos = None
-      new_pos_clip = None
-      if is_type(item, "nodename"):
-        name = item["name"]
-        anchor = item.get("anchor")
-        xshift = dist_to_num(item.get("xshift", 0))
-        yshift = dist_to_num(item.get("yshift", 0))
-        if anchor is None:
-          """
-          anchor = None or anchor = "center" is different here, and only here:
-          1. if the line is clipped by the bounding box of the node
-          2. if the xshift and yshift take affect
-          """
-          new_pos_clip = bounding_boxes[name]
-          anchor = "center"
-          xshift, yshift = 0, 0
-        x, y = bounding_boxes[name].get_anchor_pos(anchor)
-        new_pos = (x + xshift, y + yshift)
-      elif is_type(item, "point"):
-        bounding_boxes[item["id"]] = BoundingBox(*current_pos, 0, 0)
-      elif is_type(item, "coordinate"):
-        dx = dist_to_num(item.get("x", 0))
-        dy = dist_to_num(item.get("y", 0))
-        if item.get("relative", False):
-          if current_pos is None:
-            raise ValueError("Current position is None")
-          x, y = current_pos
-          new_pos = (x + dx, y + dy)
+      is_first = draw_index == 0
+      is_last = draw_index == len(draws) - 1
+      
+      citem = PathDrawer._draw_item(canvas, to_draw, start_pos, end_pos,
+                            is_selected, arrow if is_last else None,
+                            obj, segment_id, env,
+                            hint, no_new_bound_box, fill_polygon)
+      if is_first:
+        first_item = citem
+
+    if fill:
+      polygon = canvas.create_polygon(fill_polygon, fill=color_to_tk(obj["fill"]), outline="")
+      if first_item is not None:
+        canvas.tag_lower(polygon, first_item)
+    
+    if is_selected:
+      for pos_index, position in enumerate(positions):
+        pos, _, _, index = position
+        x, y = cs.map_point(*pos)
+        if selection.selected_position(index):
+          radius = 7
+          canvas.create_oval(x-radius, y-radius, x+radius,
+                              y+radius, outline="black", fill="yellow")
+          canvas.create_text(x, y, text=str(pos_index), fill="blue")
         else:
-          new_pos = (dx, dy)
-      elif is_type(item, "intersection"):
-        name1, name2 = item["name1"], item["name2"]
-        anchor1 = item.get("anchor1", "center")
-        anchor2 = item.get("anchor2", "center")
-        x, _ = bounding_boxes[name1].get_anchor_pos(anchor1)
-        _, y = bounding_boxes[name2].get_anchor_pos(anchor2)
-        new_pos = (x, y)
-      elif is_type(item, "cycle"):
-        assert starting_pos is not None, "Starting position not set yet"
-        new_pos = starting_pos
-      elif is_type(item, "line"):
-        assert to_draw is None, "Expected position, got line"
-        to_draw = item
-      elif is_type(item, "rectangle"):
-        assert to_draw is None, "Expected position, got rectangle"
-        to_draw = item
-      elif is_type(item, "arc"):
-        assert to_draw is None, "Expected position, got arc"
-        to_draw = item
-        start = int(item["start"])
-        end = int(item["end"])
-        radius = dist_to_num(item["radius"])
-        assert current_pos is not None, "Starting position not set yet"
-        x0, y0 = current_pos
-        dx1, dy1 = math.cos(start*math.pi/180), math.sin(start*math.pi/180)
-        dx2, dy2 = math.cos(end*math.pi/180), math.sin(end*math.pi/180)
-        new_pos = (x0+(dx2-dx1)*radius, y0+(dy2-dy1)*radius)
-      else:
-        raise ValueError(f"Unsupported path item type {item['type']}")
+          radius = none_or(line_width, 1)+5
+          canvas.create_oval(x-radius, y-radius, x+radius,
+                             y+radius, outline="red", dash=2)
 
-      if new_pos is not None and to_draw is not None:
-        assert current_pos is not None, "No starting position for line"
-        citem = PathDrawer._draw_item(canvas, to_draw, *current_pos, *new_pos,
-                                      current_pos_clip, new_pos_clip,
-                                      is_selected, arrow, obj, segment_id, env,
-                                      hint, no_new_bound_box, fill_polygon)
-        if first_segment is None:
-          first_segment = citem
-        to_draw = None
-
-      if new_pos is not None:
-        if is_selected:
-          x, y = cs.map_point(*new_pos)
-          if selection.selected_position(index):
-            radius = 7
-            canvas.create_oval(x-radius, y-radius, x+radius,
-                               y+radius, outline="black", fill="yellow")
-            canvas.create_text(x, y, text=str(position_number), fill="blue")
-          else:
-            radius = none_or(line_width, 1)+5
-            canvas.create_oval(x-radius, y-radius, x+radius,
-                               y+radius, outline="red", dash=2)
-        if starting_pos is None:
-          starting_pos = new_pos
-          hint_positions.append(starting_pos)
-          hint_directions.append(None)
-        current_pos = new_pos
-        current_pos_clip = new_pos_clip
-        position_number += 1
-        fill_polygon.append(new_pos)
-        new_pos = None
-
-    assert to_draw is None, f"Undrawn item {to_draw}"
-
-    if fill and len(fill_polygon) > 2:
-      fill_polygon = [e for x, y in fill_polygon for e in cs.map_point(x, y)]
-      p = canvas.create_polygon(fill_polygon, fill=color_to_tk(obj["fill"]),
-                                outline="")
-      canvas.tag_lower(p, first_segment)
-
-    if finding is not None:
+    if finding is not None and len(positions) > 0:
       candidate_code = finding.get_chopped_code(obj)
       if candidate_code is not None:
-        x0, y0 = cs.map_point(*starting_pos)
+        x0, y0 = cs.map_point(*positions[0][0])
         ftext = canvas.create_text(
             x0, y0, anchor="nw", text=candidate_code, fill="black")
         fback = canvas.create_rectangle(
             canvas.bbox(ftext), fill="yellow", outline="blue")
         canvas.tag_lower(fback, ftext)
 
-  def _draw_item(canvas, item, x0, y0, x1, y1, current_pos_clip, new_pos_clip,
+  def _draw_item(canvas, item, start_pos, end_pos,
                  is_selected, arrow, path, segment_id, env, hint={},
                  no_new_bound_box=False, fill_polygon=[]):
+    start_pos, current_pos_clip, _, _ = start_pos
+    end_pos, new_pos_clip, _, _ = end_pos
+    x0, y0 = start_pos
+    x1, y1 = end_pos
     hint_directions = hint["last_path"]["directions"]
     hint_positions = hint["last_path"]["positions"]
     line_width = path.get("line.width")
@@ -586,23 +529,6 @@ class PathDrawer(Drawer):
 
         curve = Bezier.generate_line_segments(
             *points, steps=max(int(dist / 0.01) + 1, 20))
-
-        """
-        Don't know why still need to clip curve. Maybe forgot to delete
-        the code.
-        """
-        """
-        if current_pos_clip:
-          curve = current_pos_clip.clip_curve(curve)
-          if curve is None:
-            return
-
-        if new_pos_clip:
-          curve = list(
-              reversed(new_pos_clip.clip_curve(list(reversed(curve)))))
-          if curve is None:
-            return
-        """
 
         fill_polygon += curve
         if not no_new_bound_box:
