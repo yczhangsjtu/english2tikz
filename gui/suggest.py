@@ -252,7 +252,7 @@ class ExtendPathToPointer(object):
       path = suggestion.get_single_path()
       path['items'].append(create_line())
       path['items'].append(create_coordinate(x-x0, y-y0, relative=True))
-      path['hidden'] = True
+      path['hidden'] = True # To prevent it from covering the tag of the previous
       candcode = create_text(chr(index+1+ord('A'))+'(rel)',
                              x=candpos[0]+0.3, y=candpos[1])
       candcode["id"] = "extend_path_to_pointer_relative_candcode_id"
@@ -263,6 +263,34 @@ class ExtendPathToPointer(object):
       suggestion.append(candcode)
       suggestion.change_to_candidate_style()
       ret.append(suggestion)
+    
+    if editor._pointer.has_closest():
+      point, pos, _, _ = editor._pointer.closest()
+      suggestion = current.copy()
+      path = suggestion.get_single_path()
+      path['items'].append(create_line())
+      if point.get("type") in ["nodename", "intersection"]:
+        path['items'].append(point)
+      else:
+        path['items'].append(create_coordinate(*pos))
+      candpos = pos
+      if len(hint_positions) > 0:
+        x0, y0 = hint["last_path"]["positions"][-1]
+        dist = euclidean_dist(pos, (x0, y0))
+        if dist < 0.01:
+          return []
+        candpos = ((pos[0]+x0)/2, (pos[1]+y0)/2)
+      candcode = create_text(chr(index+2+ord('A')),
+                            x=candpos[0]+0.3, y=candpos[1])
+      candcode["id"] = "extend_path_to_pointer_relative_candcode_id"
+      candcode["candcode"] = True
+      candcode["draw"] = True
+      candcode["fill"] = "orange"
+      candcode["scale"] = 0.3
+      suggestion.append(candcode)
+      suggestion.change_to_candidate_style()
+      ret.append(suggestion)
+      
     return ret
 
 

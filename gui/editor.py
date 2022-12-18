@@ -276,8 +276,6 @@ class Editor(object):
     except ErrorMessage as e:
       self._error_msg = f"Error: {e}"
 
-    if self._has_suggest():
-      self._suggest._propose_suggestions()
     self._canvas_manager.draw()
 
   def handle_key(self, event):
