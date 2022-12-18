@@ -318,6 +318,24 @@ class ExtendPathToSelectedNode(object):
     suggestion.append(candcode)
     suggestion.change_to_candidate_style()
     ret = [suggestion]
+    if editor._selection.is_in_node_anchor_mode():
+      suggestion = current.copy()
+      path = suggestion.get_single_path()
+      path['items'].append(create_line())
+      nodename = editor._selection.get_node_anchor()
+      path['items'].append(nodename)
+      candcode = create_text(chr(index+ord('A')+1))
+      candcode["id"] = "extend_path_to_node_anchor_candcode_id"
+      candcode["candcode"] = True
+      candcode["draw"] = True
+      candcode["fill"] = "red!20"
+      candcode["scale"] = 0.3
+      candcode["at"] = nodename["name"]
+      candcode["at.anchor"] = nodename["anchor"]
+      candcode["anchor"] = "north"
+      suggestion.append(candcode)
+      suggestion.change_to_candidate_style()
+      ret.append(suggestion)
     return ret
 
 
