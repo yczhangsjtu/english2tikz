@@ -224,7 +224,9 @@ def get_top_left_corner(data, bounding_boxes):
 
 def get_path_position_items(path):
   return [(i, item) for (i, item) in enumerate(path["items"])
-          if item["type"] in ["nodename", "coordinate", "intersection"]]
+          if item["type"] in
+          ["nodename", "coordinate", "intersection",
+           "arc"]]
 
 
 def get_path_segment_items(path):

@@ -359,6 +359,11 @@ class Selection(object):
     self.clear()
     self._selected_paths = [path]
     self._selected_path_position = index
+    position_items = get_path_position_items(self.get_single_path())
+    for i, item in enumerate(position_items):
+      if item[0] == index:
+        self._selected_path_position_index = i
+        break
   
   def select_node_and_anchor(self, nodename):
     self.clear()
