@@ -1,5 +1,6 @@
 import unittest
 import json
+import os
 from english2tikz.gui.editor import Editor
 from english2tikz.test.mocks import *
 
@@ -20,7 +21,8 @@ class TestEditor(unittest.TestCase):
     self.assertEqual(json.dumps(editor._context._picture), result)
 
   def test_editor_operation_1(self):
-    with open("test_editor_data.txt") as f:
+    with open(os.path.join(os.path.dirname(__file__),
+                           "test_editor_data.txt")) as f:
       data = f.read().strip()
     cases = data.split("\n\n")
     for case in cases:
