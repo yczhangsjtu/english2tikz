@@ -563,6 +563,8 @@ class Editor(object):
   def _add_simple_mark(self):
     if self._is_in_path_position_mode():
       self._marks.add(self._selection.get_path_position())
+    elif self._selection.is_in_node_anchor_mode():
+      self._marks.add(self._selection.get_node_anchor())
     else:
       x, y = self._pointer.pos()
       self._marks.add_coord(x, y)
