@@ -49,8 +49,8 @@ class Editor(object):
     self._marks = MarkManager()
     self._clipboard = []
     self._finding = None
-    self._command_refreshing_timer_started = True
-    self._editing_refreshing_timer_started = True
+    self._command_refreshing_timer_started = False
+    self._editing_refreshing_timer_started = False
     self.filename = None
     self._selection = Selection(self._context)
     self._suggest = Suggest(self)

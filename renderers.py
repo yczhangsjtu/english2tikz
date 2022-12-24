@@ -1,6 +1,7 @@
 from english2tikz.utils import colors, dump_options
 from english2tikz.latex import escape_for_latex
 from english2tikz.errors import *
+from english2tikz.gui.image_utils import extract_image_path
 
 
 class Renderer(object):
@@ -78,13 +79,18 @@ class BoxRenderer(Renderer):
 
   def render(self, obj):
     options = BoxRenderer.prepare_options(obj)
+    text = obj.get("text")
+    img_path = extract_image_path(text)
     if len(options) > 0:
       return r"\node[draw, {options}] ({id}) {{{escaped_text}}};".format(
           **obj,
-          escaped_text=escape_for_latex(obj["text"]),
+          escaped_text=escape_for_latex(text) if img_path is None
+                       else r"\includegraphics{%s}" % img_path,
           options=dump_options(options),
       )
-    return r"\node[draw] ({id}) {{{text}}};".format(**obj)
+    return r"\node[draw] ({id}) {{{escaped_text}}};".format(**obj,
+        escaped_text=escape_for_latex(text) if img_path is None
+                      else r"\includegraphics{%s}" % img_path,)
 
 
 class TextRenderer(Renderer):
@@ -97,18 +103,23 @@ class TextRenderer(Renderer):
     else:
       prefix, postfix = r"\node", ";"
     options = BoxRenderer.prepare_options(obj)
+    text = obj.get("text")
+    img_path = extract_image_path(text)
     if "draw" in obj:
       options["draw"] = obj["draw"]
     if len(options) > 0:
       return r"{prefix}[{options}] ({id}) {{{escaped_text}}}{postfix}".format(
           **obj,
-          escaped_text=escape_for_latex(obj["text"]),
+          escaped_text=escape_for_latex(text) if img_path is None
+                       else r"\includegraphics{%s}" % img_path,
           prefix=prefix,
           postfix=postfix,
           options=dump_options(options),
       )
     return r"{prefix} ({id}) {{{escaped_text}}}{postfix}".format(
-        **obj, escaped_text=escape_for_latex(obj["text"]),
+        **obj,
+        escaped_text=escape_for_latex(text) if img_path is None
+                     else r"\includegraphics{%s}" % img_path,
         prefix=prefix, postfix=postfix)
 
 

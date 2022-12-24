@@ -88,15 +88,31 @@ class BoxDrawer(Drawer):
     height = (y1 - y0) / cs_scale + inner_sep * 2 * scale
     return width, height
 
+  def _precompute_image_size(canvas, obj, image_path, scale, cs_scale):
+    w, h, dpi = get_image_size(image_path)
+    if w is None or h is None or dpi is None:
+      return None, None
+    ratio = scale / cs_scale * 250 / dpi
+    return w * ratio, h * ratio
+
   def _compute_object_size(canvas, obj, cs_scale):
     circle = "circle" in obj
     ellipse = "ellipse" in obj
     text = obj.get("text")
+    img_path = extract_image_path(text)
     inner_sep = dist_to_num(obj.get("inner.sep", 0.1))
     scale = float(obj.get("scale", 1))
     if text:
-      width, height = BoxDrawer._precompute_text_size(
-          canvas, obj, scale, cs_scale, inner_sep)
+      if img_path is None:
+        width, height = BoxDrawer._precompute_text_size(
+            canvas, obj, scale, cs_scale, inner_sep)
+      else:
+        width, height = BoxDrawer._precompute_image_size(
+          canvas, obj, img_path, scale, cs_scale
+        )
+        if width is None or height is None:
+          width, height = BoxDrawer._precompute_text_size(
+              canvas, obj, scale, cs_scale, inner_sep)
     else:
       width = inner_sep * 2 * scale
       height = inner_sep * 2 * scale
@@ -143,6 +159,7 @@ class BoxDrawer(Drawer):
     color = get_draw_color(obj)
     text_color = get_text_color(obj)
     text = obj.get("text")
+    img_path = extract_image_path(text)
     text_width = obj.get("text.width")
     width, height = BoxDrawer._compute_object_size(canvas, obj, cs_scale)
     direction = get_direction_of(obj)
@@ -266,9 +283,31 @@ class BoxDrawer(Drawer):
                                   **select_style)
 
     if text and "hidden" not in obj:
-      draw_text(canvas, center_screen_x, center_screen_y,
-                obj, scale, cs_scale, text_color, text_width, angle)
-
+      if img_path is None:
+        draw_text(canvas, center_screen_x, center_screen_y,
+                  obj, scale, cs_scale, text_color, text_width, angle)
+      else:
+        try:
+          canvas.create_image(
+            center_screen_x, center_screen_y,
+            image=get_image_from_path(img_path,
+                                scale,
+                                id_, angle,
+                                recreate=False,
+                                reset_size=(int(width * cs_scale),
+                                            int(height * cs_scale))))
+        except tk.TclError as e:
+          canvas.create_image(
+            center_screen_x, center_screen_y,
+            image=get_image_from_path(img_path,
+                                scale,
+                                id_, angle,
+                                recreate=True,
+                                reset_size=(int(width * cs_scale),
+                                            int(height * cs_scale))))
+        except FileNotFoundError as e:
+          draw_text(canvas, center_screen_x, center_screen_y,
+                    obj, scale, cs_scale, text_color, text_width, angle)
     if selected:
       canvas.create_oval(anchor_screen_x - 3, anchor_screen_y - 3,
                          anchor_screen_x + 3, anchor_screen_y + 3,

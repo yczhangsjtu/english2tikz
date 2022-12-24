@@ -10,7 +10,8 @@ collector from collecting the images
 image_references = {}
 
 
-def get_image_from_path(path, scale, id_, angle=0, recreate=False):
+def get_image_from_path(path, scale, id_, angle=0, recreate=False,
+                        reset_size=None):
   global image_references
   """
   The id_ here is used to force creating a new image, because
@@ -23,9 +24,28 @@ def get_image_from_path(path, scale, id_, angle=0, recreate=False):
   img = Image.open(path)
   img = img.convert("RGBA")
   w, h = img.size
-  img = img.resize((int(w * scale), int(h * scale)))
+  if reset_size is None:
+    img = img.resize((int(w * scale), int(h * scale)))
+  else:
+    img = img.resize(reset_size)
   if angle != 0:
     img = img.rotate(angle % 360, expand=True)
   image = ImageTk.PhotoImage(img)
   image_references[(path, scale, id_, angle)] = image
   return image
+
+
+def extract_image_path(text):
+  if text.startswith("<img>") and text.endswith("</img>"):
+    return text[5:-6]
+  return None
+
+
+def get_image_size(img_path):
+  try:
+    img = Image.open(img_path)
+    w, h = img.size
+    dpi = img.info.get("dpi", 72)
+    return w, h, dpi
+  except FileNotFoundError as e:
+    return None, None, None
