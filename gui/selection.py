@@ -229,6 +229,7 @@ class Selection(object):
         raise ValueError(f"Invalid item {item}")
 
   def include(self, *items):
+    self._selected_anchor = None
     for item in items:
       if isinstance(item, str):
         append_if_not_in(self._selected_ids, item)
