@@ -179,8 +179,8 @@ class BoxDrawer(Drawer):
     if "xshift" in obj or "yshift" in obj:
       dx, dy = dist_to_num(obj.get("xshift", 0),
                            obj.get("yshift", 0))
-      if slope is not None:
-        dx, dy = rotate(dx, dy, 0, 0, slope % 360)
+      if angle != 0:
+        dx, dy = rotate(dx, dy, 0, 0, 360-(angle % 360))
       x += dx
       y += dy
 

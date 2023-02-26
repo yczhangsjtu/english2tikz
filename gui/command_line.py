@@ -7,6 +7,7 @@ class CommandLine(object):
     self._editor = None
     self._command_line_buffer = None
     self._command_history_index = None
+    self._dirpath = path
     self._path = os.path.join(path, "history")
     self._command_history = self._read_command_history()
     self._matches = None
@@ -162,5 +163,7 @@ class CommandLine(object):
     self.save_history()
 
   def save_history(self):
+    if not os.path.exists(self._dirpath):
+      os.mkdir(self._dirpath)
     with open(self._path, "w") as f:
       f.write("\n".join(self._command_history))
